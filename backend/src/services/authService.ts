@@ -20,7 +20,7 @@ interface LoginInput {
 
 const signToken = (userId: string, role: Role) => {
   return jwt.sign({ role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
+    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
     subject: userId
   });
 };
