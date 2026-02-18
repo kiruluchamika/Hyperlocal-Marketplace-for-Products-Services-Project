@@ -42,18 +42,8 @@ export interface IListing extends Document {
  */
 
 /**
- * TEMPORARY: Placeholder for ListingModel import
- * 
- * TODO: Replace with actual import when listings module is ready:
- * 
- * // Remove the placeholder and use:
- * export { default as ListingModel } from '../models/Listing';
- * 
- * OR if they use named export:
- * export { ListingModel } from '../models/Listing';
+ * INTEGRATED: Using actual Listing model from teammate's implementation
  */
 
-import { Model } from "mongoose";
-
-// Placeholder - TypeScript will handle this during development
-export const ListingModel: Model<IListing> = null as any;
+import ListingModelImport from '../models/Listing';
+export const ListingModel = ListingModelImport;

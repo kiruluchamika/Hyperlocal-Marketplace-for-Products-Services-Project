@@ -66,12 +66,9 @@ export class OrderService {
       throw new AppError("Only BUY_NOW listings can be ordered", 400);
     }
     
-    if (!listing.isActive) {
-      throw new AppError("Listing is not active", 400);
-    }
-    
-    if (!listing.isAvailable) {
-      throw new AppError("Listing is not available", 400);
+    // Check listing status (teammate's model uses status field)
+    if (listing.status !== "ACTIVE") {
+      throw new AppError("Listing is not active or available", 400);
     }
     
     // 3. Prevent self-purchase
@@ -367,6 +364,63 @@ export class OrderService {
       order,
       message: "Delivery confirmed. Order completed. Payment released to seller."
     };
+  }
+
+  /**
+   * Update Delivery Details (Buyer)
+   * Replace complete delivery configuration
+   * Only allowed for PENDING or ACCEPTED orders
+   */
+  async updateDeliveryDetails(
+    orderId: string,
+    buyerId: string,
+    deliveryData: {
+      deliveryMethod: DeliveryMethod;
+      deliveryAddress?: string;
+    }
+  ) {
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      throw new AppError("Order not found", 404);
+    }
+    
+    // Authorization check
+    if (order.buyerId.toString() !== buyerId) {
+      throw new AppError("Not authorized to update this order", 403);
+    }
+    
+    // Status check - only PENDING (before seller accepts)
+    if (order.status !== OrderStatus.PENDING) {
+      throw new AppError(
+        "Cannot update delivery details after seller has accepted the order",
+        400
+      );
+    }
+    
+    // Check if payment already initiated
+    const payment = await this.paymentService.getPaymentByOrder(orderId);
+    if (payment && payment.status !== "INITIATED") {
+      // Allow update only if payment not yet held
+      throw new AppError(
+        "Cannot update delivery details after payment is confirmed",
+        400
+      );
+    }
+    
+    // Update delivery configuration
+    order.deliveryMethod = deliveryData.deliveryMethod;
+    
+    if (deliveryData.deliveryMethod === DeliveryMethod.DELIVERY) {
+      order.deliveryAddress = deliveryData.deliveryAddress;
+    } else {
+      // Clear address if switching to PICKUP
+      order.deliveryAddress = undefined;
+    }
+    
+    await order.save();
+    
+    return order;
   }
   
   /**

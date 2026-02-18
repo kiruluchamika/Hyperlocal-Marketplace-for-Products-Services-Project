@@ -20,7 +20,8 @@ import {
   updateOrderStatusSchema,
   cancelOrderSchema,
   confirmReceivedSchema,
-  confirmDeliveryWithOtpSchema
+  confirmDeliveryWithOtpSchema,
+  updateDeliveryDetailsSchema
 } from "../validators/orderSchemas";
 import {
   createOrder,
@@ -31,7 +32,8 @@ import {
   startOrder,
   cancelOrder,
   confirmReceived,
-  confirmDeliveryWithOtp
+  confirmDeliveryWithOtp,
+  updateDeliveryDetails
 } from "../controllers/orderController";
 
 const router = Router();
@@ -168,6 +170,70 @@ router.patch(
   requireRole(["buyer"]),
   validate(confirmReceivedSchema),
   confirmReceived
+);
+
+/**
+ * @openapi
+ * /orders/{id}/delivery-details:
+ *   put:
+ *     tags: [Orders]
+ *     summary: Update delivery details (Buyer only)
+ *     description: |
+ *       Replace complete delivery configuration for PENDING orders only.
+ *       Allows buyer to change delivery method or address before seller accepts.
+ *       Cannot update after seller accepts or if payment already confirmed.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required: [deliveryMethod]
+ *                 properties:
+ *                   deliveryMethod:
+ *                     type: string
+ *                     enum: [PICKUP]
+ *                     description: Switch to pickup (no address needed)
+ *               - type: object
+ *                 required: [deliveryMethod, deliveryAddress]
+ *                 properties:
+ *                   deliveryMethod:
+ *                     type: string
+ *                     enum: [DELIVERY]
+ *                     description: Use delivery method
+ *                   deliveryAddress:
+ *                     type: string
+ *                     minLength: 10
+ *                     maxLength: 500
+ *                     description: Complete delivery address
+ *     responses:
+ *       200:
+ *         description: Delivery details updated successfully
+ *       400:
+ *         description: Cannot update (order not PENDING or payment already confirmed)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden or not order owner
+ *       404:
+ *         description: Order not found
+ */
+router.put(
+  "/:id/delivery-details",
+  auth,
+  requireRole(["buyer"]),
+  validate(updateDeliveryDetailsSchema),
+  updateDeliveryDetails
 );
 
 // ============================================
