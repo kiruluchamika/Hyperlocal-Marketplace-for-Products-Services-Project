@@ -5,8 +5,24 @@ import { env } from "./config/env";
 
 const startServer = async () => {
   await connectDb();
-  app.listen(Number(env.PORT), () => {
-    console.log(`API running on port ${env.PORT}`);
+  const port = Number(env.PORT);
+
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(`Invalid PORT value: ${env.PORT}`);
+  }
+
+  const server = app.listen(port, () => {
+    console.log(`API running on port ${port}`);
+  });
+
+  server.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Stop the running process or set a different PORT.`);
+      process.exit(1);
+    }
+
+    console.error("Server failed to start", error);
+    process.exit(1);
   });
 };
 

@@ -9,6 +9,14 @@ import { errorHandler } from "./middlewares/errorHandler";
 const app = express();
 
 app.use(cors());
+
+// IMPORTANT: Stripe webhook needs raw body for signature verification
+// Must come BEFORE express.json() middleware
+app.use(
+  "/api/payments/webhook/stripe",
+  express.raw({ type: "application/json" })
+);
+
 app.use(express.json());
 
 const swaggerSpec = swaggerJsdoc({
