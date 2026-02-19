@@ -12,6 +12,11 @@ const coordinatesSchema = z
     message: "latitude out of range"
   });
 
+const pointSchema = z.object({
+  type: z.literal("Point").default("Point"),
+  coordinates: coordinatesSchema
+});
+
 const imageUrlSchema = z.string().url("images must contain valid URLs");
 
 export const createListingSchema = z.object({
@@ -28,7 +33,7 @@ export const createListingSchema = z.object({
   location: z.object({
     city: z.string().min(1, "city is required"),
     address: z.string().optional(),
-    coordinates: coordinatesSchema
+    coordinates: pointSchema
   }),
   tags: z.array(z.string().min(1)).max(20).optional()
 });
@@ -48,7 +53,7 @@ export const updateListingSchema = z
       .object({
         city: z.string().min(1).optional(),
         address: z.string().optional(),
-        coordinates: coordinatesSchema.optional()
+        coordinates: pointSchema.optional()
       })
       .optional(),
     tags: z.array(z.string().min(1)).max(20).optional(),

@@ -12,6 +12,10 @@ const coordinatesSchema = zod_1.z
     .refine((coords) => coords[1] >= -90 && coords[1] <= 90, {
     message: "latitude out of range"
 });
+const pointSchema = zod_1.z.object({
+    type: zod_1.z.literal("Point").default("Point"),
+    coordinates: coordinatesSchema
+});
 const imageUrlSchema = zod_1.z.string().url("images must contain valid URLs");
 exports.createListingSchema = zod_1.z.object({
     type: zod_1.z.literal("PRODUCT").default("PRODUCT"),
@@ -27,7 +31,7 @@ exports.createListingSchema = zod_1.z.object({
     location: zod_1.z.object({
         city: zod_1.z.string().min(1, "city is required"),
         address: zod_1.z.string().optional(),
-        coordinates: coordinatesSchema
+        coordinates: pointSchema
     }),
     tags: zod_1.z.array(zod_1.z.string().min(1)).max(20).optional()
 });
@@ -46,7 +50,7 @@ exports.updateListingSchema = zod_1.z
         .object({
         city: zod_1.z.string().min(1).optional(),
         address: zod_1.z.string().optional(),
-        coordinates: coordinatesSchema.optional()
+        coordinates: pointSchema.optional()
     })
         .optional(),
     tags: zod_1.z.array(zod_1.z.string().min(1)).max(20).optional(),
