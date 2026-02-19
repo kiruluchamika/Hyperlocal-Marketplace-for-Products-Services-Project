@@ -12,6 +12,9 @@ const notFound_1 = require("./middlewares/notFound");
 const errorHandler_1 = require("./middlewares/errorHandler");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
+// IMPORTANT: Stripe webhook needs raw body for signature verification
+// Must come BEFORE express.json() middleware
+app.use("/api/payments/webhook/stripe", express_1.default.raw({ type: "application/json" }));
 app.use(express_1.default.json());
 const swaggerSpec = (0, swagger_jsdoc_1.default)({
     definition: {

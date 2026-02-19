@@ -68,11 +68,18 @@ const router = Router();
  *                   address:
  *                     type: string
  *                   coordinates:
- *                     type: array
- *                     minItems: 2
- *                     maxItems: 2
- *                     items:
- *                       type: number
+*                     type: object
+*                     properties:
+*                       type:
+*                         type: string
+*                         enum: [Point]
+*                       coordinates:
+*                         type: array
+*                         minItems: 2
+*                         maxItems: 2
+*                         items:
+*                           type: number
+*                     required: [type, coordinates]
  *               tags:
  *                 type: array
  *                 items:
@@ -189,6 +196,57 @@ router.get("/:id", validate(listingIdParamSchema, "params"), getListingByIdHandl
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               transactionMode:
+ *                 type: string
+ *                 enum: [BUY_NOW, NEGOTIABLE]
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               categoryId:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               currency:
+ *                 type: string
+ *                 example: LKR
+ *               isNegotiable:
+ *                 type: boolean
+ *               condition:
+ *                 type: string
+ *                 enum: [NEW, USED_LIKE_NEW, USED_GOOD, USED_FAIR]
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uri
+ *               location:
+ *                 type: object
+ *                 properties:
+ *                   city:
+ *                     type: string
+ *                   address:
+ *                     type: string
+ *                   coordinates:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                         enum: [Point]
+ *                       coordinates:
+ *                         type: array
+ *                         minItems: 2
+ *                         maxItems: 2
+ *                         items:
+ *                           type: number
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, SOLD, HIDDEN]
  *     responses:
  *       200:
  *         description: Listing updated
