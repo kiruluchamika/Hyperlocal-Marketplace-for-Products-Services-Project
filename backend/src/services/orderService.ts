@@ -27,7 +27,7 @@ import { AppError } from "../utils/AppError";
 import Order, { OrderStatus, DeliveryMethod } from "../models/Order";
 import Payment, { PaymentStatus } from "../models/Payment";
 import { PaymentService } from "./paymentService";
-import { ListingModel } from "../types/listing.interface";
+import ProductListing from "../models/ProductListing";
 
 export class OrderService {
   private paymentService: PaymentService;
@@ -51,7 +51,7 @@ export class OrderService {
     }
   ) {
     // 1. Fetch listing
-    const listing = await ListingModel.findById(data.listingId);
+    const listing = await ProductListing.findById(data.listingId);
     
     if (!listing) {
       throw new AppError("Listing not found", 404);
@@ -66,9 +66,9 @@ export class OrderService {
       throw new AppError("Only BUY_NOW listings can be ordered", 400);
     }
     
-    // Check listing status (teammate's model uses status field)
-    if (listing.status !== "ACTIVE") {
-      throw new AppError("Listing is not active or available", 400);
+    // Check listing is active
+    if (!listing.isActive) {
+      throw new AppError("Listing is not active", 400);
     }
     
     // 3. Prevent self-purchase
@@ -384,7 +384,7 @@ export class OrderService {
   /**
    * Update Delivery Details (Buyer)
    * Replace complete delivery configuration
-   * Only allowed for PENDING or ACCEPTED orders
+   * Only allowed for PENDING orders
    */
   async updateDeliveryDetails(
     orderId: string,
