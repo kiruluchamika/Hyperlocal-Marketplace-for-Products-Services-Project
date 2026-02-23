@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import routes from "./routes";
@@ -39,14 +40,16 @@ const swaggerSpec = swaggerJsdoc({
 		servers: [{ url: "/api" }],
 	},
 	apis: [
-		"./src/routes/*.ts",
-		"./src/controllers/*.ts",
-		"./dist/routes/*.js",
-		"./dist/controllers/*.js",
+		path.join(process.cwd(), "src/routes/**/*.ts"),
+		path.join(process.cwd(), "dist/routes/**/*.js"),
+		path.join(__dirname, "routes/**/*.js"),
 	],
 });
 
 app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api/swagger", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get("/swagger.json", (_req, res) => res.json(swaggerSpec));
+app.get("/api/swagger.json", (_req, res) => res.json(swaggerSpec));
 
 app.use("/api", routes);
 
