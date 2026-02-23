@@ -203,3 +203,27 @@ export const confirmDeliveryWithOtp = asyncHandler(
     });
   }
 );
+
+/**
+ * PUT /orders/:id/delivery-details
+ * Update delivery details (Buyer only)
+ */
+export const updateDeliveryDetails = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { id } = req.params;
+    const buyerId = req.user!.id;
+    const deliveryData = req.body;
+    
+    const order = await orderService.updateDeliveryDetails(
+      id,
+      buyerId,
+      deliveryData
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: "Delivery details updated successfully",
+      data: order
+    });
+  }
+);

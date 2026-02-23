@@ -66,7 +66,8 @@ export class OrderService {
       throw new AppError("Only BUY_NOW listings can be ordered", 400);
     }
     
-    if (listing.status !== "ACTIVE") {
+    // Check listing is active
+    if (!listing.isActive) {
       throw new AppError("Listing is not active", 400);
     }
     
@@ -83,7 +84,21 @@ export class OrderService {
     // 5. Calculate total
     const totalAmount = listing.price * data.quantity;
     
-    // 6. Create order with snapshots
+    // 6. Capture pickup location if PICKUP method
+    let pickupLocationSnapshot: string | undefined;
+    if (data.deliveryMethod === DeliveryMethod.PICKUP) {
+      // Build pickup location from listing location
+      const locationParts = [];
+      if (listing.location?.address) {
+        locationParts.push(listing.location.address);
+      }
+      if (listing.location?.city) {
+        locationParts.push(listing.location.city);
+      }
+      pickupLocationSnapshot = locationParts.join(", ") || "Location not specified";
+    }
+    
+    // 7. Create order with snapshots
     const order = await Order.create({
       buyerId,
       sellerId: listing.ownerId,
@@ -94,6 +109,7 @@ export class OrderService {
       totalAmount,
       deliveryMethod: data.deliveryMethod,
       deliveryAddress: data.deliveryAddress,
+      pickupLocationSnapshot,
       note: data.note,
       status: OrderStatus.PENDING
     });
@@ -363,6 +379,63 @@ export class OrderService {
       order,
       message: "Delivery confirmed. Order completed. Payment released to seller."
     };
+  }
+
+  /**
+   * Update Delivery Details (Buyer)
+   * Replace complete delivery configuration
+   * Only allowed for PENDING orders
+   */
+  async updateDeliveryDetails(
+    orderId: string,
+    buyerId: string,
+    deliveryData: {
+      deliveryMethod: DeliveryMethod;
+      deliveryAddress?: string;
+    }
+  ) {
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      throw new AppError("Order not found", 404);
+    }
+    
+    // Authorization check
+    if (order.buyerId.toString() !== buyerId) {
+      throw new AppError("Not authorized to update this order", 403);
+    }
+    
+    // Status check - only PENDING (before seller accepts)
+    if (order.status !== OrderStatus.PENDING) {
+      throw new AppError(
+        "Cannot update delivery details after seller has accepted the order",
+        400
+      );
+    }
+    
+    // Check if payment already initiated
+    const payment = await Payment.findOne({ orderId: order._id });
+    if (payment && payment.status !== PaymentStatus.INITIATED) {
+      // Allow update only if payment not yet held
+      throw new AppError(
+        "Cannot update delivery details after payment is confirmed",
+        400
+      );
+    }
+    
+    // Update delivery configuration
+    order.deliveryMethod = deliveryData.deliveryMethod;
+    
+    if (deliveryData.deliveryMethod === DeliveryMethod.DELIVERY) {
+      order.deliveryAddress = deliveryData.deliveryAddress;
+    } else {
+      // Clear address if switching to PICKUP
+      order.deliveryAddress = undefined;
+    }
+    
+    await order.save();
+    
+    return order;
   }
   
   /**
