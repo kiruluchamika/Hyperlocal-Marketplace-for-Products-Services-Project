@@ -90,7 +90,7 @@ const router = Router();
 router.post(
   "/",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(createOrderSchema),
   createOrder
 );
@@ -126,7 +126,7 @@ router.post(
 router.patch(
   "/:id/cancel",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(cancelOrderSchema),
   cancelOrder
 );
@@ -162,7 +162,7 @@ router.patch(
 router.patch(
   "/:id/confirm-received",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(confirmReceivedSchema),
   confirmReceived
 );
@@ -226,7 +226,7 @@ router.patch(
 router.put(
   "/:id/delivery-details",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(updateDeliveryDetailsSchema),
   updateDeliveryDetails
 );
@@ -266,7 +266,7 @@ router.put(
 router.patch(
   "/:id/accept",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   acceptOrder
 );
@@ -302,7 +302,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   rejectOrder
 );
@@ -338,7 +338,7 @@ router.patch(
 router.patch(
   "/:id/start",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   startOrder
 );
@@ -386,7 +386,7 @@ router.patch(
 router.post(
   "/:id/confirm-delivery",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(confirmDeliveryWithOtpSchema),
   confirmDeliveryWithOtp
 );
@@ -441,7 +441,7 @@ router.post(
 router.get(
   "/",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(listOrdersSchema),
   listOrders
 );
@@ -475,7 +475,7 @@ router.get(
 router.get(
   "/:id",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(getOrderByIdSchema),
   getOrderById
 );

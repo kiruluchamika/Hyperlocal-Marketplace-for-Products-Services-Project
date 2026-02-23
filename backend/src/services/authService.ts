@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import User from "../models/User";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
@@ -28,11 +28,13 @@ interface LoginInput {
   password: string;
 }
 
-const signToken = (userId: string, role: Role) => {
-  return jwt.sign({ role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
+const signToken = (userId: string, role: Role): string => {
+  const payload = { role };
+  const token = jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN as string,
     subject: userId
-  });
+  } as SignOptions);
+  return token;
 };
 
 const sanitizeUser = (user: any) => ({
