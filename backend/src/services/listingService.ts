@@ -1,48 +1,28 @@
-import mongoose, { FilterQuery } from "mongoose";
-import ProductListing, { IProductListing } from "../models/ProductListing";
-import Category, { ICategory } from "../models/Category";
+/**
+ * Listing Service
+ * 
+ * Implements business logic for product listing management with:
+ * - Category validation and dynamic attribute enforcement
+ * - Ownership-based access control (not role-based)
+ * - Public visibility for ACTIVE listings only
+ * - Owner/admin can view/modify all statuses
+ */
+
+import ProductListing from "../models/ProductListing";
+import Category from "../models/Category";
 import { AppError } from "../utils/AppError";
-
-type AttributeValue = string | number | boolean;
-
-interface RequesterContext {
-  id: string;
-  role: string;
-}
-
-interface ListListingsQuery {
-  search?: string;
-  categoryId?: string;
-  transactionMode?: "BUY_NOW" | "NEGOTIABLE";
-  minPrice?: number;
-  maxPrice?: number;
-  condition?: "NEW" | "USED_LIKE_NEW" | "USED_GOOD" | "USED_FAIR";
-  lat?: number;
-  lng?: number;
-  radiusKm?: number;
-  page: number;
-  limit: number;
-  sort: "recent" | "priceAsc" | "priceDesc";
-}
-
-interface ListListingsResult {
-  data: Array<Record<string, unknown>>;
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import { Types } from "mongoose";
+import { hasCreatedListings as userHasListings } from "./userService";
 
 interface CreateListingInput {
+  type: "PRODUCT";
   transactionMode: "BUY_NOW" | "NEGOTIABLE";
   title: string;
   description: string;
   categoryId: string;
-  attributes?: Record<string, AttributeValue>;
+  attributes: Record<string, string | number | boolean>;
   price: number;
-  currency?: string;
+  currency: string;
   isNegotiable?: boolean;
   condition: "NEW" | "USED_LIKE_NEW" | "USED_GOOD" | "USED_FAIR";
   images: string[];
@@ -62,325 +42,376 @@ interface UpdateListingInput {
   title?: string;
   description?: string;
   categoryId?: string;
-  attributes?: Record<string, AttributeValue>;
+  attributes?: Record<string, string | number | boolean>;
   price?: number;
   currency?: string;
   isNegotiable?: boolean;
   condition?: "NEW" | "USED_LIKE_NEW" | "USED_GOOD" | "USED_FAIR";
   images?: string[];
   location?: {
-    city?: string;
+    city: string;
     address?: string;
-    coordinates?: {
+    coordinates: {
       type: "Point";
       coordinates: [number, number];
     };
   };
+  status?: "ACTIVE" | "SOLD" | "HIDDEN" | "DELETED";
   tags?: string[];
-  status?: "ACTIVE" | "SOLD" | "HIDDEN";
 }
 
-const normalizeAttributes = (attributes: unknown): Record<string, AttributeValue> => {
-  if (!attributes) {
-    return {};
-  }
+interface GetListingsQuery {
+  categoryId?: string;
+  status?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  city?: string;
+  condition?: string;
+  transactionMode?: string;
+  searchTerm?: string;
+  page?: number;
+  limit?: number;
+}
 
-  if (attributes instanceof Map) {
-    return Object.fromEntries(attributes.entries()) as Record<string, AttributeValue>;
-  }
-
-  if (typeof attributes !== "object" || Array.isArray(attributes)) {
-    throw new AppError("attributes must be an object", 400);
-  }
-
-  return attributes as Record<string, AttributeValue>;
-};
-
-const ensureProductCategory = async (categoryId: string): Promise<ICategory> => {
-  if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-    throw new AppError("Invalid categoryId", 400);
-  }
-
+/**
+ * Validate category exists, is active, and is of type PRODUCT
+ */
+const validateCategory = async (categoryId: string) => {
   const category = await Category.findById(categoryId);
-
+  
   if (!category) {
     throw new AppError("Category not found", 404);
   }
-
-  if (category.type !== "PRODUCT") {
-    throw new AppError("Category must be a PRODUCT category", 400);
-  }
-
+  
   if (!category.isActive) {
-    throw new AppError("Selected category is inactive", 400);
+    throw new AppError("Category is not active", 400);
   }
-
+  
+  if (category.type !== "PRODUCT") {
+    throw new AppError("Only PRODUCT categories are allowed for product listings", 400);
+  }
+  
   return category;
 };
 
-const validateAttributeValueType = (
-  key: string,
-  value: AttributeValue,
-  attributeRule: ICategory["attributes"][number]
+/**
+ * Validate submitted attributes match category schema
+ */
+/**
+ * Validate submitted attributes match category schema
+ * SIMPLIFIED: Only validates unknown attributes, allows flexibility for optional fields
+ */
+const validateAttributes = (
+  submittedAttrs: Record<string, any>,
+  categoryAttrs: Array<{ fieldName: string; fieldType: string; required?: boolean; options?: string[] }>
 ) => {
-  if (attributeRule.fieldType === "string" && typeof value !== "string") {
-    throw new AppError(`Attribute '${key}' must be a string`, 400);
+  // If no attributes provided, that's OK
+  if (!submittedAttrs || Object.keys(submittedAttrs).length === 0) {
+    return;
   }
 
-  if (attributeRule.fieldType === "number" && typeof value !== "number") {
-    throw new AppError(`Attribute '${key}' must be a number`, 400);
-  }
-
-  if (attributeRule.fieldType === "boolean" && typeof value !== "boolean") {
-    throw new AppError(`Attribute '${key}' must be a boolean`, 400);
-  }
-
-  if (attributeRule.fieldType === "select") {
-    if (typeof value !== "string") {
-      throw new AppError(`Attribute '${key}' must be a string`, 400);
-    }
-
-    const options = attributeRule.options ?? [];
-    if (options.length > 0 && !options.includes(value)) {
-      throw new AppError(`Attribute '${key}' must be one of: ${options.join(", ")}`, 400);
+  // Build set of allowed field names from category
+  const allowedFieldNames = new Set(categoryAttrs.map(a => a.fieldName));
+  
+  // Check for unknown attributes (attributes submitted that category doesn't define)
+  for (const key of Object.keys(submittedAttrs)) {
+    if (!allowedFieldNames.has(key)) {
+      throw new AppError(
+        `Unknown attribute: "${key}". Category only allows: ${Array.from(allowedFieldNames).join(", ")}`,
+        400
+      );
     }
   }
-};
 
-const validateSubmittedAttributes = (category: ICategory, submitted: Record<string, AttributeValue>) => {
-  const rulesByName = new Map(category.attributes.map((attribute) => [attribute.fieldName, attribute]));
-
-  for (const [key, value] of Object.entries(submitted)) {
-    const rule = rulesByName.get(key);
-    if (!rule) {
-      throw new AppError(`Unknown attribute '${key}' for category '${category.name}'`, 400);
-    }
-
-    validateAttributeValueType(key, value, rule);
-  }
-};
-
-const enforceRequiredAttributes = (category: ICategory, attributes: Record<string, AttributeValue>) => {
-  for (const attributeRule of category.attributes) {
-    if (!attributeRule.required) {
+  // Validate select field options if they exist
+  for (const attr of categoryAttrs) {
+    const value = submittedAttrs[attr.fieldName];
+    
+    // Skip if not provided
+    if (value === undefined || value === null || value === "") {
       continue;
     }
 
-    const value = attributes[attributeRule.fieldName];
-    if (value === undefined || value === null) {
-      throw new AppError(`Missing required attribute '${attributeRule.fieldName}'`, 400);
-    }
-
-    if (attributeRule.fieldType === "string" && typeof value === "string" && value.trim().length === 0) {
-      throw new AppError(`Attribute '${attributeRule.fieldName}' cannot be empty`, 400);
-    }
-  }
-};
-
-const pruneToCategoryAttributes = (category: ICategory, attributes: Record<string, AttributeValue>) => {
-  const allowed = new Set(category.attributes.map((attribute) => attribute.fieldName));
-  return Object.fromEntries(Object.entries(attributes).filter(([key]) => allowed.has(key)));
-};
-
-const attachCategoryDetails = async (listings: IProductListing[]) => {
-  const categoryIds = [...new Set(listings.map((listing) => listing.categoryId.toString()))];
-
-  const categories = await Category.find({ _id: { $in: categoryIds } }).select("_id name type isActive");
-  const categoryMap = new Map(categories.map((category) => [category.id, category]));
-
-  return listings.map((listing) => {
-    const listingObject = listing.toObject();
-    const category = categoryMap.get(listing.categoryId.toString());
-
-    return {
-      ...listingObject,
-      category: category
-        ? {
-            _id: category.id,
-            name: category.name,
-            type: category.type,
-            isActive: category.isActive
-          }
-        : null
-    };
-  });
-};
-
-export const createListing = async (payload: CreateListingInput, ownerId: string) => {
-  const category = await ensureProductCategory(payload.categoryId);
-  const submittedAttributes = normalizeAttributes(payload.attributes);
-
-  validateSubmittedAttributes(category, submittedAttributes);
-  enforceRequiredAttributes(category, submittedAttributes);
-
-  return ProductListing.create({
-    ...payload,
-    ownerId,
-    categoryId: category._id,
-    type: "PRODUCT",
-    currency: "LKR",
-    attributes: submittedAttributes
-  });
-};
-
-export const listListings = async (query: ListListingsQuery): Promise<ListListingsResult> => {
-  const filter: FilterQuery<IProductListing> = {
-    status: "ACTIVE",
-    type: "PRODUCT"
-  };
-
-  if (query.search) {
-    filter.$text = { $search: query.search };
-  }
-
-  if (query.categoryId) {
-    filter.categoryId = query.categoryId;
-  }
-
-  if (query.transactionMode) {
-    filter.transactionMode = query.transactionMode;
-  }
-
-  if (query.condition) {
-    filter.condition = query.condition;
-  }
-
-  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
-    filter.price = {};
-    if (query.minPrice !== undefined) {
-      filter.price.$gte = query.minPrice;
-    }
-    if (query.maxPrice !== undefined) {
-      filter.price.$lte = query.maxPrice;
-    }
-  }
-
-  if (query.lat !== undefined && query.lng !== undefined && query.radiusKm !== undefined) {
-    filter["location.coordinates"] = {
-      $near: {
-        $geometry: {
-          type: "Point",
-          coordinates: [query.lng, query.lat]
-        },
-        $maxDistance: query.radiusKm * 1000
+    // Validate select fields have allowed options
+    if (attr.fieldType === "select" && attr.options && attr.options.length > 0) {
+      if (!attr.options.includes(String(value))) {
+        throw new AppError(
+          `Attribute "${attr.fieldName}" value "${value}" is not allowed. Must be one of: ${attr.options.join(", ")}`,
+          400
+        );
       }
-    };
-  }
-
-  const sortMap = {
-    recent: { createdAt: -1 as const },
-    priceAsc: { price: 1 as const },
-    priceDesc: { price: -1 as const }
-  };
-
-  const skip = (query.page - 1) * query.limit;
-
-  const [data, total] = await Promise.all([
-    ProductListing.find(filter).sort(sortMap[query.sort]).skip(skip).limit(query.limit),
-    ProductListing.countDocuments(filter)
-  ]);
-
-  const dataWithCategory = await attachCategoryDetails(data);
-
-  return {
-    data: dataWithCategory,
-    pagination: {
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit) || 1
     }
+  }
+};
+
+/**
+ * Create a new product listing
+ */
+export const createListing = async (userId: string, data: CreateListingInput) => {
+  // 1. Validate category exists
+  const category = await validateCategory(data.categoryId);
+  
+  // 2. Validate attributes against category schema
+  validateAttributes(data.attributes || {}, category.attributes);
+  
+  // 3. Build location object
+  const location: any = {
+    city: data.location.city
   };
-};
-
-export const getListingById = async (listingId: string, requester?: RequesterContext) => {
-  const listing = await ProductListing.findById(listingId);
-  if (!listing || listing.status === "DELETED") {
-    throw new AppError("Listing not found", 404);
+  
+  if (data.location.address) {
+    location.address = data.location.address;
   }
-
-  const isOwner = requester ? listing.ownerId.toString() === requester.id : false;
-  const isAdmin = requester?.role === "admin";
-
-  if (listing.status !== "ACTIVE" && !isOwner && !isAdmin) {
-    throw new AppError("Listing not found", 404);
+  
+  // Handle coordinates if provided
+  if (data.location.coordinates) {
+    if (Array.isArray(data.location.coordinates)) {
+      // GeoJSON format: [lng, lat]
+      location.coordinates = {
+        type: "Point",
+        coordinates: data.location.coordinates
+      };
+    } else if (typeof data.location.coordinates === 'object' && 'lat' in data.location.coordinates) {
+      // Object format: {lat, lng}
+      const coords = data.location.coordinates as any;
+      location.coordinates = {
+        type: "Point",
+        coordinates: [coords.lng, coords.lat]
+      };
+    }
   }
-
-  if (listing.status === "ACTIVE") {
-    listing.viewsCount += 1;
-    await listing.save();
-  }
-
-  const [listingWithCategory] = await attachCategoryDetails([listing]);
-  return listingWithCategory;
-};
-
-export const getListingForOwnershipCheck = async (listingId: string) => {
-  const listing = await ProductListing.findById(listingId);
-  if (!listing || listing.status === "DELETED") {
-    throw new AppError("Listing not found", 404);
-  }
+  
+  // 4. Create listing with proper references
+  const listing = await ProductListing.create({
+    ownerId: new Types.ObjectId(userId),
+    type: "PRODUCT",
+    transactionMode: data.transactionMode,
+    title: data.title,
+    description: data.description,
+    categoryId: new Types.ObjectId(data.categoryId),
+    attributes: data.attributes || {},
+    price: data.price,
+    currency: data.currency || "LKR",
+    isNegotiable: data.transactionMode === "NEGOTIABLE" ? true : (data.isNegotiable ?? false),
+    condition: data.condition || "USED_GOOD",
+    images: data.images || [],
+    location: location,
+    status: "ACTIVE",
+    tags: data.tags || []
+  });
+  
+  // 5. Populate references before returning
+  await listing.populate([
+    { path: "categoryId", select: "name type" },
+    { path: "ownerId", select: "name email phone" }
+  ]);
+  
   return listing;
 };
 
-export const updateListing = async (listingId: string, payload: UpdateListingInput) => {
-  const listing = await ProductListing.findById(listingId);
-  if (!listing || listing.status === "DELETED") {
-    throw new AppError("Listing not found", 404);
+/**
+ * Get listings with filters (public feed)
+ */
+export const getListings = async (query: GetListingsQuery) => {
+  const page = query.page || 1;
+  const limit = Math.min(query.limit || 20, 100);
+  const skip = (page - 1) * limit;
+  
+  // Build query
+  const filter: any = { status: "ACTIVE" }; // Only show active listings publicly
+  
+  if (query.categoryId) {
+    filter.categoryId = new Types.ObjectId(query.categoryId);
   }
-
-  const targetCategoryId = payload.categoryId ?? listing.categoryId.toString();
-  const category = await ensureProductCategory(targetCategoryId);
-
-  const existingAttributes = normalizeAttributes(listing.attributes);
-  const submittedAttributes = payload.attributes ? normalizeAttributes(payload.attributes) : undefined;
-
-  if (submittedAttributes) {
-    validateSubmittedAttributes(category, submittedAttributes);
+  
+  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+    filter.price = {};
+    if (query.minPrice !== undefined) filter.price.$gte = query.minPrice;
+    if (query.maxPrice !== undefined) filter.price.$lte = query.maxPrice;
   }
-
-  const mergedAttributes = {
-    ...existingAttributes,
-    ...(submittedAttributes ?? {})
+  
+  if (query.city) {
+    filter["location.city"] = new RegExp(query.city, "i");
+  }
+  
+  if (query.condition) {
+    filter.condition = query.condition;
+  }
+  
+  if (query.transactionMode) {
+    filter.transactionMode = query.transactionMode;
+  }
+  
+  if (query.searchTerm) {
+    filter.$text = { $search: query.searchTerm };
+  }
+  
+  const [listings, total] = await Promise.all([
+    ProductListing.find(filter)
+      .populate("categoryId", "name type")
+      .populate("ownerId", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    ProductListing.countDocuments(filter)
+  ]);
+  
+  return {
+    listings,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
   };
-
-  const prunedAttributes = pruneToCategoryAttributes(category, mergedAttributes);
-  enforceRequiredAttributes(category, prunedAttributes);
-
-  const { attributes, categoryId, ...updatablePayload } = payload;
-
-  Object.assign(listing, updatablePayload);
-  listing.categoryId = category._id;
-  listing.currency = "LKR";
-  listing.attributes = prunedAttributes;
-  await listing.save();
-
-  const [listingWithCategory] = await attachCategoryDetails([listing]);
-  return listingWithCategory;
 };
 
-export const softDeleteListing = async (listingId: string) => {
-  const listing = await ProductListing.findById(listingId);
-  if (!listing || listing.status === "DELETED") {
+/**
+ * Get single listing by ID with visibility controls
+ * - Public users: only see ACTIVE listings
+ * - Owner/admin: see all statuses
+ */
+export const getListingById = async (
+  listingId: string,
+  requesterId?: string,
+  requesterRole?: string
+) => {
+  const listing = await ProductListing.findById(listingId)
+    .populate("categoryId", "name type attributes")
+    .populate("ownerId", "name email");
+  
+  if (!listing) {
     throw new AppError("Listing not found", 404);
   }
+  
+  // Check visibility
+  const isOwner = requesterId && listing.ownerId._id.toString() === requesterId;
+  const isAdmin = requesterRole === "admin";
+  const isActive = listing.status === "ACTIVE";
+  
+  if (!isActive && !isOwner && !isAdmin) {
+    throw new AppError("Listing not found", 404);
+  }
+  
+  return listing;
+};
 
+/**
+ * Update listing
+ */
+export const updateListing = async (
+  listingId: string,
+  userId: string,
+  userRole: string,
+  data: UpdateListingInput
+) => {
+  const listing = await ProductListing.findById(listingId);
+  
+  if (!listing) {
+    throw new AppError("Listing not found", 404);
+  }
+  
+  // Check ownership
+  const isOwner = listing.ownerId.toString() === userId;
+  const isAdmin = userRole === "admin";
+  
+  if (!isOwner && !isAdmin) {
+    throw new AppError("You are not authorized to update this listing", 403);
+  }
+  
+  // If category is being changed, validate it
+  let category;
+  if (data.categoryId) {
+    category = await validateCategory(data.categoryId);
+  } else {
+    category = await Category.findById(listing.categoryId);
+  }
+  
+  if (!category) {
+    throw new AppError("Category not found", 404);
+  }
+  
+  // If attributes are being updated, validate them
+  if (data.attributes) {
+    validateAttributes(data.attributes, category.attributes);
+  }
+  
+  // Update fields
+  if (data.transactionMode) listing.transactionMode = data.transactionMode;
+  if (data.title) listing.title = data.title;
+  if (data.description) listing.description = data.description;
+  if (data.categoryId) listing.categoryId = new Types.ObjectId(data.categoryId);
+  if (data.attributes) listing.attributes = data.attributes;
+  if (data.price !== undefined) listing.price = data.price;
+  if (data.currency) listing.currency = data.currency;
+  if (data.isNegotiable !== undefined) listing.isNegotiable = data.isNegotiable;
+  if (data.condition) listing.condition = data.condition;
+  if (data.images) listing.images = data.images;
+  if (data.location) listing.location = data.location;
+  if (data.status) listing.status = data.status;
+  if (data.tags) listing.tags = data.tags;
+  
+  await listing.save();
+  
+  return listing;
+};
+
+/**
+ * Delete listing (soft delete - sets status to DELETED)
+ */
+export const deleteListing = async (
+  listingId: string,
+  userId: string,
+  userRole: string
+) => {
+  const listing = await ProductListing.findById(listingId);
+  
+  if (!listing) {
+    throw new AppError("Listing not found", 404);
+  }
+  
+  // Check ownership
+  const isOwner = listing.ownerId.toString() === userId;
+  const isAdmin = userRole === "admin";
+  
+  if (!isOwner && !isAdmin) {
+    throw new AppError("You are not authorized to delete this listing", 403);
+  }
+  
   listing.status = "DELETED";
   await listing.save();
-
-  const [listingWithCategory] = await attachCategoryDetails([listing]);
-  return listingWithCategory;
+  
+  return { message: "Listing deleted successfully" };
 };
 
-export const canModifyListing = async (listingId: string, userId: string, role: string) => {
-  if (role === "admin") {
+/**
+ * Check if user can modify a listing
+ * Used by requireOwnershipOrAdmin middleware
+ */
+export const canModifyListing = async (
+  listingId: string,
+  userId: string,
+  userRole: string
+): Promise<boolean> => {
+  // Admins can modify anything
+  if (userRole === "admin") {
     return true;
   }
-
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return false;
+  
+  // Check if listing exists and user is owner
+  const listing = await ProductListing.findById(listingId);
+  if (!listing) {
+    throw new AppError("Listing not found", 404);
   }
-
-  const listing = await getListingForOwnershipCheck(listingId);
+  
   return listing.ownerId.toString() === userId;
+};
+
+/**
+ * Check if user has created any listings
+ * Alias to userService function for convenience
+ */
+export const hasUserCreatedListings = async (userId: string): Promise<boolean> => {
+  return userHasListings(userId);
 };

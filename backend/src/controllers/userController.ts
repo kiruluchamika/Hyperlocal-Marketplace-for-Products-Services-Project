@@ -12,7 +12,14 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    phone: user.phone,
+    age: user.age,
+    address: user.address,
+    profileImage: user.profileImage,
+    bio: user.bio,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
   });
 });
 
@@ -22,7 +29,12 @@ export const getAllUsers = asyncHandler(async (_req: Request, res: Response) => 
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    phone: user.phone,
+    age: user.age,
+    address: user.address,
+    profileImage: user.profileImage,
+    bio: user.bio
   }));
   res.status(200).json(sanitized);
 });

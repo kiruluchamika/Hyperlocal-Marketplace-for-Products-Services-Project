@@ -67,7 +67,7 @@ export class OrderService {
     }
     
     // Check listing is active
-    if (!listing.isActive) {
+    if (listing.status !== "ACTIVE") {
       throw new AppError("Listing is not active", 400);
     }
     

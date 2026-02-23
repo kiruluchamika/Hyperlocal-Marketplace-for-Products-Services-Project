@@ -78,7 +78,7 @@ const router = Router();
 router.post(
   "/initiate",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(initiatePaymentSchema),
   initiatePayment
 );
@@ -160,7 +160,7 @@ router.post("/webhook/stripe", stripeWebhook);
 router.get(
   "/order/:orderId",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(getPaymentByOrderSchema),
   getPaymentByOrder
 );
@@ -215,7 +215,7 @@ router.get(
 router.get(
   "/:id",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(getPaymentByIdSchema),
   getPaymentById
 );
