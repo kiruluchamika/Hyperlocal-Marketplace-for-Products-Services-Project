@@ -84,7 +84,21 @@ export class OrderService {
     // 5. Calculate total
     const totalAmount = listing.price * data.quantity;
     
-    // 6. Create order with snapshots
+    // 6. Capture pickup location if PICKUP method
+    let pickupLocationSnapshot: string | undefined;
+    if (data.deliveryMethod === DeliveryMethod.PICKUP) {
+      // Build pickup location from listing location
+      const locationParts = [];
+      if (listing.location?.address) {
+        locationParts.push(listing.location.address);
+      }
+      if (listing.location?.city) {
+        locationParts.push(listing.location.city);
+      }
+      pickupLocationSnapshot = locationParts.join(", ") || "Location not specified";
+    }
+    
+    // 7. Create order with snapshots
     const order = await Order.create({
       buyerId,
       sellerId: listing.ownerId,
@@ -95,6 +109,7 @@ export class OrderService {
       totalAmount,
       deliveryMethod: data.deliveryMethod,
       deliveryAddress: data.deliveryAddress,
+      pickupLocationSnapshot,
       note: data.note,
       status: OrderStatus.PENDING
     });
@@ -399,8 +414,8 @@ export class OrderService {
     }
     
     // Check if payment already initiated
-    const payment = await this.paymentService.getPaymentByOrder(orderId);
-    if (payment && payment.status !== "INITIATED") {
+    const payment = await Payment.findOne({ orderId: order._id });
+    if (payment && payment.status !== PaymentStatus.INITIATED) {
       // Allow update only if payment not yet held
       throw new AppError(
         "Cannot update delivery details after payment is confirmed",

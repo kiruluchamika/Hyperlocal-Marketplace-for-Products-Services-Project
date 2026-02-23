@@ -69,22 +69,17 @@ const router = Router();
  *               deliveryMethod:
  *                 type: string
  *                 enum: [PICKUP, DELIVERY]
- *                 description: How the order will be fulfilled
+ *                 description: "PICKUP = Buyer picks up from seller location (auto-captured), DELIVERY = Seller delivers to buyer address (required)"
  *               deliveryAddress:
- *                 type: object
- *                 description: Required if deliveryMethod is DELIVERY
- *                 properties:
- *                   street:
- *                     type: string
- *                   city:
- *                     type: string
- *                   postalCode:
- *                     type: string
- *                   country:
- *                     type: string
+ *                 type: string
+ *                 description: "Required if deliveryMethod is DELIVERY. Full delivery address (min 10 chars, max 500 chars)"
+ *                 example: "123 Main Street, Apartment 4B, Colombo 00300"
+ *               note:
+ *                 type: string
+ *                 description: Optional note from buyer to seller (max 500 chars)
  *     responses:
  *       201:
- *         description: Order created successfully
+ *         description: Order created successfully. If PICKUP chosen, pickupLocationSnapshot will be auto-captured from listing location.
  *       400:
  *         description: Validation error or listing unavailable
  *       401:
