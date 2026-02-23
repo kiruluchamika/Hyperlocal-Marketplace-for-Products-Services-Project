@@ -13,9 +13,11 @@
  */
 
 import { Document, Types } from "mongoose";
+import ProductListing from "../models/ProductListing";
 
-export type ListingType = "PRODUCT" | "SERVICE";
-export type TransactionMode = "BUY_NOW" | "REQUEST_QUOTE";
+export type ListingType = "PRODUCT";
+export type TransactionMode = "BUY_NOW" | "NEGOTIABLE";
+export type ListingStatus = "ACTIVE" | "SOLD" | "HIDDEN" | "DELETED";
 
 /**
  * Minimum listing fields required for order creation and validation
@@ -27,8 +29,7 @@ export interface IListing extends Document {
   transactionMode: TransactionMode; // Must be "BUY_NOW" for orders
   title: string;
   price: number;
-  isActive: boolean;        // Listing must be active
-  isAvailable: boolean;     // Listing must be available
+  status: ListingStatus;    // Listing must be ACTIVE
 }
 
 /**
@@ -36,24 +37,8 @@ export interface IListing extends Document {
  * 
  * 1. Only listings with type="PRODUCT" can be ordered
  * 2. Only listings with transactionMode="BUY_NOW" can be ordered
- * 3. Listing must have isActive=true
- * 4. Listing must have isAvailable=true
+ * 3. Listing must have status="ACTIVE"
  * 5. Buyer cannot order their own listing (buyerId !== listing.ownerId)
  */
 
-/**
- * TEMPORARY: Placeholder for ListingModel import
- * 
- * TODO: Replace with actual import when listings module is ready:
- * 
- * // Remove the placeholder and use:
- * export { default as ListingModel } from '../models/Listing';
- * 
- * OR if they use named export:
- * export { ListingModel } from '../models/Listing';
- */
-
-import { Model } from "mongoose";
-
-// Placeholder - TypeScript will handle this during development
-export const ListingModel: Model<IListing> = null as any;
+export const ListingModel = ProductListing;

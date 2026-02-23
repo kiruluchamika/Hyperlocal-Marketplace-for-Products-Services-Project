@@ -10,7 +10,7 @@ import {
 import { AppError } from "../utils/AppError";
 
 const toListingResponse = (listing: any) => ({
-  _id: listing.id,
+  _id: listing.id ?? listing._id,
   ownerId: listing.ownerId,
   type: listing.type,
   transactionMode: listing.transactionMode,
@@ -20,6 +20,8 @@ const toListingResponse = (listing: any) => ({
   isAvailable: listing.status === "ACTIVE",
   description: listing.description,
   categoryId: listing.categoryId,
+  category: listing.category ?? null,
+  attributes: listing.attributes ?? {},
   currency: listing.currency,
   isNegotiable: listing.isNegotiable,
   condition: listing.condition,
@@ -53,7 +55,7 @@ export const listListingsHandler = asyncHandler(async (req: Request, res: Respon
 });
 
 export const getListingByIdHandler = asyncHandler(async (req: Request, res: Response) => {
-  const listing = await getListingById(req.params.id);
+  const listing = await getListingById(req.params.id, req.user);
   res.status(200).json(toListingResponse(listing));
 });
 
