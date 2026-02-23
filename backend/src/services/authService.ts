@@ -4,13 +4,23 @@ import User from "../models/User";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
 
-type Role = "admin" | "seller" | "buyer";
+type Role = "admin" | "user";
 
 interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  phone: string;
+  age: number;
+  address: {
+    street?: string;
+    city: string;
+    province?: string;
+    postalCode?: string;
+    country: string;
+  };
+  profileImage?: string;
+  bio?: string;
 }
 
 interface LoginInput {
@@ -20,7 +30,7 @@ interface LoginInput {
 
 const signToken = (userId: string, role: Role) => {
   return jwt.sign({ role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+    expiresIn: env.JWT_EXPIRES_IN,
     subject: userId
   });
 };
@@ -29,7 +39,12 @@ const sanitizeUser = (user: any) => ({
   id: user._id.toString(),
   name: user.name,
   email: user.email,
-  role: user.role
+  role: user.role,
+  phone: user.phone,
+  age: user.age,
+  address: user.address,
+  profileImage: user.profileImage,
+  bio: user.bio
 });
 
 export const registerUser = async (input: RegisterInput) => {
@@ -43,7 +58,12 @@ export const registerUser = async (input: RegisterInput) => {
     name: input.name,
     email: input.email,
     password: hashed,
-    role: input.role ?? "buyer"
+    role: "user",
+    phone: input.phone,
+    age: input.age,
+    address: input.address,
+    profileImage: input.profileImage,
+    bio: input.bio
   });
 
   const token = signToken(user.id, user.role as Role);

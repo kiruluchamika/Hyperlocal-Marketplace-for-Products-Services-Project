@@ -13,6 +13,11 @@ const startServer = async () => {
 
   const server = app.listen(port, () => {
     console.log(`API running on port ${port}`);
+    console.log(`Swagger UI available at:`);
+    console.log(`  - http://localhost:${port}/api-docs`);
+    console.log(`  - http://localhost:${port}/swagger`);
+    console.log(`  - http://localhost:${port}/docs`);
+    console.log(`Swagger JSON: http://localhost:${port}/swagger.json`);
   });
 
   server.on("error", (error: NodeJS.ErrnoException) => {
