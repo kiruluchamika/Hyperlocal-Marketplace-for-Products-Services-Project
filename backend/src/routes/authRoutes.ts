@@ -107,8 +107,6 @@ const router = Router();
  *       409:
  *         description: Email already in use
  */
- *         description: Email already in use
- */
 router.post("/register", validate(registerSchema), register);
 
 /**
