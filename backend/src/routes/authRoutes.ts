@@ -10,14 +10,15 @@ const router = Router();
  * /auth/register:
  *   post:
  *     tags: [Auth]
- *     summary: Register a new user (automatically assigned 'user' role)
- *     description: Creates a new user account with 'user' role. All users can both buy and sell products.
+ *     summary: Register a new user with complete profile information
+ *     description: Creates a new user account with 'user' role. All users can both buy and sell products. Requires age 18+.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [name, email, password, phone, age, address]
  *             properties:
  *               name:
  *                 type: string
@@ -32,7 +33,43 @@ const router = Router();
  *                 format: password
  *                 minLength: 6
  *                 example: password123
- *             required: [name, email, password]
+ *               phone:
+ *                 type: string
+ *                 minLength: 10
+ *                 example: "+94771234567"
+ *               age:
+ *                 type: number
+ *                 minimum: 18
+ *                 maximum: 120
+ *                 example: 25
+ *               address:
+ *                 type: object
+ *                 required: [city, country]
+ *                 properties:
+ *                   street:
+ *                     type: string
+ *                     example: "123 Main Street"
+ *                   city:
+ *                     type: string
+ *                     example: "Colombo"
+ *                   province:
+ *                     type: string
+ *                     example: "Western"
+ *                   postalCode:
+ *                     type: string
+ *                     example: "00100"
+ *                   country:
+ *                     type: string
+ *                     default: "Sri Lanka"
+ *                     example: "Sri Lanka"
+ *               profileImage:
+ *                 type: string
+ *                 format: uri
+ *                 example: "https://example.com/profile.jpg"
+ *               bio:
+ *                 type: string
+ *                 maxLength: 500
+ *                 example: "I love buying and selling products locally!"
  *     responses:
  *       201:
  *         description: User registered successfully with JWT token
@@ -53,11 +90,23 @@ const router = Router();
  *                     role:
  *                       type: string
  *                       enum: [user, admin]
+ *                     phone:
+ *                       type: string
+ *                     age:
+ *                       type: number
+ *                     address:
+ *                       type: object
+ *                     profileImage:
+ *                       type: string
+ *                     bio:
+ *                       type: string
  *                 token:
  *                   type: string
  *       400:
- *         description: Validation error
+ *         description: Validation error or age restriction
  *       409:
+ *         description: Email already in use
+ */
  *         description: Email already in use
  */
 router.post("/register", validate(registerSchema), register);
