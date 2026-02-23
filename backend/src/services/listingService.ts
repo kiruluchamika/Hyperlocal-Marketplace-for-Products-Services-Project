@@ -97,64 +97,49 @@ const validateCategory = async (categoryId: string) => {
 /**
  * Validate submitted attributes match category schema
  */
+/**
+ * Validate submitted attributes match category schema
+ * SIMPLIFIED: Only validates unknown attributes, allows flexibility for optional fields
+ */
 const validateAttributes = (
   submittedAttrs: Record<string, any>,
-  categoryAttrs: Array<{ fieldName: string; fieldType: string; required: boolean; options?: string[] }>
+  categoryAttrs: Array<{ fieldName: string; fieldType: string; required?: boolean; options?: string[] }>
 ) => {
-  // Check for unknown attributes
+  // If no attributes provided, that's OK
+  if (!submittedAttrs || Object.keys(submittedAttrs).length === 0) {
+    return;
+  }
+
+  // Build set of allowed field names from category
   const allowedFieldNames = new Set(categoryAttrs.map(a => a.fieldName));
+  
+  // Check for unknown attributes (attributes submitted that category doesn't define)
   for (const key of Object.keys(submittedAttrs)) {
     if (!allowedFieldNames.has(key)) {
-      throw new AppError(`Unknown attribute: ${key}. Category does not define this field.`, 400);
+      throw new AppError(
+        `Unknown attribute: "${key}". Category only allows: ${Array.from(allowedFieldNames).join(", ")}`,
+        400
+      );
     }
   }
-  
-  // Check required attributes
-  for (const attr of categoryAttrs) {
-    if (attr.required && !(attr.fieldName in submittedAttrs)) {
-      throw new AppError(`Required attribute missing: ${attr.fieldName}`, 400);
-    }
-  }
-  
-  // Type validation
+
+  // Validate select field options if they exist
   for (const attr of categoryAttrs) {
     const value = submittedAttrs[attr.fieldName];
-    if (value === undefined) continue;
     
-    switch (attr.fieldType) {
-      case "string":
-        if (typeof value !== "string") {
-          throw new AppError(`Attribute ${attr.fieldName} must be a string`, 400);
-        }
-        // For select type, validate against options
-        if (attr.options && attr.options.length > 0 && !attr.options.includes(value)) {
-          throw new AppError(
-            `Attribute ${attr.fieldName} must be one of: ${attr.options.join(", ")}`,
-            400
-          );
-        }
-        break;
-      case "number":
-        if (typeof value !== "number") {
-          throw new AppError(`Attribute ${attr.fieldName} must be a number`, 400);
-        }
-        break;
-      case "boolean":
-        if (typeof value !== "boolean") {
-          throw new AppError(`Attribute ${attr.fieldName} must be a boolean`, 400);
-        }
-        break;
-      case "select":
-        if (typeof value !== "string") {
-          throw new AppError(`Attribute ${attr.fieldName} must be a string`, 400);
-        }
-        if (attr.options && !attr.options.includes(value)) {
-          throw new AppError(
-            `Attribute ${attr.fieldName} must be one of: ${attr.options.join(", ")}`,
-            400
-          );
-        }
-        break;
+    // Skip if not provided
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+
+    // Validate select fields have allowed options
+    if (attr.fieldType === "select" && attr.options && attr.options.length > 0) {
+      if (!attr.options.includes(String(value))) {
+        throw new AppError(
+          `Attribute "${attr.fieldName}" value "${value}" is not allowed. Must be one of: ${attr.options.join(", ")}`,
+          400
+        );
+      }
     }
   }
 };
@@ -163,13 +148,40 @@ const validateAttributes = (
  * Create a new product listing
  */
 export const createListing = async (userId: string, data: CreateListingInput) => {
-  // Validate category
+  // 1. Validate category exists
   const category = await validateCategory(data.categoryId);
   
-  // Validate attributes
-  validateAttributes(data.attributes, category.attributes);
+  // 2. Validate attributes against category schema
+  validateAttributes(data.attributes || {}, category.attributes);
   
-  // Create listing
+  // 3. Build location object
+  const location: any = {
+    city: data.location.city
+  };
+  
+  if (data.location.address) {
+    location.address = data.location.address;
+  }
+  
+  // Handle coordinates if provided
+  if (data.location.coordinates) {
+    if (Array.isArray(data.location.coordinates)) {
+      // GeoJSON format: [lng, lat]
+      location.coordinates = {
+        type: "Point",
+        coordinates: data.location.coordinates
+      };
+    } else if (typeof data.location.coordinates === 'object' && 'lat' in data.location.coordinates) {
+      // Object format: {lat, lng}
+      const coords = data.location.coordinates as any;
+      location.coordinates = {
+        type: "Point",
+        coordinates: [coords.lng, coords.lat]
+      };
+    }
+  }
+  
+  // 4. Create listing with proper references
   const listing = await ProductListing.create({
     ownerId: new Types.ObjectId(userId),
     type: "PRODUCT",
@@ -177,16 +189,22 @@ export const createListing = async (userId: string, data: CreateListingInput) =>
     title: data.title,
     description: data.description,
     categoryId: new Types.ObjectId(data.categoryId),
-    attributes: data.attributes,
+    attributes: data.attributes || {},
     price: data.price,
-    currency: data.currency,
-    isNegotiable: data.isNegotiable ?? (data.transactionMode === "NEGOTIABLE"),
-    condition: data.condition,
-    images: data.images,
-    location: data.location,
+    currency: data.currency || "LKR",
+    isNegotiable: data.transactionMode === "NEGOTIABLE" ? true : (data.isNegotiable ?? false),
+    condition: data.condition || "USED_GOOD",
+    images: data.images || [],
+    location: location,
     status: "ACTIVE",
     tags: data.tags || []
   });
+  
+  // 5. Populate references before returning
+  await listing.populate([
+    { path: "categoryId", select: "name type" },
+    { path: "ownerId", select: "name email phone" }
+  ]);
   
   return listing;
 };

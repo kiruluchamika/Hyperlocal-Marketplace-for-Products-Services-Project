@@ -20,6 +20,8 @@ export interface IUser extends Document {
   address: IAddress;
   profileImage?: string;
   bio?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const addressSchema = new Schema<IAddress>({

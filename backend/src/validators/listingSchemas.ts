@@ -2,44 +2,83 @@ import { z } from "zod";
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
-const coordinatesSchema = z
-  .array(z.number())
-  .length(2, "coordinates must be [lng, lat]")
-  .refine((coords) => coords[0] >= -180 && coords[0] <= 180, {
-    message: "longitude out of range"
-  })
-  .refine((coords) => coords[1] >= -90 && coords[1] <= 90, {
-    message: "latitude out of range"
-  });
+// Flexible image URL schema
+const imageUrlSchema = z.string().url("Images must be valid URLs").or(z.string().min(5));
 
-const pointSchema = z.object({
-  type: z.literal("Point").default("Point"),
-  coordinates: coordinatesSchema
+// Flexible attributes - string, number, or boolean
+const attributeValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean()
+]);
+
+// Location schema with flexible coordinates
+const locationSchema = z.object({
+  city: z.string().min(1, "City is required").max(50),
+  address: z.string().max(255).optional(),
+  district: z.string().max(50).optional(),
+  province: z.string().max(50).optional(),
+  coordinates: z.any().optional() // Allows both {lat,lng} and [lng,lat]
 });
 
-const imageUrlSchema = z.string().url("images must contain valid URLs");
-const attributeValueSchema = z.union([z.string(), z.number(), z.boolean()]);
-
+/**
+ * Schema for creating a product listing
+ * Flexible but validates essential fields
+ */
 export const createListingSchema = z.object({
-  type: z.literal("PRODUCT").default("PRODUCT"),
-  transactionMode: z.enum(["BUY_NOW", "NEGOTIABLE"]).default("BUY_NOW"),
-  title: z.string().min(3, "title is required").max(120),
-  description: z.string().min(10, "description is required").max(3000),
-  categoryId: z.string().min(1, "categoryId is required"),
-  attributes: z.record(z.string(), attributeValueSchema).optional(),
-  price: z.number().min(0),
-  currency: z.literal("LKR").default("LKR"),
-  isNegotiable: z.boolean().optional().default(false),
-  condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]),
-  images: z.array(imageUrlSchema).min(1).max(10),
-  location: z.object({
-    city: z.string().min(1, "city is required"),
-    address: z.string().optional(),
-    coordinates: pointSchema
-  }),
-  tags: z.array(z.string().min(1)).max(20).optional()
+  type: z.literal("PRODUCT").default("PRODUCT").optional(),
+  
+  title: z.string()
+    .min(3, "Title must be at least 3 characters")
+    .max(120, "Title cannot exceed 120 characters"),
+  
+  description: z.string()
+    .min(10, "Description must be at least 10 characters")
+    .max(3000, "Description cannot exceed 3000 characters"),
+  
+  categoryId: z.string()
+    .min(1, "Category ID is required")
+    .regex(objectIdRegex, "Invalid category ID format"),
+  
+  price: z.number()
+    .positive("Price must be a positive number"),
+  
+  currency: z.string()
+    .default("LKR")
+    .optional(),
+  
+  transactionMode: z.enum(["BUY_NOW", "NEGOTIABLE"])
+    .default("BUY_NOW"),
+  
+  condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"])
+    .default("USED_GOOD")
+    .optional(),
+  
+  // Flexible attributes matching category
+  attributes: z.record(
+    z.string(),
+    attributeValueSchema
+  ).optional(),
+  
+  // Optional images
+  images: z.array(imageUrlSchema)
+    .optional()
+    .default([]),
+  
+  // Location with flexible coordinates
+  location: locationSchema,
+  
+  // Optional tags
+  tags: z.array(z.string().min(1))
+    .max(20)
+    .optional(),
+  
+  isNegotiable: z.boolean().optional(),
 });
 
+/**
+ * Schema for updating a product listing
+ */
 export const updateListingSchema = z
   .object({
     transactionMode: z.enum(["BUY_NOW", "NEGOTIABLE"]).optional(),
@@ -48,17 +87,10 @@ export const updateListingSchema = z
     categoryId: z.string().min(1).optional(),
     attributes: z.record(z.string(), attributeValueSchema).optional(),
     price: z.number().min(0).optional(),
-    currency: z.literal("LKR").optional(),
-    isNegotiable: z.boolean().optional(),
+    currency: z.string().optional(),
     condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
-    images: z.array(imageUrlSchema).min(1).max(10).optional(),
-    location: z
-      .object({
-        city: z.string().min(1).optional(),
-        address: z.string().optional(),
-        coordinates: pointSchema.optional()
-      })
-      .optional(),
+    images: z.array(imageUrlSchema).optional(),
+    location: locationSchema.optional(),
     tags: z.array(z.string().min(1)).max(20).optional(),
     status: z.enum(["ACTIVE", "SOLD", "HIDDEN"]).optional()
   })
@@ -78,21 +110,9 @@ export const listListingsQuerySchema = z
     minPrice: z.coerce.number().min(0).optional(),
     maxPrice: z.coerce.number().min(0).optional(),
     condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
-    lat: z.coerce.number().min(-90).max(90).optional(),
-    lng: z.coerce.number().min(-180).max(180).optional(),
-    radiusKm: z.coerce.number().min(0.1).max(200).optional(),
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(50).default(10),
-    sort: z.enum(["recent", "priceAsc", "priceDesc"]).default("recent")
+    limit: z.coerce.number().int().min(1).max(100).default(20)
   })
-  .refine(
-    (query) =>
-      (query.lat === undefined && query.lng === undefined && query.radiusKm === undefined) ||
-      (query.lat !== undefined && query.lng !== undefined),
-    {
-      message: "lat and lng are required for radius filtering"
-    }
-  )
   .refine(
     (query) => query.minPrice === undefined || query.maxPrice === undefined || query.minPrice <= query.maxPrice,
     {
