@@ -20,7 +20,8 @@ import {
   updateOrderStatusSchema,
   cancelOrderSchema,
   confirmReceivedSchema,
-  confirmDeliveryWithOtpSchema
+  confirmDeliveryWithOtpSchema,
+  updateDeliveryDetailsSchema
 } from "../validators/orderSchemas";
 import {
   createOrder,
@@ -31,7 +32,8 @@ import {
   startOrder,
   cancelOrder,
   confirmReceived,
-  confirmDeliveryWithOtp
+  confirmDeliveryWithOtp,
+  updateDeliveryDetails
 } from "../controllers/orderController";
 
 const router = Router();
@@ -67,22 +69,17 @@ const router = Router();
  *               deliveryMethod:
  *                 type: string
  *                 enum: [PICKUP, DELIVERY]
- *                 description: How the order will be fulfilled
+ *                 description: "PICKUP = Buyer picks up from seller location (auto-captured), DELIVERY = Seller delivers to buyer address (required)"
  *               deliveryAddress:
- *                 type: object
- *                 description: Required if deliveryMethod is DELIVERY
- *                 properties:
- *                   street:
- *                     type: string
- *                   city:
- *                     type: string
- *                   postalCode:
- *                     type: string
- *                   country:
- *                     type: string
+ *                 type: string
+ *                 description: "Required if deliveryMethod is DELIVERY. Full delivery address (min 10 chars, max 500 chars)"
+ *                 example: "123 Main Street, Apartment 4B, Colombo 00300"
+ *               note:
+ *                 type: string
+ *                 description: Optional note from buyer to seller (max 500 chars)
  *     responses:
  *       201:
- *         description: Order created successfully
+ *         description: Order created successfully. If PICKUP chosen, pickupLocationSnapshot will be auto-captured from listing location.
  *       400:
  *         description: Validation error or listing unavailable
  *       401:
@@ -93,7 +90,7 @@ const router = Router();
 router.post(
   "/",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(createOrderSchema),
   createOrder
 );
@@ -129,7 +126,7 @@ router.post(
 router.patch(
   "/:id/cancel",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(cancelOrderSchema),
   cancelOrder
 );
@@ -165,9 +162,73 @@ router.patch(
 router.patch(
   "/:id/confirm-received",
   auth,
-  requireRole(["buyer"]),
+  requireRole(["user"]),
   validate(confirmReceivedSchema),
   confirmReceived
+);
+
+/**
+ * @openapi
+ * /orders/{id}/delivery-details:
+ *   put:
+ *     tags: [Orders]
+ *     summary: Update delivery details (Buyer only)
+ *     description: |
+ *       Replace complete delivery configuration for PENDING orders only.
+ *       Allows buyer to change delivery method or address before seller accepts.
+ *       Cannot update after seller accepts or if payment already confirmed.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required: [deliveryMethod]
+ *                 properties:
+ *                   deliveryMethod:
+ *                     type: string
+ *                     enum: [PICKUP]
+ *                     description: Switch to pickup (no address needed)
+ *               - type: object
+ *                 required: [deliveryMethod, deliveryAddress]
+ *                 properties:
+ *                   deliveryMethod:
+ *                     type: string
+ *                     enum: [DELIVERY]
+ *                     description: Use delivery method
+ *                   deliveryAddress:
+ *                     type: string
+ *                     minLength: 10
+ *                     maxLength: 500
+ *                     description: Complete delivery address
+ *     responses:
+ *       200:
+ *         description: Delivery details updated successfully
+ *       400:
+ *         description: Cannot update (order not PENDING or payment already confirmed)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden or not order owner
+ *       404:
+ *         description: Order not found
+ */
+router.put(
+  "/:id/delivery-details",
+  auth,
+  requireRole(["user"]),
+  validate(updateDeliveryDetailsSchema),
+  updateDeliveryDetails
 );
 
 // ============================================
@@ -205,7 +266,7 @@ router.patch(
 router.patch(
   "/:id/accept",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   acceptOrder
 );
@@ -241,7 +302,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   rejectOrder
 );
@@ -277,7 +338,7 @@ router.patch(
 router.patch(
   "/:id/start",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(updateOrderStatusSchema),
   startOrder
 );
@@ -325,7 +386,7 @@ router.patch(
 router.post(
   "/:id/confirm-delivery",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(confirmDeliveryWithOtpSchema),
   confirmDeliveryWithOtp
 );
@@ -380,7 +441,7 @@ router.post(
 router.get(
   "/",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(listOrdersSchema),
   listOrders
 );
@@ -414,7 +475,7 @@ router.get(
 router.get(
   "/:id",
   auth,
-  requireRole(["buyer", "seller", "admin"]),
+  requireRole(["user", "admin"]),
   validate(getOrderByIdSchema),
   getOrderById
 );

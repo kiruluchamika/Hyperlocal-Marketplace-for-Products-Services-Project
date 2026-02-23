@@ -53,6 +53,7 @@ export interface IOrder extends Document {
   // Delivery
   deliveryMethod: DeliveryMethod;
   deliveryAddress?: string;     // Required if DELIVERY method
+  pickupLocationSnapshot?: string; // Captured from listing if PICKUP method
   
   // Optional note from buyer
   note?: string;
@@ -128,6 +129,11 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       trim: true,
       // Required if deliveryMethod is DELIVERY (validated in service layer)
+    },
+    pickupLocationSnapshot: {
+      type: String,
+      trim: true,
+      // Captured from listing if deliveryMethod is PICKUP
     },
     note: {
       type: String,

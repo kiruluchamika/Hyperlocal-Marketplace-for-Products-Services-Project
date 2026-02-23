@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
 
-type Role = "admin" | "seller" | "buyer";
+type Role = "admin" | "user";
 
 export const requireRole = (roles: Role[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {

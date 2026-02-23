@@ -174,7 +174,35 @@ export const confirmDeliveryWithOtpSchema = z.object({
   })
 });
 
+/**
+ * Update Delivery Details (Buyer)
+ * PUT /orders/:id/delivery-details
+ */
+export const updateDeliveryDetailsSchema = z.object({
+  params: z.object({
+    id: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
+  }),
+  body: z.discriminatedUnion("deliveryMethod", [
+    // Case 1: PICKUP (no address needed)
+    z.object({
+      deliveryMethod: z.literal(DeliveryMethod.PICKUP)
+    }),
+    // Case 2: DELIVERY (address required)
+    z.object({
+      deliveryMethod: z.literal(DeliveryMethod.DELIVERY),
+      deliveryAddress: z
+        .string()
+        .trim()
+        .min(10, "Delivery address must be at least 10 characters")
+        .max(500, "Delivery address cannot exceed 500 characters")
+    })
+  ])
+});
+
 // Export types for TypeScript
 export type CreateOrderInput = z.infer<typeof createOrderSchema>["body"];
 export type ListOrdersQuery = z.infer<typeof listOrdersSchema>["query"];
 export type ConfirmDeliveryWithOtpInput = z.infer<typeof confirmDeliveryWithOtpSchema>["body"];
+export type UpdateDeliveryDetailsInput = z.infer<typeof updateDeliveryDetailsSchema>["body"];
