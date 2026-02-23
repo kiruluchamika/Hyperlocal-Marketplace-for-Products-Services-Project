@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth";
+import { authOptional } from "../middlewares/authOptional";
 import { validate } from "../middlewares/validate";
 import { requireOwnershipOrAdmin } from "../middlewares/requireOwnershipOrAdmin";
 import {
@@ -45,6 +46,13 @@ const router = Router();
  *                 type: string
  *               categoryId:
  *                 type: string
+ *               attributes:
+ *                 type: object
+ *                 additionalProperties:
+ *                   oneOf:
+ *                     - type: string
+ *                     - type: number
+ *                     - type: boolean
  *               price:
  *                 type: number
  *               currency:
@@ -111,6 +119,11 @@ router.post("/", auth, validate(createListingSchema), createListingHandler);
  *         schema:
  *           type: string
  *       - in: query
+ *         name: transactionMode
+ *         schema:
+ *           type: string
+ *           enum: [BUY_NOW, NEGOTIABLE]
+ *       - in: query
  *         name: minPrice
  *         schema:
  *           type: number
@@ -161,7 +174,7 @@ router.get("/", validate(listListingsQuerySchema, "query"), listListingsHandler)
  * /listings/{id}:
  *   get:
  *     tags: [Listings]
- *     summary: Get single listing by id
+ *     summary: Get single listing by id (public active; owner/admin can access non-active)
  *     parameters:
  *       - in: path
  *         name: id
@@ -174,7 +187,7 @@ router.get("/", validate(listListingsQuerySchema, "query"), listListingsHandler)
  *       404:
  *         description: Listing not found
  */
-router.get("/:id", validate(listingIdParamSchema, "params"), getListingByIdHandler);
+router.get("/:id", authOptional, validate(listingIdParamSchema, "params"), getListingByIdHandler);
 
 /**
  * @openapi
@@ -206,6 +219,13 @@ router.get("/:id", validate(listingIdParamSchema, "params"), getListingByIdHandl
  *                 type: string
  *               categoryId:
  *                 type: string
+ *               attributes:
+ *                 type: object
+ *                 additionalProperties:
+ *                   oneOf:
+ *                     - type: string
+ *                     - type: number
+ *                     - type: boolean
  *               price:
  *                 type: number
  *               currency:

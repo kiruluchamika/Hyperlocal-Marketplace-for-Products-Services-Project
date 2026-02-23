@@ -18,6 +18,7 @@ const pointSchema = z.object({
 });
 
 const imageUrlSchema = z.string().url("images must contain valid URLs");
+const attributeValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
 export const createListingSchema = z.object({
   type: z.literal("PRODUCT").default("PRODUCT"),
@@ -25,8 +26,9 @@ export const createListingSchema = z.object({
   title: z.string().min(3, "title is required").max(120),
   description: z.string().min(10, "description is required").max(3000),
   categoryId: z.string().min(1, "categoryId is required"),
+  attributes: z.record(z.string(), attributeValueSchema).optional(),
   price: z.number().min(0),
-  currency: z.string().min(3).max(3).default("LKR"),
+  currency: z.literal("LKR").default("LKR"),
   isNegotiable: z.boolean().optional().default(false),
   condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]),
   images: z.array(imageUrlSchema).min(1).max(10),
@@ -44,8 +46,9 @@ export const updateListingSchema = z
     title: z.string().min(3).max(120).optional(),
     description: z.string().min(10).max(3000).optional(),
     categoryId: z.string().min(1).optional(),
+    attributes: z.record(z.string(), attributeValueSchema).optional(),
     price: z.number().min(0).optional(),
-    currency: z.string().min(3).max(3).optional(),
+    currency: z.literal("LKR").optional(),
     isNegotiable: z.boolean().optional(),
     condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
     images: z.array(imageUrlSchema).min(1).max(10).optional(),
@@ -71,6 +74,7 @@ export const listListingsQuerySchema = z
   .object({
     search: z.string().min(1).optional(),
     categoryId: z.string().optional(),
+    transactionMode: z.enum(["BUY_NOW", "NEGOTIABLE"]).optional(),
     minPrice: z.coerce.number().min(0).optional(),
     maxPrice: z.coerce.number().min(0).optional(),
     condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
