@@ -4,13 +4,12 @@ import User from "../models/User";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
 
-type Role = "admin" | "seller" | "buyer";
+type Role = "admin" | "user";
 
 interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role?: Role;
 }
 
 interface LoginInput {
@@ -20,7 +19,7 @@ interface LoginInput {
 
 const signToken = (userId: string, role: Role) => {
   return jwt.sign({ role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+    expiresIn: env.JWT_EXPIRES_IN,
     subject: userId
   });
 };
@@ -43,7 +42,7 @@ export const registerUser = async (input: RegisterInput) => {
     name: input.name,
     email: input.email,
     password: hashed,
-    role: input.role ?? "buyer"
+    role: "user"
   });
 
   const token = signToken(user.id, user.role as Role);
