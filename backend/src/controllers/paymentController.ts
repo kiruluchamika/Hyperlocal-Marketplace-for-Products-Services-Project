@@ -91,9 +91,8 @@ export const getPaymentByOrder = asyncHandler(
 );
 
 /**
- * TEST ONLY: Manually update payment status
+ * TEST ONLY: Manually complete payment (for testing)
  * Remove this after testing
- * POST /payments/test/complete/:paymentId
  */
 export const testCompletePayment = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {

@@ -222,9 +222,50 @@ router.get(
 );
 
 /**
- * TEST ONLY: Manually complete payment (for testing without Stripe CLI)
- * REMOVE THIS AFTER TESTING
- * POST /payments/test/complete/:paymentId
+ * @openapi
+ * /payments/test/complete/{paymentId}:
+ *   post:
+ *     tags: [Payments - Testing]
+ *     summary: TEST ONLY - Complete payment manually
+ *     description: |
+ *       **FOR TESTING ONLY** - Manually mark payment as HELD without Stripe webhook.
+ *       Use this to test payment flow without Stripe CLI.
+ *       
+ *       
+ *     parameters:
+ *       - name: paymentId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Payment ID (MongoDB ObjectId)
+ *         example: "608f1f77bcf86cd799439013"
+ *     responses:
+ *       200:
+ *         description: Payment status updated to HELD successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Payment status updated to HELD (TEST ONLY)"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       enum: [HELD]
+ *       404:
+ *         description: Payment not found
+ *       500:
+ *         description: Server error
  */
 router.post("/test/complete/:paymentId", testCompletePayment);
 
