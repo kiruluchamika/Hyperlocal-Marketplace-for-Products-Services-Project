@@ -114,32 +114,39 @@ export class PaymentService {
     let event: Stripe.Event;
     
     try {
+      console.log("🔍 Verifying webhook signature...");
       // Verify webhook signature
       event = stripe.webhooks.constructEvent(
         payload,
         signature,
         env.STRIPE_WEBHOOK_SECRET
       );
+      console.log("✅ Signature verified successfully");
+      console.log("📌 Event type:", event.type);
     } catch (err: any) {
+      console.error("❌ Webhook signature verification failed:", err.message);
       throw new AppError(`Webhook signature verification failed: ${err.message}`, 400);
     }
     
     // Handle specific events
     switch (event.type) {
       case "payment_intent.succeeded":
+        console.log("💰 Processing payment_intent.succeeded");
         await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
         break;
       
       case "payment_intent.payment_failed":
+        console.log("❌ Processing payment_intent.payment_failed");
         await this.handlePaymentFailed(event.data.object as Stripe.PaymentIntent);
         break;
       
       case "payment_intent.canceled":
+        console.log("🚫 Processing payment_intent.canceled");
         await this.handlePaymentCanceled(event.data.object as Stripe.PaymentIntent);
         break;
       
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`⚠️ Unhandled event type: ${event.type}`);
     }
     
     return { received: true };
@@ -150,20 +157,25 @@ export class PaymentService {
    * Updates payment status to HELD (escrow)
    */
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
+    console.log("🔍 Looking for payment with PaymentIntent ID:", paymentIntent.id);
+    
     const payment = await Payment.findOne({
       providerPaymentId: paymentIntent.id
     });
     
     if (!payment) {
-      console.error(`Payment not found for PaymentIntent: ${paymentIntent.id}`);
+      console.error(`❌ Payment not found for PaymentIntent: ${paymentIntent.id}`);
       return;
     }
+    
+    console.log("✅ Found payment:", payment._id);
+    console.log("📝 Current status:", payment.status);
     
     // Update payment status to HELD (in escrow)
     payment.status = PaymentStatus.HELD;
     await payment.save();
     
-    console.log(`Payment ${payment._id} marked as HELD (escrow)`);
+    console.log(`✅ Payment ${payment._id} marked as HELD (escrow)`);
   }
   
   /**

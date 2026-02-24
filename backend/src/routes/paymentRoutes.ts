@@ -19,7 +19,8 @@ import {
   initiatePayment,
   stripeWebhook,
   getPaymentByOrder,
-  getPaymentById
+  getPaymentById,
+  testCompletePayment
 } from "../controllers/paymentController";
 
 const router = Router();
@@ -161,7 +162,7 @@ router.get(
   "/order/:orderId",
   auth,
   requireRole(["user", "admin"]),
-  validate(getPaymentByOrderSchema),
+  validate(getPaymentByOrderSchema, "params"),
   getPaymentByOrder
 );
 
@@ -216,8 +217,15 @@ router.get(
   "/:id",
   auth,
   requireRole(["user", "admin"]),
-  validate(getPaymentByIdSchema),
+  validate(getPaymentByIdSchema, "params"),
   getPaymentById
 );
+
+/**
+ * TEST ONLY: Manually complete payment (for testing without Stripe CLI)
+ * REMOVE THIS AFTER TESTING
+ * POST /payments/test/complete/:paymentId
+ */
+router.post("/test/complete/:paymentId", testCompletePayment);
 
 export default router;
