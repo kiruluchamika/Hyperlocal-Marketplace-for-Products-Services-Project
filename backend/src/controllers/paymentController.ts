@@ -40,7 +40,12 @@ export const stripeWebhook = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const signature = req.headers["stripe-signature"] as string;
     
+    console.log("🔔 WEBHOOK RECEIVED");
+    console.log("Headers:", req.headers);
+    console.log("Signature:", signature);
+    
     if (!signature) {
+      console.error("❌ Missing stripe-signature header");
       res.status(400).json({
         success: false,
         message: "Missing stripe-signature header"
@@ -51,7 +56,15 @@ export const stripeWebhook = asyncHandler(
     // req.body is Buffer when using express.raw()
     const payload = req.body;
     
-    await paymentService.handleWebhook(payload, signature);
+    console.log("📦 Payload received, size:", payload?.length || "unknown");
+    
+    try {
+      await paymentService.handleWebhook(payload, signature);
+      console.log("✅ Webhook processed successfully");
+    } catch (error: any) {
+      console.error("❌ Webhook error:", error.message);
+      throw error;
+    }
     
     // Stripe expects 200 response
     res.status(200).json({ received: true });
@@ -72,6 +85,41 @@ export const getPaymentByOrder = asyncHandler(
     
     res.status(200).json({
       success: true,
+      data: payment
+    });
+  }
+);
+
+/**
+ * TEST ONLY: Manually complete payment (for testing)
+ * Remove this after testing
+ */
+export const testCompletePayment = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { paymentId } = req.params;
+    
+    console.log("🧪 TEST ENDPOINT: Updating payment status to HELD");
+    console.log("Payment ID:", paymentId);
+    
+    const Payment = require("../models/Payment").default;
+    const { PaymentStatus } = require("../models/Payment");
+    
+    const payment = await Payment.findByIdAndUpdate(
+      paymentId,
+      { status: PaymentStatus.HELD },
+      { new: true }
+    );
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found"
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: "Payment status updated to HELD (TEST ONLY)",
       data: payment
     });
   }

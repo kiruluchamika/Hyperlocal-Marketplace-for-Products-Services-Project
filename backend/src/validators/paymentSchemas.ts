@@ -12,12 +12,10 @@ import { z } from "zod";
  * POST /payments/initiate
  */
 export const initiatePaymentSchema = z.object({
-  body: z.object({
-    orderId: z
-      .string()
-      .min(1, "Order ID is required")
-      .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
-  })
+  orderId: z
+    .string()
+    .min(1, "Order ID is required")
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
 });
 
 /**
@@ -38,11 +36,9 @@ export const stripeWebhookSchema = z.object({
  * GET /payments/order/:orderId
  */
 export const getPaymentByOrderSchema = z.object({
-  params: z.object({
-    orderId: z
-      .string()
-      .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
-  })
+  orderId: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
 });
 
 /**
@@ -50,12 +46,10 @@ export const getPaymentByOrderSchema = z.object({
  * GET /payments/:id
  */
 export const getPaymentByIdSchema = z.object({
-  params: z.object({
-    id: z
-      .string()
-      .regex(/^[0-9a-fA-F]{24}$/, "Invalid payment ID format")
-  })
+  id: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid payment ID format")
 });
 
 // Export types for TypeScript
-export type InitiatePaymentInput = z.infer<typeof initiatePaymentSchema>["body"];
+export type InitiatePaymentInput = z.infer<typeof initiatePaymentSchema>;

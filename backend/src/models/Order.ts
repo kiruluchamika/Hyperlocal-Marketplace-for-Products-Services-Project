@@ -95,7 +95,7 @@ const orderSchema = new Schema<IOrder>(
     },
     listingId: {
       type: Schema.Types.ObjectId,
-      ref: "Listing",
+      ref: "ProductListing",
       required: true,
       index: true
     },
