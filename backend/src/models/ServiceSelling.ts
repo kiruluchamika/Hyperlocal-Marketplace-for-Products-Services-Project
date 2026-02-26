@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export type PricingType = "FIXED" | "HOURLY";
+export type ServiceSellingStatus = "ACTIVE" | "REMOVED" | "DELETED";
 
 export interface IServiceSelling extends Document {
   title: string;
@@ -16,7 +17,14 @@ export interface IServiceSelling extends Document {
   attributeValues: Record<string, unknown>;
 
   sellerId: mongoose.Types.ObjectId;
-  isActive: boolean;
+
+  // Visibility / moderation
+  status: ServiceSellingStatus;
+  isActive: boolean; // kept for backward compatibility
+  removedReason?: string;
+  removedBy?: mongoose.Types.ObjectId;
+  removedAt?: Date;
+  deletedAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;
@@ -40,7 +48,16 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
 
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
+    status: { type: String, enum: ["ACTIVE", "REMOVED", "DELETED"], default: "ACTIVE" },
+
+    // Keep old flag so existing code doesn't break; status is the real source of truth
     isActive: { type: Boolean, default: true },
+
+    removedReason: { type: String, trim: true, maxlength: 500 },
+    removedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    removedAt: { type: Date },
+
+    deletedAt: { type: Date },
   },
   { timestamps: true }
 );
