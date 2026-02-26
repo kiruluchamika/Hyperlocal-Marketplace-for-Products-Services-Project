@@ -79,19 +79,13 @@ const options: swaggerJsdoc.Options = {
       {
         name: "Payments",
         description: "Payment processing and management"
-      },
-      {
-        name: "Notifications",
-        description: "Real-time notification management for orders, payments, and system events"
       }
     ]
   },
   // Scan all route files for @openapi annotations
   apis: [
     path.join(process.cwd(), "src/routes/**/*.ts"),
-    path.join(process.cwd(), "src/routes/**/*.js"),
-    path.join(process.cwd(), "src/modules/**/routes/**/*.ts"),
-    path.join(process.cwd(), "src/modules/**/routes/**/*.js")
+    path.join(process.cwd(), "src/routes/**/*.js")
   ]
 };
 

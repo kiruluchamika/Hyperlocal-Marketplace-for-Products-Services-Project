@@ -12,7 +12,7 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
-import { validateOrder } from "../middlewares/validateOrder";
+import { validate } from "../middlewares/validate";
 import {
   createOrderSchema,
   listOrdersSchema,
@@ -91,7 +91,7 @@ router.post(
   "/",
   auth,
   requireRole(["user"]),
-  validateOrder(createOrderSchema),
+  validate(createOrderSchema),
   createOrder
 );
 
@@ -127,7 +127,7 @@ router.patch(
   "/:id/cancel",
   auth,
   requireRole(["user"]),
-  validateOrder(cancelOrderSchema),
+  validate(cancelOrderSchema),
   cancelOrder
 );
 
@@ -163,7 +163,7 @@ router.patch(
   "/:id/confirm-received",
   auth,
   requireRole(["user"]),
-  validateOrder(confirmReceivedSchema),
+  validate(confirmReceivedSchema),
   confirmReceived
 );
 
@@ -227,7 +227,7 @@ router.put(
   "/:id/delivery-details",
   auth,
   requireRole(["user"]),
-  validateOrder(updateDeliveryDetailsSchema),
+  validate(updateDeliveryDetailsSchema),
   updateDeliveryDetails
 );
 
@@ -267,7 +267,7 @@ router.patch(
   "/:id/accept",
   auth,
   requireRole(["user"]),
-  validateOrder(updateOrderStatusSchema),
+  validate(updateOrderStatusSchema),
   acceptOrder
 );
 
@@ -303,7 +303,7 @@ router.patch(
   "/:id/reject",
   auth,
   requireRole(["user"]),
-  validateOrder(updateOrderStatusSchema),
+  validate(updateOrderStatusSchema),
   rejectOrder
 );
 
@@ -339,7 +339,7 @@ router.patch(
   "/:id/start",
   auth,
   requireRole(["user"]),
-  validateOrder(updateOrderStatusSchema),
+  validate(updateOrderStatusSchema),
   startOrder
 );
 
@@ -387,7 +387,7 @@ router.post(
   "/:id/confirm-delivery",
   auth,
   requireRole(["user"]),
-  validateOrder(confirmDeliveryWithOtpSchema),
+  validate(confirmDeliveryWithOtpSchema),
   confirmDeliveryWithOtp
 );
 
@@ -442,7 +442,7 @@ router.get(
   "/",
   auth,
   requireRole(["user", "admin"]),
-  validateOrder(listOrdersSchema),
+  validate(listOrdersSchema),
   listOrders
 );
 
@@ -476,7 +476,7 @@ router.get(
   "/:id",
   auth,
   requireRole(["user", "admin"]),
-  validateOrder(getOrderByIdSchema),
+  validate(getOrderByIdSchema),
   getOrderById
 );
 
