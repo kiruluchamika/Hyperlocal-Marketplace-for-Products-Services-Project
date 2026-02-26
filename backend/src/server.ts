@@ -2,6 +2,8 @@ import "dotenv/config";
 import app from "./app";
 import { connectDb } from "./config/db";
 import { env } from "./config/env";
+import { setupNotificationSocket } from "./modules/notifications/socket/notificationSocket";
+import { startNotificationWatcher } from "./modules/notifications/watchers/changeStreamWatcher";
 
 // Import all models to ensure they're registered with Mongoose
 import User from "./models/User";
@@ -10,6 +12,8 @@ import ProductListing from "./models/ProductListing";
 import ServiceListing from "./models/ServiceListing";
 import Order from "./models/Order";
 import Payment from "./models/Payment";
+// Import Notification model
+import Notification from "./models/Notification";
 
 const startServer = async () => {
   await connectDb();
@@ -26,6 +30,12 @@ const startServer = async () => {
     console.log(`  - http://localhost:${port}/swagger`);
     console.log(`  - http://localhost:${port}/docs`);
     console.log(`Swagger JSON: http://localhost:${port}/swagger.json`);
+    
+    // Initialize Socket.IO for real-time notifications
+    const io = setupNotificationSocket(server);
+    
+    // Start MongoDB change stream watcher
+    startNotificationWatcher(io);
   });
 
   server.on("error", (error: NodeJS.ErrnoException) => {
