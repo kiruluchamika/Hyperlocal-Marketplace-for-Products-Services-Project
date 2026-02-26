@@ -11,6 +11,7 @@ import {
 } from "../validators/serviceSellingSchemas";
 
 import * as svc from "../services/serviceSellingService";
+import { AppError } from "../utils/AppError";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ const router = Router();
  * /serviceselling:
  *   get:
  *     tags: [ServiceSelling]
- *     summary: Public service ads feed
+ *     summary: Public service ads feed (ACTIVE only)
  *     parameters:
  *       - in: query
  *         name: search
@@ -46,25 +47,79 @@ const router = Router();
  *       200:
  *         description: Service ads feed
  */
-router.get(
-  "/",
-  validate(listServiceSellingQuerySchema, "query"),
-  async (req, res, next) => {
-    try {
-      const result = await svc.listServiceSelling(req.query);
-      res.json({ success: true, data: result });
-    } catch (e) {
-      next(e);
-    }
+router.get("/", validate(listServiceSellingQuerySchema, "query"), async (req, res, next) => {
+  try {
+    const result = await svc.listServiceSelling(req.query);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
   }
-);
+});
+
+/**
+ * @openapi
+ * /serviceselling/me:
+ *   get:
+ *     tags: [ServiceSelling]
+ *     summary: Get my service ads (all statuses)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: My service ads
+ *       401:
+ *         description: Authentication required
+ */
+router.get("/me", auth, requireRole(["user"]), async (req: any, res, next) => {
+  try {
+    const result = await svc.listMyServiceSelling(req.user.id);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /serviceselling/admin:
+ *   get:
+ *     tags: [ServiceSelling]
+ *     summary: Admin view of all service ads (all statuses)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, REMOVED, DELETED]
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: All service ads for admin dashboard
+ *       403:
+ *         description: Forbidden
+ */
+router.get("/admin", auth, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const result = await svc.listAdminServiceSelling(req.query);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * @openapi
  * /serviceselling/{id}:
  *   get:
  *     tags: [ServiceSelling]
- *     summary: Get single service ad by id
+ *     summary: Get single service ad by id (ACTIVE for public, REMOVED/DELETED only for owner/admin)
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -76,10 +131,16 @@ router.get(
  *         description: Service ad details
  *       404:
  *         description: Not found
+ *       401:
+ *         description: Authentication required
  */
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", auth, async (req: any, res, next) => {
   try {
-    const item = await svc.getServiceSellingById(req.params.id);
+    const item = await svc.getServiceSellingById(
+      req.params.id,
+      req.user?.id,
+      req.user?.role
+    );
     res.json({ success: true, data: item });
   } catch (e) {
     next(e);
@@ -91,7 +152,7 @@ router.get("/:id", async (req, res, next) => {
  * /serviceselling:
  *   post:
  *     tags: [ServiceSelling]
- *     summary: Create a service ad (seller only)
+ *     summary: Create a service ad (user only)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -141,7 +202,7 @@ router.get("/:id", async (req, res, next) => {
 router.post(
   "/",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   validate(createServiceSellingSchema),
   async (req: any, res, next) => {
     try {
@@ -158,7 +219,7 @@ router.post(
  * /serviceselling/{id}:
  *   put:
  *     tags: [ServiceSelling]
- *     summary: Update service ad (owner or admin)
+ *     summary: Update service ad (owner only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -167,6 +228,33 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               categoryId:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               pricingType:
+ *                 type: string
+ *                 enum: [FIXED, HOURLY]
+ *               locationText:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               attributeValues:
+ *                 type: object
+ *                 additionalProperties: true
  *     responses:
  *       200:
  *         description: Service ad updated
@@ -176,16 +264,12 @@ router.post(
 router.put(
   "/:id",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   requireServiceSellingOwnershipOrAdmin,
   validate(updateServiceSellingSchema),
   async (req: any, res, next) => {
     try {
-      const updated = await svc.updateServiceSelling(
-        req.params.id,
-        req.user.id,
-        req.body
-      );
+      const updated = await svc.updateServiceSelling(req.params.id, req.user.id, req.body);
       res.json({ success: true, data: updated });
     } catch (e) {
       next(e);
@@ -198,7 +282,7 @@ router.put(
  * /serviceselling/{id}:
  *   delete:
  *     tags: [ServiceSelling]
- *     summary: Delete service ad (owner or admin)
+ *     summary: Delete service ad (owner only) - soft delete
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -216,12 +300,60 @@ router.put(
 router.delete(
   "/:id",
   auth,
-  requireRole(["seller"]),
+  requireRole(["user"]),
   requireServiceSellingOwnershipOrAdmin,
   async (req: any, res, next) => {
     try {
-      await svc.deleteServiceSelling(req.params.id, req.user.id);
-      res.json({ success: true });
+      const result = await svc.deleteServiceSelling(req.params.id, req.user.id);
+      res.json({ success: true, message: result.message });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /serviceselling/{id}/moderate:
+ *   patch:
+ *     tags: [ServiceSelling]
+ *     summary: Admin removes a service ad (soft remove with reason)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 example: "Violates terms and conditions"
+ *     responses:
+ *       200:
+ *         description: Service ad removed by admin
+ *       403:
+ *         description: Forbidden
+ */
+router.patch(
+  "/:id/moderate",
+  auth,
+  requireRole(["admin"]),
+  async (req: any, res, next) => {
+    try {
+      const reason = String(req.body?.reason || "").trim();
+      if (!reason) throw new AppError("Reason is required", 400);
+
+      const result = await svc.moderateRemoveServiceSelling(req.params.id, req.user.id, reason);
+      res.json({ success: true, message: result.message, data: result.data });
     } catch (e) {
       next(e);
     }
