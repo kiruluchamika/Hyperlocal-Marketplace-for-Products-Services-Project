@@ -17,7 +17,16 @@ const envSchema = z.object({
   // Order & Payment Settings
   ENABLE_OTP_DELIVERY: z.string().default("true"),
   OTP_EXPIRY_MINUTES: z.string().default("30"),
-  CURRENCY: z.string().default("LKR")
+  CURRENCY: z.string().default("LKR"),
+  
+  // SMTP Email Configuration
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.string().default("false"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().email().default("noreply@hyperlocal.com"),
+  SMTP_FROM_NAME: z.string().default("Hyperlocal Marketplace")
 });
 
 const parsed = envSchema.safeParse(process.env);

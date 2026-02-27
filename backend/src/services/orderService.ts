@@ -27,13 +27,16 @@ import { AppError } from "../utils/AppError";
 import Order, { OrderStatus, DeliveryMethod } from "../models/Order";
 import Payment, { PaymentStatus } from "../models/Payment";
 import { PaymentService } from "./paymentService";
+import { EmailService } from "./emailService";
 import ProductListing from "../models/ProductListing";
 
 export class OrderService {
   private paymentService: PaymentService;
+  private emailService: EmailService;
   
   constructor() {
     this.paymentService = new PaymentService();
+    this.emailService = new EmailService();
   }
   
   /**
@@ -172,6 +175,27 @@ export class OrderService {
     }
     
     await order.save();
+    
+    // Send OTP via email if generated
+    if (otp) {
+      // Populate buyer details if not already populated
+      if (!order.populated("buyerId")) {
+        await order.populate("buyerId", "name email");
+      }
+      
+      const buyer = order.buyerId as any;
+      
+      // Send OTP email asynchronously (non-blocking)
+      this.emailService.sendOTP(
+        buyer.email,
+        buyer.name,
+        otp,
+        order.titleSnapshot
+      ).catch(error => {
+        console.error("Failed to send OTP email:", error);
+        // Don't throw - email failure shouldn't block order acceptance
+      });
+    }
     
     return {
       order,
