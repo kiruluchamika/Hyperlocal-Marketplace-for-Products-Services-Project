@@ -14,6 +14,7 @@ This system provides a location-aware marketplace platform with:
 - Order lifecycle management
 - Payment integration
 - OTP and notification workflows
+- Dedicated service ads + booking workflow with deposit payments
 - API documentation support (Swagger)
 
 Core backend lives in `backend/src`, with app bootstrap in `backend/src/app.ts` and server startup in `backend/src/server.ts`.
@@ -67,13 +68,21 @@ The main goals of this backend are to:
 ### Background Script
 - `backend/scripts/notification-listener.js`: Notification/event listener process.
 
+### Service Domain (Latest Updates)
+- `backend/src/models/ServiceSelling.ts`: Service ad model (status lifecycle, pricing type, moderation fields).
+- `backend/src/models/ServiceBooking.ts`: Booking model with status transitions and deposit details.
+- `backend/src/services/serviceSellingService.ts`: Service ad feed/my ads/admin moderation logic.
+- `backend/src/services/serviceBookingService.ts`: Booking create/decision/cancel/slots/deposit confirmation logic.
+- `backend/src/routes/serviceSellingRoutes.ts`: Service ad APIs mounted under `/serviceselling`.
+- `backend/src/routes/serviceBookingRoutes.ts`: Service booking APIs mounted under `/servicebookings`.
+
 ---
 
 ## 4) API Modules (High-Level)
 
 > Base URL example: `http://localhost:<PORT>/api`
 
-Based on controller structure, APIs are organized as:
+Based on currently mounted routes (`backend/src/routes/index.ts`), APIs are organized as:
 
 - **Auth APIs** (`/auth`)
   Register, login, token/credential workflows.
@@ -81,7 +90,7 @@ Based on controller structure, APIs are organized as:
   Profile retrieval/update, user management.
 - **Category APIs** (`/categories`)
   Category CRUD/listing.
-- **Geo APIs** (`/geo`)
+- **Geo APIs** (`/geo-search`)
   Location/region based queries.
 - **Listing APIs** (`/listings`)
   Create/update/delete/search marketplace listings.
@@ -91,8 +100,42 @@ Based on controller structure, APIs are organized as:
   Payment initiation/confirmation/status.
 - **OTP APIs** (`/otp`)
   Send/verify one-time passwords.
-- **Notification APIs** (`/notifications`)
-  User notifications retrieval/acknowledgement.
+- **Service Selling APIs** (`/serviceselling`)
+  Public service feed, my ads, admin moderation, create/update/delete service ads.
+- **Service Booking APIs** (`/servicebookings`)
+  Booking requests, provider decisions, cancellation, availability slots, and booking deposit initiation.
+
+### Service Selling API (Important Endpoints)
+- `GET /serviceselling` - Public feed (ACTIVE ads only, includes search/filter by category/pricing/price range).
+- `GET /serviceselling/me` - Logged-in user’s own service ads (all statuses).
+- `GET /serviceselling/admin` - Admin dashboard list with optional status/search filters.
+- `GET /serviceselling/:id` - Get single service ad (non-active ads visible only to owner/admin).
+- `POST /serviceselling` - Create service ad (user role).
+- `PUT /serviceselling/:id` - Update service ad (owner role checks).
+- `DELETE /serviceselling/:id` - Soft delete own service ad.
+- `PATCH /serviceselling/:id/moderate` - Admin soft remove with reason.
+
+### Service Booking API (Important Endpoints)
+- `POST /servicebookings` - Buyer creates booking request (`PENDING`).
+- `GET /servicebookings/me` - Buyer booking history with optional status filter.
+- `GET /servicebookings/provider/me` - Provider bookings with optional status filter.
+- `GET /servicebookings/slots` - Public confirmed busy slots for a service.
+- `PATCH /servicebookings/:id/cancel` - Buyer cancels booking (only `PENDING`).
+- `PATCH /servicebookings/:id/decision` - Provider accepts/rejects booking.
+- `POST /servicebookings/:id/deposit/initiate` - Buyer starts Stripe deposit payment after provider acceptance.
+
+### Service Booking Status Flow
+`PENDING -> PROVIDER_ACCEPTED -> CONFIRMED`
+
+Alternative exits:
+- `PENDING -> REJECTED`
+- `PENDING -> CANCELLED`
+
+### Deposit Rules (Current Behavior)
+- Allowed only when booking status is `PROVIDER_ACCEPTED`.
+- Hourly services: deposit uses full hourly amount.
+- Fixed-price services: deposit is `20%` of service price.
+- On successful Stripe confirmation, booking is moved to `CONFIRMED` after slot conflict check.
 
 For exact request/response contracts, use Swagger configured in `backend/src/config/swagger.ts`.
 
