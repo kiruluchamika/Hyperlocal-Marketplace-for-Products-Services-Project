@@ -573,6 +573,71 @@ export class OrderService {
   }
   
   /**
+   * Delete Order (Archive) - Admin only
+   * Soft deletes order and optionally refunds payment
+   */
+  async deleteOrder(
+    orderId: string,
+    adminId: string,
+    options: {
+      reason?: string;
+      refund?: boolean;
+    } = {}
+  ) {
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      throw new AppError("Order not found", 404);
+    }
+    
+    // Check if already deleted
+    if (order.isDeleted) {
+      throw new AppError("Order is already deleted/archived", 400);
+    }
+    
+    // Soft delete
+    order.isDeleted = true;
+    order.deletedAt = new Date();
+    
+    // Refund payment if requested and order was paid
+    if (options.refund !== false && order.paymentId) {
+      const payment = await Payment.findById(order.paymentId);
+      
+      if (payment) {
+        // Only refund if payment is HELD or RELEASED
+        if (
+          payment.status === PaymentStatus.HELD ||
+          payment.status === PaymentStatus.RELEASED
+        ) {
+          // If payment was already released to seller, pull it back
+          if (payment.status === PaymentStatus.RELEASED) {
+            throw new AppError(
+              "Cannot refund completed order. Use manual refund process.",
+              400
+            );
+          }
+          
+          // Refund the held payment
+          payment.status = PaymentStatus.REFUNDED;
+          payment.updatedAt = new Date();
+          await payment.save();
+        }
+      }
+    }
+    
+    await order.save();
+    
+    // Populate for response
+    await order.populate("buyerId", "name email");
+    await order.populate("sellerId", "name email");
+    
+    return {
+      order,
+      message: `Order archived successfully${options.reason ? ` - Reason: ${options.reason}` : ""}`
+    };
+  }
+  
+  /**
    * Generate 6-digit OTP
    */
   private generateOTP(): string {
