@@ -227,3 +227,28 @@ export const updateDeliveryDetails = asyncHandler(
     });
   }
 );
+
+/**
+ * DELETE /orders/:id
+ * Delete (archive) order (Admin only)
+ */
+export const deleteOrder = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { id } = req.params;
+    const adminId = req.user!.id;
+    const { reason, refund } = req.body || {};
+    
+    const result = await orderService.deleteOrder(id, adminId, {
+      reason,
+      refund
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: {
+        order: result.order
+      }
+    });
+  }
+);

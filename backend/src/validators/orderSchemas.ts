@@ -201,8 +201,35 @@ export const updateDeliveryDetailsSchema = z.object({
   ])
 });
 
+/**
+ * Delete Order (Admin only)
+ * DELETE /orders/:id
+ */
+export const deleteOrderSchema = z.object({
+  params: z.object({
+    id: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
+  }),
+  body: z.object({
+    reason: z
+      .string()
+      .trim()
+      .min(5, "Reason must be at least 5 characters")
+      .max(500, "Reason cannot exceed 500 characters")
+      .optional(),
+    
+    refund: z
+      .boolean()
+      .default(true)
+      .optional()
+      .describe("Whether to refund the payment if order is not completed")
+  }).optional()
+});
+
 // Export types for TypeScript
 export type CreateOrderInput = z.infer<typeof createOrderSchema>["body"];
 export type ListOrdersQuery = z.infer<typeof listOrdersSchema>["query"];
 export type ConfirmDeliveryWithOtpInput = z.infer<typeof confirmDeliveryWithOtpSchema>["body"];
 export type UpdateDeliveryDetailsInput = z.infer<typeof updateDeliveryDetailsSchema>["body"];
+export type DeleteOrderInput = z.infer<typeof deleteOrderSchema>;
