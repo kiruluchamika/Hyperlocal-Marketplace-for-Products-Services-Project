@@ -242,4 +242,3 @@ Add these once finalized:
 
 ## 10) License
 
-Add your project license here (e.g., MIT).
