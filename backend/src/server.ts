@@ -3,14 +3,6 @@ import app from "./app";
 import { connectDb } from "./config/db";
 import { env } from "./config/env";
 
-// Import all models to ensure they're registered with Mongoose
-import User from "./models/User";
-import Category from "./models/Category";
-import ProductListing from "./models/ProductListing";
-import ServiceListing from "./models/ServiceListing";
-import Order from "./models/Order";
-import Payment from "./models/Payment";
-
 const startServer = async () => {
   await connectDb();
   const port = Number(env.PORT);

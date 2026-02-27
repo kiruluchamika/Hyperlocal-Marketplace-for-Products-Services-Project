@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { register, login } from "../controllers/authController";
+import { register, login, googleSocialLogin } from "../controllers/authController";
 import { validate } from "../middlewares/validate";
-import { registerSchema, loginSchema } from "../validators/authSchemas";
+import { registerSchema, loginSchema, googleSocialLoginSchema } from "../validators/authSchemas";
 
 const router = Router();
 
@@ -161,5 +161,57 @@ router.post("/register", validate(registerSchema), register);
  *         description: Invalid credentials
  */
 router.post("/login", validate(loginSchema), login);
+
+/**
+ * @openapi
+ * /auth/social/google:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login or register using Google idToken
+ *     description: |
+ *       Verifies a Google ID token from the client and returns this API's JWT token.
+ *       Use this endpoint in Swagger by pasting a valid Google idToken into the request body.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [idToken]
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Google ID token received from Google Sign-In on frontend
+ *                 example: eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...<google-id-token>
+ *     responses:
+ *       200:
+ *         description: Google login successful and API JWT returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                       enum: [user, admin]
+ *                     isProfileComplete:
+ *                       type: boolean
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Invalid payload, invalid Google token, or unverified Google email
+ *       500:
+ *         description: Google social login not configured (missing GOOGLE_CLIENT_ID)
+ */
+router.post("/social/google", validate(googleSocialLoginSchema), googleSocialLogin);
 
 export default router;

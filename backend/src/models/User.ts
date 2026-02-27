@@ -18,6 +18,9 @@ export interface IUser extends Document {
   phone: string;
   age: number;
   address: IAddress;
+  googleId?: string;
+  emailVerified: boolean;
+  isProfileComplete: boolean;
   profileImage?: string;
   bio?: string;
   createdAt: Date;
@@ -45,6 +48,9 @@ const userSchema = new Schema<IUser>(
     phone: { type: String, required: true, trim: true },
     age: { type: Number, required: true, min: 18, max: 120 },
     address: { type: addressSchema, required: true },
+    googleId: { type: String, unique: true, sparse: true },
+    emailVerified: { type: Boolean, default: false },
+    isProfileComplete: { type: Boolean, default: true },
     profileImage: { type: String },
     bio: { type: String, maxlength: 500, trim: true }
   },
