@@ -12,6 +12,10 @@ export interface IServiceListing extends Document {
   pricingType: ServicePricingType;
   currency: "LKR";
   locationText: string;
+  location?: {
+    type: "Point";
+    coordinates: [number, number]; // [longitude, latitude]
+  };
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -52,12 +56,27 @@ const serviceListingSchema = new Schema<IServiceListing>(
       required: true
     },
     locationText: { type: String, required: true, trim: true },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point"
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator: (value: number[]) => value.length === 2,
+          message: "coordinates must be [lng, lat]"
+        }
+      }
+    },
     isActive: { type: Boolean, default: true, index: true }
   },
   { timestamps: true }
 );
 
 serviceListingSchema.index({ title: "text", description: "text" });
+serviceListingSchema.index({ "location.coordinates": "2dsphere" });
 
 const ServiceListing: Model<IServiceListing> = mongoose.model<IServiceListing>(
   "ServiceListing",
