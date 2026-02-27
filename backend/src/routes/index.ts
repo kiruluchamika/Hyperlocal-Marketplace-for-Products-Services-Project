@@ -7,6 +7,7 @@ import listingRoutes from "./listingRoutes";
 import categoryRoutes from "./categoryRoutes";
 import serviceSellingRoutes from "./serviceSellingRoutes";
 import geoRoutes from "./geoRoutes";
+import otpRoutes from "./otpRoutes";
 
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use("/listings", listingRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/serviceselling", serviceSellingRoutes);
 router.use("/geo-search", geoRoutes);
+router.use("/otp", otpRoutes);
 
 
 export default router;
