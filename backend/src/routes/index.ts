@@ -6,8 +6,8 @@ import paymentRoutes from "./paymentRoutes";
 import listingRoutes from "./listingRoutes";
 import categoryRoutes from "./categoryRoutes";
 import serviceSellingRoutes from "./serviceSellingRoutes";
+import serviceBookingRoutes from "./serviceBookingRoutes";
 import otpRoutes from "./otpRoutes";
-
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.use("/payments", paymentRoutes);
 router.use("/listings", listingRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/serviceselling", serviceSellingRoutes);
+router.use("/servicebookings", serviceBookingRoutes);
 router.use("/otp", otpRoutes);
-
 
 export default router;
