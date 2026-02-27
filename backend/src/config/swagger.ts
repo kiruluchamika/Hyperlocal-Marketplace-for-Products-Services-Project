@@ -79,6 +79,10 @@ const options: swaggerJsdoc.Options = {
       {
         name: "Payments",
         description: "Payment processing and management"
+      },
+      {
+        name: "OTP",
+        description: "Phone OTP send and verification via Twilio Verify"
       }
     ]
   },
