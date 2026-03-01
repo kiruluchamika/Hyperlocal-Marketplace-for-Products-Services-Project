@@ -91,6 +91,25 @@ export const loginUser = async (input: LoginInput) => {
   return { user: sanitizeUserProfile(user), token };
 };
 
+export const loginAdmin = async (input: LoginInput) => {
+  const user = await User.findOne({ email: input.email }).select("+password");
+  if (!user) {
+    throw new AppError("Invalid credentials", 401);
+  }
+
+  const matched = await bcrypt.compare(input.password, user.password);
+  if (!matched) {
+    throw new AppError("Invalid credentials", 401);
+  }
+
+  if (user.role !== "admin") {
+    throw new AppError("Admin access required", 403);
+  }
+
+  const token = signToken(user.id, user.role as Role);
+  return { user: sanitizeUserProfile(user), token };
+};
+
 export const loginWithGoogle = async (input: GoogleSocialLoginInput) => {
   const clientId = getGoogleClientId();
   const ticket = await googleClient.verifyIdToken({

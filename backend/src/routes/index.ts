@@ -9,6 +9,7 @@ import serviceSellingRoutes from "./serviceSellingRoutes";
 import serviceBookingRoutes from "./serviceBookingRoutes";
 import otpRoutes from "./otpRoutes";
 import geoRoutes from "./geoRoutes";
+import adminRoutes from "./adminRoutes";
 
 const router = Router();
 
@@ -22,6 +23,6 @@ router.use("/serviceselling", serviceSellingRoutes);
 router.use("/servicebookings", serviceBookingRoutes);
 router.use("/otp", otpRoutes);
 router.use("/geo-search", geoRoutes);
-
+router.use("/admin", adminRoutes);
 
 export default router;

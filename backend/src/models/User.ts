@@ -45,6 +45,8 @@ export interface IUser extends Document {
   verification: IUserVerification;
   preferences: IUserPreferences;
   sellerProfile?: ISellerProfile;
+  isActive: boolean;
+  suspendedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -108,7 +110,9 @@ const userSchema = new Schema<IUser>(
     bio: { type: String, maxlength: 500, trim: true },
     verification: { type: verificationSchema, default: () => ({}) },
     preferences: { type: preferencesSchema, default: () => ({}) },
-    sellerProfile: { type: sellerProfileSchema, default: () => ({}) }
+    sellerProfile: { type: sellerProfileSchema, default: () => ({}) },
+    isActive: { type: Boolean, default: true },
+    suspendedAt: { type: Date }
   },
   { timestamps: true }
 );
