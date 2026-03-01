@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Spinner } from '@/components/ui';
 
@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
   const { isAuthenticated, user, isLoading } = useAuthStore();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -25,6 +26,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   if (requiredRole && user?.role !== requiredRole) {
     return <Navigate to="/" replace />;
+  }
+
+  if (user && !user.isProfileComplete && location.pathname !== '/dashboard/profile') {
+    return <Navigate to="/dashboard/profile" replace />;
   }
 
   return <>{children}</>;

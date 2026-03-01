@@ -195,6 +195,33 @@ Typical variables:
 - `JWT_*` / auth secrets
 - Payment provider keys
 - Notification provider keys
+- `GOOGLE_CLIENT_ID` (backend verification for Google login)
+
+### Frontend Environment (Google Login)
+Create frontend env file from `frontend/.env.example`:
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+Set:
+- `VITE_GOOGLE_CLIENT_ID=<your_google_oauth_client_id>`
+
+> Use the same Google OAuth client ID value for both:
+> - `backend/.env` -> `GOOGLE_CLIENT_ID`
+> - `frontend/.env` -> `VITE_GOOGLE_CLIENT_ID`
+
+### Google Cloud Console Setup
+For your OAuth Web Client in Google Cloud Console:
+- Add Authorized JavaScript origins:
+  - `http://localhost:5173` (frontend dev)
+  - any deployed frontend origins
+- Do not use backend URL as JS origin.
+
+### Google Login Behavior
+- Login/Register pages use Google popup sign-in.
+- If Google creates a new user with incomplete profile, app redirects to `/dashboard/profile` until profile is completed.
 
 ### Development
 ```bash

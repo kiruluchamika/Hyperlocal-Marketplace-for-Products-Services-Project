@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   FiMail,
   FiLock,
@@ -17,16 +18,16 @@ import {
   FiCalendar,
   FiCheck,
 } from 'react-icons/fi';
-import { FcGoogle } from 'react-icons/fc';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
-  phone: z.string().min(9, 'Please enter a valid phone number'),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   age: z.number().min(18, 'Must be at least 18').max(120, 'Invalid age'),
   city: z.string().min(2, 'City is required'),
   street: z.string().optional(),
@@ -38,10 +39,21 @@ const registerSchema = z.object({
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 const RegisterPage: React.FC = () => {
-  const { register: registerUser, isLoading } = useAuthStore();
+  const { register: registerUser, socialLogin, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
+
+  const navigateAfterAuth = () => {
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser && !currentUser.isProfileComplete) {
+      toast('Please complete your profile to continue.');
+      navigate('/dashboard/profile', { replace: true });
+      return;
+    }
+
+    navigate('/', { replace: true });
+  };
 
   const {
     register,
@@ -86,10 +98,15 @@ const RegisterPage: React.FC = () => {
           country: 'Sri Lanka',
         },
       });
-      navigate('/');
+      navigateAfterAuth();
     } catch {
       // Error handled by store/interceptor
     }
+  };
+
+  const onGoogleSignup = async (idToken: string) => {
+    await socialLogin(idToken);
+    navigateAfterAuth();
   };
 
   const steps = [
@@ -214,16 +231,9 @@ const RegisterPage: React.FC = () => {
           {/* Google Sign Up (only on step 1) */}
           {step === 1 && (
             <>
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-3 px-6 py-3.5
-                           bg-white border-2 border-slate-200 rounded-xl text-sm font-semibold
-                           text-slate-700 hover:bg-slate-50 hover:border-slate-300
-                           transition-all duration-200 mb-6"
-              >
-                <FcGoogle className="h-5 w-5" />
-                Sign up with Google
-              </button>
+              <div className="mb-6">
+                <GoogleSignInButton onCredential={onGoogleSignup} text="signup_with" />
+              </div>
 
               <div className="relative mb-6">
                 <div className="absolute inset-0 flex items-center">
