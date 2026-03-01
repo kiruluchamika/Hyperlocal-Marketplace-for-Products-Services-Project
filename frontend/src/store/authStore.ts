@@ -12,12 +12,14 @@ interface AuthState {
   isLoading: boolean;
 
   login: (payload: LoginPayload) => Promise<void>;
+  adminLogin: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   socialLogin: (idToken: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   setUser: (user: IUser) => void;
   initialize: () => void;
+  persistSession: (token: string, user: IUser) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -25,6 +27,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem('bazaaro_token'),
   isAuthenticated: !!localStorage.getItem('bazaaro_token'),
   isLoading: false,
+
+  persistSession: (token: string, user: IUser) => {
+    localStorage.setItem('bazaaro_token', token);
+    localStorage.setItem('bazaaro_user', JSON.stringify(user));
+    set({ user, token, isAuthenticated: true, isLoading: false });
+  },
 
   initialize: () => {
     const token = localStorage.getItem('bazaaro_token');
@@ -46,13 +54,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = await authApi.login(payload);
       const { token, user } = data;
-      localStorage.setItem('bazaaro_token', token);
-      localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user, token, isAuthenticated: true, isLoading: false });
+      get().persistSession(token, user);
       toast.success(`Welcome back, ${user.name}!`);
     } catch {
       set({ isLoading: false });
       throw new Error('Login failed');
+    }
+  },
+
+  adminLogin: async (payload) => {
+    set({ isLoading: true });
+    try {
+      const { data } = await authApi.adminLogin(payload);
+      const { token, user } = data;
+      get().persistSession(token, user);
+      toast.success('Admin login successful');
+    } catch (error) {
+      set({ isLoading: false });
+      if (axios.isAxiosError(error)) {
+        const message =
+          (error.response?.data as { message?: string } | undefined)?.message ||
+          'Admin login failed';
+        throw new Error(message);
+      }
+      throw new Error('Admin login failed');
     }
   },
 
@@ -61,9 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = await authApi.register(payload);
       const { token, user } = data;
-      localStorage.setItem('bazaaro_token', token);
-      localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user, token, isAuthenticated: true, isLoading: false });
+      get().persistSession(token, user);
       toast.success('Account created successfully!');
     } catch {
       set({ isLoading: false });
@@ -76,9 +99,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = await authApi.googleLogin(idToken);
       const { token, user } = data;
-      localStorage.setItem('bazaaro_token', token);
-      localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user, token, isAuthenticated: true, isLoading: false });
+      get().persistSession(token, user);
       toast.success(`Welcome, ${user.name}!`);
     } catch (error) {
       set({ isLoading: false });

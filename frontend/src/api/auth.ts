@@ -33,6 +33,9 @@ export const authApi = {
   login: (data: LoginPayload) =>
     apiClient.post<AuthResponse>('/auth/login', data),
 
+  adminLogin: (data: LoginPayload) =>
+    apiClient.post<AuthResponse>('/auth/admin/login', data),
+
   googleLogin: (idToken: string) =>
     apiClient.post<AuthResponse>('/auth/social/google', { idToken }),
 };
