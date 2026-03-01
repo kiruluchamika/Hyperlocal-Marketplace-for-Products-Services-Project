@@ -223,6 +223,13 @@ For your OAuth Web Client in Google Cloud Console:
 - Login/Register pages use Google popup sign-in.
 - If Google creates a new user with incomplete profile, app redirects to `/dashboard/profile` until profile is completed.
 
+### Admin Login Behavior
+- Admin login page: `/admin/login`
+- Admin dashboard route: `/admin`
+- Backend endpoint: `POST /api/auth/admin/login`
+- Only users with `role: "admin"` can authenticate through admin login.
+- Public registration and Google social signup create `role: "user"`; create/promote admin users directly in database for admin access.
+
 ### Development
 ```bash
 npm run dev
