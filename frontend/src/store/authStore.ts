@@ -3,6 +3,7 @@ import { IUser } from '@/types';
 import { authApi, LoginPayload, RegisterPayload } from '@/api/auth';
 import { usersApi } from '@/api/users';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 interface AuthState {
   user: IUser | null;
@@ -47,7 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = data;
       localStorage.setItem('bazaaro_token', token);
       localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user: user as unknown as IUser, token, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true, isLoading: false });
       toast.success(`Welcome back, ${user.name}!`);
     } catch {
       set({ isLoading: false });
@@ -62,7 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = data;
       localStorage.setItem('bazaaro_token', token);
       localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user: user as unknown as IUser, token, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true, isLoading: false });
       toast.success('Account created successfully!');
     } catch {
       set({ isLoading: false });
@@ -77,10 +78,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = data;
       localStorage.setItem('bazaaro_token', token);
       localStorage.setItem('bazaaro_user', JSON.stringify(user));
-      set({ user: user as unknown as IUser, token, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true, isLoading: false });
       toast.success(`Welcome, ${user.name}!`);
-    } catch {
+    } catch (error) {
       set({ isLoading: false });
+      if (axios.isAxiosError(error)) {
+        const message =
+          (error.response?.data as { message?: string } | undefined)?.message ||
+          'Social login failed';
+        throw new Error(message);
+      }
       throw new Error('Social login failed');
     }
   },

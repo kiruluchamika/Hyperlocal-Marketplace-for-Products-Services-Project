@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { IUser } from '@/types';
 
 export interface RegisterPayload {
   name: string;
@@ -22,19 +23,7 @@ export interface LoginPayload {
 
 export interface AuthResponse {
   token: string;
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    role: string;
-    phone: string;
-    age: number;
-    address: Record<string, string>;
-    emailVerified: boolean;
-    isProfileComplete: boolean;
-    profileImage?: string;
-    bio?: string;
-  };
+  user: IUser;
 }
 
 export const authApi = {
