@@ -5,6 +5,7 @@ import { OAuth2Client } from "google-auth-library";
 import User from "../models/User";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
+import { sanitizeUserProfile } from "./userService";
 
 type Role = "admin" | "user";
 
@@ -52,21 +53,6 @@ const signToken = (userId: string, role: Role): string => {
   return token;
 };
 
-const sanitizeUser = (user: any) => ({
-  id: user._id.toString(),
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  phone: user.phone,
-  age: user.age,
-  address: user.address,
-  googleId: user.googleId,
-  emailVerified: user.emailVerified,
-  isProfileComplete: user.isProfileComplete,
-  profileImage: user.profileImage,
-  bio: user.bio
-});
-
 export const registerUser = async (input: RegisterInput) => {
   const existing = await User.findOne({ email: input.email });
   if (existing) {
@@ -87,7 +73,7 @@ export const registerUser = async (input: RegisterInput) => {
   });
 
   const token = signToken(user.id, user.role as Role);
-  return { user: sanitizeUser(user), token };
+  return { user: sanitizeUserProfile(user), token };
 };
 
 export const loginUser = async (input: LoginInput) => {
@@ -102,7 +88,7 @@ export const loginUser = async (input: LoginInput) => {
   }
 
   const token = signToken(user.id, user.role as Role);
-  return { user: sanitizeUser(user), token };
+  return { user: sanitizeUserProfile(user), token };
 };
 
 export const loginWithGoogle = async (input: GoogleSocialLoginInput) => {
@@ -152,5 +138,5 @@ export const loginWithGoogle = async (input: GoogleSocialLoginInput) => {
   }
 
   const token = signToken(user.id, user.role as Role);
-  return { user: sanitizeUser(user), token };
+  return { user: sanitizeUserProfile(user), token };
 };
