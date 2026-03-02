@@ -10,6 +10,8 @@ import serviceBookingRoutes from "./serviceBookingRoutes";
 import otpRoutes from "./otpRoutes";
 import geoRoutes from "./geoRoutes";
 
+import bookingTestRoutes from "./bookingTestRoutes";
+
 const router = Router();
 
 router.use("/auth", authRoutes);
@@ -22,6 +24,8 @@ router.use("/serviceselling", serviceSellingRoutes);
 router.use("/servicebookings", serviceBookingRoutes);
 router.use("/otp", otpRoutes);
 router.use("/geo-search", geoRoutes);
+
+router.use("/servicebookings-test", bookingTestRoutes);
 
 
 export default router;
