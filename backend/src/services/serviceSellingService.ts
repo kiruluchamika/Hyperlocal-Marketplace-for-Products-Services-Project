@@ -49,14 +49,31 @@ const validateAttributes = (attributeValues: Record<string, unknown>, category: 
   }
 };
 
+/**
+ * ✅ CREATE (location support added)
+ */
 export const createServiceSelling = async (userId: string, payload: any) => {
   const category = await getValidCategory(payload.categoryId);
 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
+  // ✅ Ensure proper GeoJSON structure if location provided
+  let locationData = undefined;
+  if (payload.location?.coordinates?.coordinates?.length === 2) {
+    locationData = {
+      city: payload.location.city,
+      address: payload.location.address,
+      coordinates: {
+        type: "Point",
+        coordinates: payload.location.coordinates.coordinates, // [lng, lat]
+      },
+    };
+  }
+
   const created = await ServiceSelling.create({
     ...payload,
+    location: locationData,
     attributeValues,
     sellerId: new Types.ObjectId(userId),
     status: "ACTIVE",
@@ -68,7 +85,6 @@ export const createServiceSelling = async (userId: string, payload: any) => {
 
 /**
  * Public feed: only ACTIVE ads
- * ✅ FEED CHANGE: hide description, but keep attributeValues and everything else
  */
 export const listServiceSelling = async (query: any) => {
   const filter: any = { status: "ACTIVE" };
@@ -83,7 +99,6 @@ export const listServiceSelling = async (query: any) => {
   }
 
   if (query.search) {
-    // NOTE: search still checks description in DB even if we don't return it
     filter.$or = [
       { title: { $regex: query.search, $options: "i" } },
       { description: { $regex: query.search, $options: "i" } },
@@ -92,29 +107,21 @@ export const listServiceSelling = async (query: any) => {
   }
 
   return ServiceSelling.find(filter)
-    .select("-description") // ✅ change: don't return description in feed
+    .select("-description")
     .sort({ createdAt: -1 })
     .populate("categoryId", "name type");
 };
 
-/**
- * My Ads: show all my statuses (ACTIVE/REMOVED/DELETED)
- * Owner can see removedReason/removedBy/removedAt here.
- */
 export const listMyServiceSelling = async (userId: string) => {
   return ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
     .sort({ createdAt: -1 })
     .populate("categoryId", "name type");
 };
 
-/**
- * Admin dashboard: show all ads (all statuses)
- */
 export const listAdminServiceSelling = async (query: any) => {
   const filter: any = {};
 
   if (query.status) filter.status = query.status;
-
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.pricingType) filter.pricingType = query.pricingType;
 
@@ -131,11 +138,6 @@ export const listAdminServiceSelling = async (query: any) => {
     .populate("categoryId", "name type");
 };
 
-/**
- * ✅ ID DETAILS CHANGE (Option B):
- * - Public: only ACTIVE
- * - Owner/Admin: can view REMOVED/DELETED too
- */
 export const getServiceSellingById = async (
   id: string,
   requesterId?: string,
@@ -148,7 +150,6 @@ export const getServiceSellingById = async (
   const isAdmin = requesterRole === "admin";
   const isActive = doc.status === "ACTIVE";
 
-  // if not active, only owner/admin can view
   if (!isActive && !isOwner && !isAdmin) {
     throw new AppError("Service ad not found", 404);
   }
@@ -156,6 +157,9 @@ export const getServiceSellingById = async (
   return doc;
 };
 
+/**
+ * ✅ UPDATE (location support added)
+ */
 export const updateServiceSelling = async (id: string, userId: string, payload: any) => {
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
@@ -174,18 +178,29 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
+  let updateData: any = { ...payload, attributeValues };
+
+  // ✅ Update geo location if provided
+  if (payload.location?.coordinates?.coordinates?.length === 2) {
+    updateData.location = {
+      city: payload.location.city,
+      address: payload.location.address,
+      coordinates: {
+        type: "Point",
+        coordinates: payload.location.coordinates.coordinates,
+      },
+    };
+  }
+
   const updated = await ServiceSelling.findByIdAndUpdate(
     id,
-    { ...payload, attributeValues },
+    updateData,
     { new: true }
   ).populate("categoryId", "name type");
 
   return updated;
 };
 
-/**
- * User delete = soft delete
- */
 export const deleteServiceSelling = async (id: string, userId: string) => {
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
@@ -202,9 +217,6 @@ export const deleteServiceSelling = async (id: string, userId: string) => {
   return { message: "Service ad deleted successfully" };
 };
 
-/**
- * Admin moderation remove (soft remove with reason)
- */
 export const moderateRemoveServiceSelling = async (
   id: string,
   adminId: string,
@@ -228,9 +240,6 @@ export const moderateRemoveServiceSelling = async (
   return { message: "Service ad removed by admin", data: existing };
 };
 
-/**
- * Used by middleware (ownership only)
- */
 export const canModifyServiceSelling = async (id: string, userId: string, _role: Role) => {
   const doc = await ServiceSelling.findById(id);
   if (!doc) return false;

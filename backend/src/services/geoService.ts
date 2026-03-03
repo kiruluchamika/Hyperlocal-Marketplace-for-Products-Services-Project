@@ -3,11 +3,11 @@
  * 
  * Handles geospatial queries for nearby products and services
  * Uses MongoDB 2dsphere indexes for efficient distance-based searches
- * Searches both ProductListings and ServiceListings within specified radius
+ * Searches both ProductListings and ServiceSelling within specified radius
  */
 
 import ProductListing from "../models/ProductListing";
-import ServiceListing from "../models/ServiceListing";
+import ServiceSelling from "../models/ServiceSelling";
 import { AppError } from "../utils/AppError";
 
 interface NearbySearchResult {
@@ -150,7 +150,7 @@ const searchNearbyServices = async (
 ) => {
   const radiusInRadians = kmToRadians(radiusKm);
 
-  const services = await ServiceListing.find(
+  const services = await ServiceSelling.find(
     {
       "location.coordinates": {
         $geoWithin: {
