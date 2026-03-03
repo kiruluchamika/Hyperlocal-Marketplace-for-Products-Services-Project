@@ -3,6 +3,18 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export type PricingType = "FIXED" | "HOURLY";
 export type ServiceSellingStatus = "ACTIVE" | "REMOVED" | "DELETED";
 
+/**
+ * ✅ NEW: Geo location structure (same style as ProductListing)
+ */
+interface ILocation {
+  city: string;
+  address?: string;
+  coordinates: {
+    type: "Point";
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
 export interface IServiceSelling extends Document {
   title: string;
   description: string;
@@ -11,7 +23,12 @@ export interface IServiceSelling extends Document {
   price: number;
   pricingType: PricingType;
 
+  // ✅ keep existing field (so old API stays working)
   locationText: string;
+
+  // ✅ NEW: proper geo location for geo-search
+  location?: ILocation;
+
   images: string[];
 
   attributeValues: Record<string, unknown>;
@@ -40,7 +57,28 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
     price: { type: Number, required: true, min: 0 },
     pricingType: { type: String, enum: ["FIXED", "HOURLY"], required: true },
 
+    // ✅ keep old field
     locationText: { type: String, required: true, trim: true, maxlength: 120 },
+
+    // ✅ NEW geo field (optional so old records don't break)
+    location: {
+      city: { type: String, trim: true, index: true },
+      address: { type: String, trim: true },
+      coordinates: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+          validate: {
+            validator: (value: number[]) => !value || value.length === 2,
+            message: "coordinates must be [lng, lat]",
+          },
+        },
+      },
+    },
 
     images: { type: [String], default: [] },
 
@@ -61,6 +99,12 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
   },
   { timestamps: true }
 );
+
+/**
+ * ✅ NEW: geo index (required for geo queries)
+ * This matches your geoService query: "location.coordinates"
+ */
+serviceSellingSchema.index({ "location.coordinates": "2dsphere" });
 
 const ServiceSelling: Model<IServiceSelling> = mongoose.model<IServiceSelling>(
   "ServiceSelling",
