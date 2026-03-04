@@ -13,6 +13,7 @@ import { Router } from "express";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
 import { validate } from "../middlewares/validate";
+import { validateOrder } from "../middlewares/validateOrder";
 import {
   createOrderSchema,
   listOrdersSchema,
