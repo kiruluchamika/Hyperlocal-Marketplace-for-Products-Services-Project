@@ -30,12 +30,15 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('bazaaro_token');
       localStorage.removeItem('bazaaro_user');
+      const isAdminPath = window.location.pathname.startsWith('/admin');
+      const authPath = isAdminPath ? '/admin/login' : '/login';
+
       // Only redirect if not already on auth pages
       if (
         !window.location.pathname.includes('/login') &&
         !window.location.pathname.includes('/register')
       ) {
-        window.location.href = '/login';
+        window.location.href = authPath;
       }
     }
 

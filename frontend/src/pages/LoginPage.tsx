@@ -5,9 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
-import { FcGoogle } from 'react-icons/fc';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -17,9 +18,20 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginPage: React.FC = () => {
-  const { login, isLoading } = useAuthStore();
+  const { login, socialLogin, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+
+  const navigateAfterAuth = () => {
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser && !currentUser.isProfileComplete) {
+      toast('Please complete your profile to continue.');
+      navigate('/dashboard/profile', { replace: true });
+      return;
+    }
+
+    navigate('/', { replace: true });
+  };
 
   const {
     register,
@@ -33,10 +45,15 @@ const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data);
-      navigate('/');
+      navigateAfterAuth();
     } catch {
       // Error handled by store/interceptor
     }
+  };
+
+  const onGoogleLogin = async (idToken: string) => {
+    await socialLogin(idToken);
+    navigateAfterAuth();
   };
 
   return (
@@ -63,16 +80,9 @@ const LoginPage: React.FC = () => {
           </p>
 
           {/* Google Sign In */}
-          <button
-            type="button"
-            className="w-full flex items-center justify-center gap-3 px-6 py-3.5
-                       bg-white border-2 border-slate-200 rounded-xl text-sm font-semibold
-                       text-slate-700 hover:bg-slate-50 hover:border-slate-300
-                       transition-all duration-200 mb-6"
-          >
-            <FcGoogle className="h-5 w-5" />
-            Continue with Google
-          </button>
+          <div className="mb-6">
+            <GoogleSignInButton onCredential={onGoogleLogin} text="signin_with" />
+          </div>
 
           {/* Divider */}
           <div className="relative mb-6">

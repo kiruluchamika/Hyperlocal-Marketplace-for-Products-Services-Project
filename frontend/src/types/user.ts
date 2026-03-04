@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'user';
+export type KycStatus = 'UNSUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 export interface Address {
   street?: string;
@@ -9,7 +10,7 @@ export interface Address {
 }
 
 export interface IUser {
-  _id: string;
+  id: string;
   name: string;
   email: string;
   role: UserRole;
@@ -21,6 +22,21 @@ export interface IUser {
   isProfileComplete: boolean;
   profileImage?: string;
   bio?: string;
+  verification: {
+    kycStatus: KycStatus;
+    kycSubmittedAt?: string;
+    kycReviewedAt?: string;
+  };
+  preferences: {
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    marketingEmails: boolean;
+  };
+  sellerProfile?: {
+    businessName?: string;
+    serviceArea?: string;
+    description?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

@@ -17,7 +17,7 @@ app.use(
   express.raw({ type: "application/json" })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "8mb" }));
 
 // Swagger UI - Multiple endpoints for convenience
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
