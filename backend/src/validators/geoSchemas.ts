@@ -120,3 +120,140 @@ export const nearbySearchBodySchema = z.object({
     })
     .optional()
 });
+
+/**
+ * ✅ ENHANCED GEO VALIDATION SCHEMAS
+ */
+
+/**
+ * Advanced geo search with comprehensive filtering
+ */
+export const advancedGeoSearchSchema = nearbySearchWithFiltersSchema.extend({
+  condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
+  sellerId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid seller ID").optional(),
+  search: z.string().max(100, "Search query too long").optional(),
+  sortBy: z.enum(["distance", "-distance", "price", "-price", "date", "-date"]).default("distance"),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+  tags: z.array(z.string()).optional(),
+  inStock: z.boolean().optional()
+}).refine(
+  (data) => {
+    if (data.minPrice && data.maxPrice) {
+      return data.minPrice <= data.maxPrice;
+    }
+    return true;
+  },
+  {
+    message: "Minimum price cannot be greater than maximum price",
+    path: ["minPrice"]
+  }
+);
+
+/**
+ * Validation for coordinate bounding box search
+ */
+export const geoGeofenceSearchSchema = z.object({
+  swLat: z
+    .string()
+    .or(z.number())
+    .transform((val) => typeof val === "string" ? parseFloat(val) : val)
+    .refine((lat) => lat >= -90 && lat <= 90, "Invalid southwest latitude"),
+
+  swLng: z
+    .string()
+    .or(z.number())
+    .transform((val) => typeof val === "string" ? parseFloat(val) : val)
+    .refine((lng) => lng >= -180 && lng <= 180, "Invalid southwest longitude"),
+
+  neLat: z
+    .string()
+    .or(z.number())
+    .transform((val) => typeof val === "string" ? parseFloat(val) : val)
+    .refine((lat) => lat >= -90 && lat <= 90, "Invalid northeast latitude"),
+
+  neLng: z
+    .string()
+    .or(z.number())
+    .transform((val) => typeof val === "string" ? parseFloat(val) : val)
+    .refine((lng) => lng >= -180 && lng <= 180, "Invalid northeast longitude"),
+
+  type: z.enum(["PRODUCT", "SERVICE"]).optional(),
+  minPrice: z.number().min(0).optional(),
+  maxPrice: z.number().min(0).optional(),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(20)
+}).refine(
+  (data) => data.swLat <= data.neLat,
+  { message: "Southwest latitude must be less than northeast latitude", path: ["swLat"] }
+).refine(
+  (data) => data.swLng <= data.neLng,
+  { message: "Southwest longitude must be less than northeast longitude", path: ["swLng"] }
+);
+
+/**
+ * Validation for bulk/batch geo searches
+ */
+export const batchGeoSearchSchema = z.object({
+  searches: z.array(
+    z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+      radiusKm: z.number().min(0.1).max(100)
+    })
+  ).min(1, "At least 1 search required").max(10, "Maximum 10 searches per batch")
+});
+
+/**
+ * Validation for geo search with delivery options
+ */
+export const geoSearchWithDeliverySchema = nearbySearchWithFiltersSchema.extend({
+  deliveryType: z.enum(["PICKUP", "DELIVERY", "BOTH"]).optional(),
+  maxDeliveryDistance: z.number().min(0).max(100).optional(),
+  availableNow: z.boolean().optional()
+});
+
+/**
+ * Validation for favorite locations save
+ */
+export const saveFavoriteLocationSchema = z.object({
+  name: z.string().min(2, "Location name must be at least 2 characters").max(50),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  description: z.string().max(200).optional(),
+  icon: z.string().emoji("Invalid emoji").optional()
+});
+
+/**
+ * Validation for coordinate validation utility
+ */
+export const validateCoordinatesSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180)
+}).refine(
+  (data) => !(data.latitude === 0 && data.longitude === 0),
+  { message: "Null Island (0,0) is not a valid location" }
+);
+
+/**
+ * Validation for seller location radius settings
+ */
+export const sellerDeliveryRadiusSchema = z.object({
+  sellerId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid seller ID"),
+  maxDeliveryRadius: z.number().min(1).max(100, "Maximum delivery radius is 100km"),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  isDeliveryAvailable: z.boolean().default(true)
+});
+
+/**
+ * Validation for location-based recommendations
+ */
+export const locationRecommendationsSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  radiusKm: z.number().min(0.1).max(50).default(10),
+  type: z.enum(["NEARBY", "TRENDING", "POPULAR", "NEW"]).default("NEARBY"),
+  limit: z.number().int().min(1).max(50).default(10),
+  excludeSellerId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional()
+});

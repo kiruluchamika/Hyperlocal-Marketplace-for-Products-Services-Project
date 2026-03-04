@@ -24,6 +24,9 @@ import Order from "../models/Order";
 import Payment, { PaymentStatus } from "../models/Payment";
 import { AppError } from "../utils/AppError";
 
+// ✅ ADD: booking confirm handler (ONLY used when paymentPurpose === BOOKING_DEPOSIT)
+import { confirmBookingFromStripeSuccess } from "./serviceBookingService";
+
 // Initialize Stripe
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-12-18.acacia" as any // Use stable version
@@ -37,32 +40,32 @@ export class PaymentService {
   async initiatePayment(orderId: string, buyerId: string) {
     // 1. Verify order exists and buyer owns it
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
       throw new AppError("Order not found", 404);
     }
-    
+
     if (order.buyerId.toString() !== buyerId) {
       throw new AppError("You are not authorized to pay for this order", 403);
     }
-    
+
     if (order.status !== "PENDING") {
       throw new AppError(
         "Payment can only be initiated for PENDING orders",
         400
       );
     }
-    
+
     // 2. Check if payment already exists
     const existingPayment = await Payment.findOne({ orderId: order._id });
-    
+
     if (existingPayment && existingPayment.status !== PaymentStatus.FAILED) {
       throw new AppError("Payment already initiated for this order", 400);
     }
-    
+
     // 3. Create Stripe PaymentIntent
     const amount = Math.round(order.totalAmount * 100); // Convert to cents
-    
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: env.CURRENCY.toLowerCase(),
@@ -76,7 +79,7 @@ export class PaymentService {
         enabled: true
       }
     });
-    
+
     // 4. Create Payment record
     const payment = await Payment.create({
       orderId: order._id,
@@ -92,11 +95,11 @@ export class PaymentService {
         stripeClientSecret: paymentIntent.client_secret
       }
     });
-    
+
     // 5. Attach payment to order
     order.paymentId = payment._id;
     await order.save();
-    
+
     return {
       paymentId: payment._id,
       clientSecret: paymentIntent.client_secret,
@@ -105,14 +108,14 @@ export class PaymentService {
       status: PaymentStatus.INITIATED
     };
   }
-  
+
   /**
    * Handle Stripe Webhook Events
    * Updates payment status based on Stripe events
    */
   async handleWebhook(payload: Buffer, signature: string) {
     let event: Stripe.Event;
-    
+
     try {
       console.log("🔍 Verifying webhook signature...");
       // Verify webhook signature
@@ -127,57 +130,120 @@ export class PaymentService {
       console.error("❌ Webhook signature verification failed:", err.message);
       throw new AppError(`Webhook signature verification failed: ${err.message}`, 400);
     }
-    
+
     // Handle specific events
     switch (event.type) {
-      case "payment_intent.succeeded":
+      case "payment_intent.succeeded": {
         console.log("💰 Processing payment_intent.succeeded");
-        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
+
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        // ✅ ADD: Booking deposit branch (isolated; does NOT affect orders)
+        const purpose = (paymentIntent.metadata as any)?.paymentPurpose;
+
+        if (purpose === "BOOKING_DEPOSIT") {
+          const bookingId = (paymentIntent.metadata as any)?.bookingId;
+
+          if (!bookingId) {
+            console.error("❌ BOOKING_DEPOSIT missing bookingId metadata");
+            break; // do not crash webhook
+          }
+
+          // Stripe amounts are in smallest currency unit (cents)
+          const amountSmallest =
+            typeof paymentIntent.amount_received === "number"
+              ? paymentIntent.amount_received
+              : paymentIntent.amount;
+
+          const amountMainUnit = amountSmallest / 100;
+
+          const currencyUpper = (paymentIntent.currency || env.CURRENCY).toUpperCase();
+
+          console.log("✅ BOOKING_DEPOSIT detected, confirming booking:", bookingId);
+
+          await confirmBookingFromStripeSuccess({
+            bookingId: String(bookingId),
+            paymentIntentId: paymentIntent.id,
+            amount: amountMainUnit,
+            currency: currencyUpper,
+          });
+
+          // Important: stop here so we DON'T run order payment logic
+          break;
+        }
+
+        // ✅ Existing order behavior stays identical
+        await this.handlePaymentSuccess(paymentIntent);
         break;
-      
-      case "payment_intent.payment_failed":
+      }
+
+      case "payment_intent.payment_failed": {
         console.log("❌ Processing payment_intent.payment_failed");
-        await this.handlePaymentFailed(event.data.object as Stripe.PaymentIntent);
+
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        // ✅ ADD: if this was booking deposit, just log and stop (no order impact)
+        const purpose = (paymentIntent.metadata as any)?.paymentPurpose;
+        if (purpose === "BOOKING_DEPOSIT") {
+          console.log("⚠️ BOOKING_DEPOSIT payment failed for bookingId:", (paymentIntent.metadata as any)?.bookingId);
+          break;
+        }
+
+        // ✅ Existing order behavior stays identical
+        await this.handlePaymentFailed(paymentIntent);
         break;
-      
-      case "payment_intent.canceled":
+      }
+
+      case "payment_intent.canceled": {
         console.log("🚫 Processing payment_intent.canceled");
-        await this.handlePaymentCanceled(event.data.object as Stripe.PaymentIntent);
+
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        // ✅ ADD: if this was booking deposit, just log and stop (no order impact)
+        const purpose = (paymentIntent.metadata as any)?.paymentPurpose;
+        if (purpose === "BOOKING_DEPOSIT") {
+          console.log("⚠️ BOOKING_DEPOSIT payment canceled for bookingId:", (paymentIntent.metadata as any)?.bookingId);
+          break;
+        }
+
+        // ✅ Existing order behavior stays identical
+        await this.handlePaymentCanceled(paymentIntent);
         break;
-      
+      }
+
       default:
         console.log(`⚠️ Unhandled event type: ${event.type}`);
     }
-    
+
     return { received: true };
   }
-  
+
   /**
    * Handle Successful Payment
    * Updates payment status to HELD (escrow)
    */
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
     console.log("🔍 Looking for payment with PaymentIntent ID:", paymentIntent.id);
-    
+
     const payment = await Payment.findOne({
       providerPaymentId: paymentIntent.id
     });
-    
+
     if (!payment) {
       console.error(`❌ Payment not found for PaymentIntent: ${paymentIntent.id}`);
       return;
     }
-    
+
     console.log("✅ Found payment:", payment._id);
     console.log("📝 Current status:", payment.status);
-    
+
     // Update payment status to HELD (in escrow)
     payment.status = PaymentStatus.HELD;
     await payment.save();
-    
+
     console.log(`✅ Payment ${payment._id} marked as HELD (escrow)`);
   }
-  
+
   /**
    * Handle Failed Payment
    */
@@ -185,18 +251,18 @@ export class PaymentService {
     const payment = await Payment.findOne({
       providerPaymentId: paymentIntent.id
     });
-    
+
     if (!payment) {
       console.error(`Payment not found for PaymentIntent: ${paymentIntent.id}`);
       return;
     }
-    
+
     payment.status = PaymentStatus.FAILED;
     await payment.save();
-    
+
     console.log(`Payment ${payment._id} marked as FAILED`);
   }
-  
+
   /**
    * Handle Canceled Payment
    */
@@ -204,76 +270,76 @@ export class PaymentService {
     const payment = await Payment.findOne({
       providerPaymentId: paymentIntent.id
     });
-    
+
     if (!payment) {
       return;
     }
-    
+
     payment.status = PaymentStatus.REFUNDED;
     await payment.save();
   }
-  
+
   /**
    * Release Payment to Seller
    * Called when order is completed
    */
   async releasePayment(orderId: string) {
     const payment = await Payment.findOne({ orderId });
-    
+
     if (!payment) {
       throw new AppError("Payment not found for this order", 404);
     }
-    
+
     if (payment.status !== PaymentStatus.HELD) {
       throw new AppError(
         `Cannot release payment with status: ${payment.status}`,
         400
       );
     }
-    
+
     // In production with Stripe Connect:
     // - Create transfer to seller's connected account
     // - Deduct platform fee
-    
+
     // For simulation, just update status
     payment.status = PaymentStatus.RELEASED;
     await payment.save();
-    
+
     console.log(`Payment ${payment._id} RELEASED to seller ${payment.sellerId}`);
-    
+
     return payment;
   }
-  
+
   /**
    * Refund Payment to Buyer
    * Called when order is cancelled or rejected
    */
   async refundPayment(orderId: string) {
     const payment = await Payment.findOne({ orderId });
-    
+
     if (!payment) {
       throw new AppError("Payment not found for this order", 404);
     }
-    
+
     if (![PaymentStatus.INITIATED, PaymentStatus.HELD].includes(payment.status)) {
       throw new AppError(
         `Cannot refund payment with status: ${payment.status}`,
         400
       );
     }
-    
+
     // In production:
     // await stripe.refunds.create({ payment_intent: payment.providerPaymentId });
-    
+
     // For simulation, just update status
     payment.status = PaymentStatus.REFUNDED;
     await payment.save();
-    
+
     console.log(`Payment ${payment._id} REFUNDED to buyer ${payment.buyerId}`);
-    
+
     return payment;
   }
-  
+
   /**
    * Get Payment by Order ID
    */
@@ -282,23 +348,23 @@ export class PaymentService {
       .populate("orderId", "status titleSnapshot")
       .populate("buyerId", "name email")
       .populate("sellerId", "name email");
-    
+
     if (!payment) {
       throw new AppError("Payment not found", 404);
     }
-    
+
     // Authorization: only buyer, seller, or admin
     const isBuyer = payment.buyerId._id.toString() === userId;
     const isSeller = payment.sellerId._id.toString() === userId;
     const isAdmin = role === "admin";
-    
+
     if (!isBuyer && !isSeller && !isAdmin) {
       throw new AppError("You are not authorized to view this payment", 403);
     }
-    
+
     return payment;
   }
-  
+
   /**
    * Get Payment by Payment ID
    */
@@ -307,20 +373,57 @@ export class PaymentService {
       .populate("orderId", "status titleSnapshot")
       .populate("buyerId", "name email")
       .populate("sellerId", "name email");
-    
+
     if (!payment) {
       throw new AppError("Payment not found", 404);
     }
-    
+
     // Authorization
     const isBuyer = payment.buyerId._id.toString() === userId;
     const isSeller = payment.sellerId._id.toString() === userId;
     const isAdmin = role === "admin";
-    
+
     if (!isBuyer && !isSeller && !isAdmin) {
       throw new AppError("You are not authorized to view this payment", 403);
     }
-    
+
     return payment;
+  }
+
+    /**
+   * Initiate Booking Deposit PaymentIntent (Service Booking)
+   * NOTE: This does NOT create Payment DB record (separate from orders).
+   * It ONLY creates a Stripe PaymentIntent and returns clientSecret.
+   */
+  async initiateBookingDeposit(args: {
+    bookingId: string;
+    amount: number;     // main unit (ex: 3000 LKR)
+    currency: string;   // "lkr"
+  }) {
+    const amountSmallest = Math.round(args.amount * 100); // Stripe expects cents-like unit
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountSmallest,
+      currency: args.currency.toLowerCase(),
+      metadata: {
+        paymentPurpose: "BOOKING_DEPOSIT",
+        bookingId: args.bookingId,
+      },
+      description: `Booking deposit for booking #${args.bookingId.slice(-8)}`,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    return {
+      paymentIntentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
+      amount: args.amount,
+      currency: args.currency.toLowerCase(),
+      metadata: {
+        paymentPurpose: "BOOKING_DEPOSIT",
+        bookingId: args.bookingId,
+      },
+    };
   }
 }
