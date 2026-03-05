@@ -6,3 +6,4 @@ export * from './order';
 export * from './payment';
 export * from './notification';
 export * from './api';
+export * from './admin';

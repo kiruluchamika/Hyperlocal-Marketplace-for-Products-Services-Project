@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { IUser } from '@/types';
 
 export interface RegisterPayload {
   name: string;
@@ -22,19 +23,7 @@ export interface LoginPayload {
 
 export interface AuthResponse {
   token: string;
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    role: string;
-    phone: string;
-    age: number;
-    address: Record<string, string>;
-    emailVerified: boolean;
-    isProfileComplete: boolean;
-    profileImage?: string;
-    bio?: string;
-  };
+  user: IUser;
 }
 
 export const authApi = {
@@ -43,6 +32,9 @@ export const authApi = {
 
   login: (data: LoginPayload) =>
     apiClient.post<AuthResponse>('/auth/login', data),
+
+  adminLogin: (data: LoginPayload) =>
+    apiClient.post<AuthResponse>('/auth/admin/login', data),
 
   googleLogin: (idToken: string) =>
     apiClient.post<AuthResponse>('/auth/social/google', { idToken }),
