@@ -29,10 +29,7 @@ interface CreateListingInput {
   location: {
     city: string;
     address?: string;
-    coordinates: {
-      type: "Point";
-      coordinates: [number, number];
-    };
+    coordinates?: unknown;
   };
   tags?: string[];
 }
@@ -51,10 +48,7 @@ interface UpdateListingInput {
   location?: {
     city: string;
     address?: string;
-    coordinates: {
-      type: "Point";
-      coordinates: [number, number];
-    };
+    coordinates?: unknown;
   };
   status?: "ACTIVE" | "SOLD" | "HIDDEN" | "DELETED";
   tags?: string[];
@@ -72,6 +66,17 @@ interface GetListingsQuery {
   page?: number;
   limit?: number;
 }
+
+type NormalizedCoordinates = {
+  type: "Point";
+  coordinates: [number, number];
+};
+
+type NormalizedLocation = {
+  city: string;
+  address?: string;
+  coordinates: NormalizedCoordinates;
+};
 
 /**
  * Validate category exists, is active, and is of type PRODUCT
@@ -145,6 +150,71 @@ const validateAttributes = (
 };
 
 /**
+ * Normalize flexible location payload into required GeoJSON Point format.
+ * Accepts:
+ * - GeoJSON object: { type: "Point", coordinates: [lng, lat] }
+ * - Lat/lng object: { lat, lng }
+ * - Coordinates array: [lng, lat]
+ */
+const normalizeLocation = (
+  input: { city: string; address?: string; coordinates?: unknown },
+  fallback?: { coordinates?: { type?: string; coordinates?: unknown } }
+): NormalizedLocation => {
+  const location: Partial<NormalizedLocation> = {
+    city: input.city,
+  };
+
+  if (input.address !== undefined) {
+    location.address = input.address;
+  }
+
+  const toTuple = (value: unknown): [number, number] | null => {
+    if (!Array.isArray(value) || value.length !== 2) return null;
+    const lng = Number(value[0]);
+    const lat = Number(value[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+    return [lng, lat];
+  };
+
+  const rawCoords = input.coordinates;
+  let normalizedCoords: [number, number] | null = null;
+
+  if (Array.isArray(rawCoords)) {
+    normalizedCoords = toTuple(rawCoords);
+  } else if (rawCoords && typeof rawCoords === "object") {
+    const geo = rawCoords as { type?: unknown; coordinates?: unknown; lat?: unknown; lng?: unknown };
+
+    if (geo.type === "Point" && geo.coordinates !== undefined) {
+      normalizedCoords = toTuple(geo.coordinates);
+    } else if (geo.lat !== undefined || geo.lng !== undefined) {
+      const lat = Number(geo.lat);
+      const lng = Number(geo.lng);
+      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+        normalizedCoords = [lng, lat];
+      }
+    }
+  }
+
+  if (!normalizedCoords && fallback?.coordinates?.type === "Point") {
+    normalizedCoords = toTuple(fallback.coordinates.coordinates);
+  }
+
+  if (!normalizedCoords) {
+    throw new AppError(
+      "location.coordinates must be provided as [lng, lat], { lat, lng }, or GeoJSON { type: 'Point', coordinates: [lng, lat] }",
+      400
+    );
+  }
+
+  location.coordinates = {
+    type: "Point",
+    coordinates: normalizedCoords,
+  };
+
+  return location as NormalizedLocation;
+};
+
+/**
  * Create a new product listing
  */
 export const createListing = async (userId: string, data: CreateListingInput) => {
@@ -154,32 +224,8 @@ export const createListing = async (userId: string, data: CreateListingInput) =>
   // 2. Validate attributes against category schema
   validateAttributes(data.attributes || {}, category.attributes);
   
-  // 3. Build location object
-  const location: any = {
-    city: data.location.city
-  };
-  
-  if (data.location.address) {
-    location.address = data.location.address;
-  }
-  
-  // Handle coordinates if provided
-  if (data.location.coordinates) {
-    if (Array.isArray(data.location.coordinates)) {
-      // GeoJSON format: [lng, lat]
-      location.coordinates = {
-        type: "Point",
-        coordinates: data.location.coordinates
-      };
-    } else if (typeof data.location.coordinates === 'object' && 'lat' in data.location.coordinates) {
-      // Object format: {lat, lng}
-      const coords = data.location.coordinates as any;
-      location.coordinates = {
-        type: "Point",
-        coordinates: [coords.lng, coords.lat]
-      };
-    }
-  }
+  // 3. Normalize location into required GeoJSON structure.
+  const location = normalizeLocation(data.location);
   
   // 4. Create listing with proper references
   const listing = await ProductListing.create({
@@ -348,7 +394,12 @@ export const updateListing = async (
   if (data.isNegotiable !== undefined) listing.isNegotiable = data.isNegotiable;
   if (data.condition) listing.condition = data.condition;
   if (data.images) listing.images = data.images;
-  if (data.location) listing.location = data.location;
+  if (data.location) {
+    const existingLocation = listing.location as unknown as {
+      coordinates?: { type?: string; coordinates?: unknown };
+    };
+    listing.location = normalizeLocation(data.location, existingLocation) as any;
+  }
   if (data.status) listing.status = data.status;
   if (data.tags) listing.tags = data.tags;
   
