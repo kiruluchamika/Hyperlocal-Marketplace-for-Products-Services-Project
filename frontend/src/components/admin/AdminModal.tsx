@@ -51,7 +51,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, title, childre
           </button>
         </div>
         {/* Body */}
-        <div className="px-6 py-4">{children}</div>
+        <div className="max-h-[80vh] overflow-y-auto px-6 py-4">{children}</div>
       </div>
     </div>
   );

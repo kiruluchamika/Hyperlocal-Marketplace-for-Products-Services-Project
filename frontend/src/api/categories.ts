@@ -1,19 +1,47 @@
 import apiClient from './client';
-import { ICategory } from '@/types';
+import { CategoryAttribute, CategoryType, ICategory } from '@/types';
+
+interface CategoryListParams {
+  type?: CategoryType;
+  isActive?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+interface CategoryPagination {
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+}
+
+interface CategoryListResponse {
+  data: ICategory[];
+  pagination: CategoryPagination;
+}
+
+interface CategoryPayload {
+  name: string;
+  type: CategoryType;
+  description?: string;
+  attributes?: CategoryAttribute[];
+  isActive?: boolean;
+}
 
 export const categoriesApi = {
-  getAll: (params?: { type?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
-    apiClient.get<{ categories: ICategory[]; pagination?: { total: number; page: number; totalPages: number } }>('/categories', { params }),
+  getAll: (params?: CategoryListParams) =>
+    apiClient.get<CategoryListResponse>('/categories', { params }),
 
   getById: (id: string) =>
-    apiClient.get<{ category: ICategory }>(`/categories/${id}`),
+    apiClient.get<ICategory>(`/categories/${id}`),
 
-  create: (data: Partial<ICategory>) =>
-    apiClient.post<{ category: ICategory }>('/categories', data),
+  create: (data: CategoryPayload) =>
+    apiClient.post<ICategory>('/categories', data),
 
-  update: (id: string, data: Partial<ICategory>) =>
-    apiClient.put<{ category: ICategory }>(`/categories/${id}`, data),
+  update: (id: string, data: Partial<CategoryPayload>) =>
+    apiClient.put<ICategory>(`/categories/${id}`, data),
 
   delete: (id: string) =>
-    apiClient.delete(`/categories/${id}`),
+    apiClient.delete<{ message: string }>(`/categories/${id}`),
 };

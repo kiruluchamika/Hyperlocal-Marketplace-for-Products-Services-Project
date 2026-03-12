@@ -20,7 +20,7 @@ export const useCategoryStore = create<CategoryState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await categoriesApi.getAll({ isActive: true, limit: 100 });
-      const categories = data.categories || [];
+      const categories = data.data || [];
       set({
         categories,
         productCategories: categories.filter((c) => c.type === 'PRODUCT'),
