@@ -105,11 +105,14 @@ export const listingIdParamSchema = z.object({
 export const listListingsQuerySchema = z
   .object({
     search: z.string().min(1).optional(),
+    searchTerm: z.string().min(1).optional(),
     categoryId: z.string().optional(),
+    city: z.string().min(1).max(50).optional(),
     transactionMode: z.enum(["BUY_NOW", "NEGOTIABLE"]).optional(),
     minPrice: z.coerce.number().min(0).optional(),
     maxPrice: z.coerce.number().min(0).optional(),
     condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).optional(),
+    sort: z.enum(["recent", "priceAsc", "priceDesc"]).optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20)
   })
