@@ -30,6 +30,8 @@ export const createListingHandler = asyncHandler(async (req: Request, res: Respo
  * @access Public
  */
 export const listListingsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const searchTerm = (req.query.searchTerm as string) || (req.query.search as string);
+
   const query = {
     categoryId: req.query.categoryId as string,
     minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
@@ -37,7 +39,7 @@ export const listListingsHandler = asyncHandler(async (req: Request, res: Respon
     city: req.query.city as string,
     condition: req.query.condition as string,
     transactionMode: req.query.transactionMode as string,
-    searchTerm: req.query.searchTerm as string,
+    searchTerm,
     page: req.query.page ? Number(req.query.page) : undefined,
     limit: req.query.limit ? Number(req.query.limit) : undefined
   };

@@ -70,7 +70,7 @@ const GeoMapCanvas: React.FC<GeoMapCanvasProps> = ({
   );
 
   return (
-    <div className="h-[460px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-card">
+    <div className="relative z-0 h-[460px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-card">
       <MapContainer center={center} zoom={13} className="h-full w-full">
         <CenterSync center={center} />
         <ClickToRecenter onCenterChange={onCenterChange} />
