@@ -13,7 +13,6 @@ import {
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
 import { geoApi } from '@/api/geo';
 import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import { useCategoryStore } from '@/store/categoryStore';
 import { GeoNearbyItem } from '@/types';
 
@@ -288,35 +287,6 @@ const BrowseServicesPage: React.FC = () => {
             </select>
           </div>
 
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
-              <span>Distance Radius</span>
-              <span>{filters.radiusKm} km</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={50}
-              value={filters.radiusKm}
-              onChange={(e) => setFilters((prev) => ({ ...prev, radiusKm: Number(e.target.value) }))}
-              className="w-full"
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[1, 3, 5, 10].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFilters((prev) => ({ ...prev, radiusKm: value }))}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    filters.radiusKm === value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {value}km
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="grid grid-cols-2 gap-2">
             <input
               value={filters.minPrice ?? ''}
@@ -409,7 +379,7 @@ const BrowseServicesPage: React.FC = () => {
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">{results.length} services found</p>
-              <Badge variant="info">Radius {filters.radiusKm}km</Badge>
+              <p className="text-xs text-slate-500">Map-based results</p>
             </div>
 
             {loading && <p className="py-6 text-sm text-slate-500">Loading nearby services...</p>}
