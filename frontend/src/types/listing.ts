@@ -36,3 +36,47 @@ export interface IProductListing {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ListingOwnerSummary {
+  _id?: string;
+  id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface ListingCategorySummary {
+  _id?: string;
+  name?: string;
+  type?: 'PRODUCT' | 'SERVICE';
+}
+
+export interface ListingFilters {
+  page?: number;
+  limit?: number;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  city?: string;
+  condition?: Condition;
+  transactionMode?: TransactionMode;
+  searchTerm?: string;
+}
+
+export interface ListingPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ListingsResponse {
+  success: boolean;
+  data: IProductListing[];
+  pagination: ListingPagination;
+}
+
+export interface ListingResponse {
+  success: boolean;
+  data: IProductListing;
+}

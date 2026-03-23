@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiSearch,
   FiMapPin,
@@ -19,6 +19,9 @@ import {
 import { useCategoryStore } from '@/store/categoryStore';
 import { useUIStore } from '@/store/uiStore';
 import { Card, Badge } from '@/components/ui';
+import heroImageOne from '@/assets/hero/1.jpg';
+import heroImageTwo from '@/assets/hero/2.jpg';
+import heroImageThree from '@/assets/hero/3.jpeg';
 
 // Animation variants
 const fadeInUp = {
@@ -36,15 +39,42 @@ const scaleIn = {
   visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } },
 };
 
+const heroSlides = [
+  {
+    image: heroImageOne,
+    title: 'Buy local products faster',
+    subtitle: 'Explore trusted sellers near your district',
+  },
+  {
+    image: heroImageTwo,
+    title: 'Book nearby services easily',
+    subtitle: 'Connect with professionals in a few clicks',
+  },
+  {
+    image: heroImageThree,
+    title: 'Sell and grow with your community',
+    subtitle: 'Create listings and reach local buyers daily',
+  },
+];
+
 const HomePage: React.FC = () => {
   const { categories, productCategories, serviceCategories, fetchCategories } = useCategoryStore();
   const { searchQuery, setSearchQuery } = useUIStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
   useEffect(() => {
     if (categories.length === 0) fetchCategories();
   }, [categories.length, fetchCategories]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 5500);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,189 +86,111 @@ const HomePage: React.FC = () => {
   return (
     <div className="overflow-hidden">
       {/* ===== HERO SECTION ===== */}
-      <section className="relative min-h-[90vh] flex items-center bg-gradient-hero overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl animate-pulse-slow" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-500/5 rounded-full blur-3xl" />
-          {/* Grid pattern overlay */}
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage:
-                'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
-              backgroundSize: '60px 60px',
-            }}
-          />
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+        <div className="absolute inset-0">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={heroSlides[activeHeroIndex].image}
+              initial={{ opacity: 0, scale: 1.08 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.03 }}
+              transition={{ duration: 1.2, ease: 'easeInOut' }}
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${heroSlides[activeHeroIndex].image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
+          </AnimatePresence>
+
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/60 to-slate-900/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-slate-900/10" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left — Text Content */}
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32 w-full">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="max-w-3xl"
+          >
+            <motion.div variants={fadeInUp} className="mb-4">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-primary-200 text-sm font-medium">
+                <FiZap className="h-3.5 w-3.5 text-accent-400" />
+                Sri Lanka's #1 Local Marketplace
+              </span>
+            </motion.div>
+
+            <motion.h1
+              variants={fadeInUp}
+              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4"
             >
-              <motion.div variants={fadeInUp} className="mb-4">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-primary-200 text-sm font-medium">
-                  <FiZap className="h-3.5 w-3.5 text-accent-400" />
-                  Sri Lanka's #1 Local Marketplace
-                </span>
-              </motion.div>
+              Find Products &{' '}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-300 via-violet-300 to-accent-400">
+                Services
+              </span>{' '}
+              Near You
+            </motion.h1>
 
-              <motion.h1
-                variants={fadeInUp}
-                className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6"
-              >
-                Find Products &{' '}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-300 via-violet-300 to-accent-400">
-                  Services
-                </span>{' '}
-                Near You
-              </motion.h1>
+            <motion.p variants={fadeInUp} className="text-lg text-slate-200 mb-3 max-w-2xl leading-relaxed">
+              {heroSlides[activeHeroIndex].title}
+            </motion.p>
+            <motion.p variants={fadeInUp} className="text-base text-slate-300 mb-8 max-w-2xl leading-relaxed">
+              {heroSlides[activeHeroIndex].subtitle}
+            </motion.p>
 
-              <motion.p
-                variants={fadeInUp}
-                className="text-lg text-slate-300 mb-8 max-w-lg leading-relaxed"
-              >
-                Discover, buy, sell, and book locally. From handmade crafts to professional services —
-                everything your neighborhood has to offer.
-              </motion.p>
-
-              {/* Search Bar */}
-              <motion.form
-                variants={fadeInUp}
-                onSubmit={handleSearch}
-                className="flex flex-col sm:flex-row gap-3 max-w-xl"
-              >
-                <div className="relative flex-1">
-                  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
-                  <input
-                    type="text"
-                    placeholder="What are you looking for?"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/95 backdrop-blur-sm
+            <motion.form
+              variants={fadeInUp}
+              onSubmit={handleSearch}
+              className="flex flex-col sm:flex-row gap-3 max-w-xl"
+            >
+              <div className="relative flex-1">
+                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="What are you looking for?"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/95 backdrop-blur-sm
                                text-slate-800 placeholder:text-slate-400
                                focus:ring-4 focus:ring-primary-500/30 outline-none
                                shadow-xl shadow-black/10 text-base"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="px-8 py-4 bg-gradient-to-r from-accent-400 to-accent-500
-                             text-slate-900 rounded-2xl font-bold text-base
-                             hover:from-accent-500 hover:to-accent-600
-                             shadow-xl shadow-accent-500/30 transition-all
-                             active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <FiSearch className="h-5 w-5" />
-                  Search
-                </button>
-              </motion.form>
-
-              {/* Quick stats */}
-              <motion.div
-                variants={fadeInUp}
-                className="flex items-center gap-8 mt-10"
-              >
-                <StatItem value="10K+" label="Products" />
-                <StatItem value="5K+" label="Services" />
-                <StatItem value="50+" label="Cities" />
-              </motion.div>
-            </motion.div>
-
-            {/* Right — Floating Cards */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="hidden lg:block relative"
-            >
-              <div className="relative w-full h-[500px]">
-                {/* Card 1 */}
-                <motion.div
-                  animate={{ y: [0, -15, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute top-0 right-0 w-72"
-                >
-                  <div className="bg-white rounded-2xl shadow-2xl p-4 border border-slate-100">
-                    <div className="h-36 bg-gradient-to-br from-primary-100 to-indigo-100 rounded-xl mb-3 flex items-center justify-center">
-                      <FiPackage className="h-12 w-12 text-primary-400" />
-                    </div>
-                    <h4 className="font-semibold text-slate-800 text-sm">Handmade Wooden Crafts</h4>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-primary-600 font-bold">LKR 2,500</span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <FiMapPin className="h-3 w-3" /> Kandy
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Card 2 */}
-                <motion.div
-                  animate={{ y: [0, 12, 0] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                  className="absolute top-32 left-0 w-64"
-                >
-                  <div className="bg-white rounded-2xl shadow-2xl p-4 border border-slate-100">
-                    <div className="h-28 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl mb-3 flex items-center justify-center">
-                      <FiTool className="h-10 w-10 text-emerald-400" />
-                    </div>
-                    <h4 className="font-semibold text-slate-800 text-sm">Plumbing Service</h4>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-emerald-600 font-bold">LKR 1,500/hr</span>
-                      <Badge variant="success" size="sm">Available</Badge>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Card 3 */}
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                  className="absolute bottom-10 right-12 w-60"
-                >
-                  <div className="bg-white rounded-2xl shadow-2xl p-4 border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl flex items-center justify-center">
-                        <FiStar className="h-5 w-5 text-amber-500" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500">Rating</p>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((i) => (
-                            <FiStar key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          ))}
-                          <span className="text-xs font-semibold text-slate-700 ml-1">4.9</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Notification popup */}
-                <motion.div
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
-                  className="absolute top-64 right-4 w-56"
-                >
-                  <div className="bg-white rounded-xl shadow-lg p-3 border border-slate-100 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FiTrendingUp className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-700">New order received!</p>
-                      <p className="text-[11px] text-slate-400">just now</p>
-                    </div>
-                  </div>
-                </motion.div>
+                />
               </div>
+              <button
+                type="submit"
+                className="px-8 py-4 bg-gradient-to-r from-accent-400 to-accent-500
+                           text-slate-900 rounded-2xl font-bold text-base
+                           hover:from-accent-500 hover:to-accent-600
+                           shadow-xl shadow-accent-500/30 transition-all
+                           active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <FiSearch className="h-5 w-5" />
+                Search
+              </button>
+            </motion.form>
+
+            <motion.div variants={fadeInUp} className="mt-7 flex items-center gap-2">
+              {heroSlides.map((slide, index) => (
+                <button
+                  key={slide.image}
+                  type="button"
+                  onClick={() => setActiveHeroIndex(index)}
+                  className={`h-2.5 rounded-full transition-all ${
+                    activeHeroIndex === index ? 'w-8 bg-white' : 'w-2.5 bg-white/50 hover:bg-white/80'
+                  }`}
+                  aria-label={`Show hero slide ${index + 1}`}
+                />
+              ))}
             </motion.div>
-          </div>
+
+            <motion.div variants={fadeInUp} className="flex items-center gap-8 mt-8">
+              <StatItem value="10K+" label="Products" />
+              <StatItem value="5K+" label="Services" />
+              <StatItem value="50+" label="Cities" />
+            </motion.div>
+          </motion.div>
         </div>
 
         {/* Bottom wave */}
