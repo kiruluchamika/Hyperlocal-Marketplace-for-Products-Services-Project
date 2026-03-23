@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiX } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiPackage, FiX } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import { listingsApi } from '@/api/listings';
 import type { DeliveryMethod, OrderStatus } from '@/types/order';
@@ -16,7 +16,12 @@ import type {
 } from './orders/orderManagementTypes';
 
 const ITEMS_PER_PAGE = 8;
-const BUY_NOW_ITEMS_PER_PAGE = 6;
+const PRODUCT_ITEMS_PER_PAGE = 12;
+const SEARCH_DEBOUNCE_MS = 400;
+const RECENT_SEARCH_KEY = 'orders.product.recentSearches';
+const MAX_RECENT_SEARCHES = 6;
+
+const TRENDING_SEARCHES = ['iphone', 'samsung', 'laptop', 'headphones', 'sofa', 'bike'];
 
 const STATUS_OPTIONS: Array<{ label: string; value: '' | OrderStatus }> = [
   { label: 'All Status', value: '' },
@@ -57,6 +62,74 @@ const PAYMENT_STATUS_CLASS: Record<PaymentStatus, string> = {
   FAILED: 'bg-rose-100 text-rose-800 border-rose-200',
 };
 
+const ORDER_JOURNEY: Array<{ status: OrderStatus; label: string }> = [
+  { status: 'PENDING', label: 'Requested' },
+  { status: 'ACCEPTED', label: 'Accepted' },
+  { status: 'IN_PROGRESS', label: 'In Progress' },
+  { status: 'COMPLETED', label: 'Completed' },
+];
+
+const ORDER_JOURNEY_ICON: Record<OrderStatus, React.ComponentType<{ size?: number }>> = {
+  PENDING: FiClock,
+  ACCEPTED: FiCheckCircle,
+  IN_PROGRESS: FiPackage,
+  COMPLETED: FiCheckCircle,
+  REJECTED: FiX,
+  CANCELLED: FiX,
+};
+
+const getPrimaryAction = (actions: OrderAction[]): OrderAction | null => {
+  const priority: OrderAction[] = [
+    'INITIATE_PAYMENT',
+    'ACCEPT',
+    'START',
+    'COMPLETE_WITH_OTP',
+    'CONFIRM_RECEIVED',
+    'CANCEL',
+    'REJECT',
+  ];
+
+  for (const action of priority) {
+    if (actions.includes(action)) {
+      return action;
+    }
+  }
+
+  return actions[0] ?? null;
+};
+
+const uniqueStrings = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
+
+const normalizeText = (value: string) => value.trim().toLowerCase();
+
+const levenshteinDistance = (first: string, second: string) => {
+  const a = normalizeText(first);
+  const b = normalizeText(second);
+
+  if (!a) return b.length;
+  if (!b) return a.length;
+
+  const matrix: number[][] = Array.from({ length: a.length + 1 }, () =>
+    Array.from({ length: b.length + 1 }, () => 0)
+  );
+
+  for (let i = 0; i <= a.length; i += 1) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j += 1) matrix[0][j] = j;
+
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const formatDateTime = (value: string) => {
@@ -82,9 +155,11 @@ type BuyNowRedirectState = {
 };
 
 type PrefillContext = {
-  source: 'listing-detail' | 'orders-buy-now-panel';
+  source: 'listing-detail' | 'orders-page-selector';
   listingTitle?: string;
 };
+
+type OrderView = 'BUYING' | 'SELLING';
 
 const OrderStatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) => (
   <span
@@ -116,17 +191,31 @@ const MyOrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'' | OrderStatus>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
+  const [orderView, setOrderView] = useState<OrderView>('BUYING');
 
   const [listError, setListError] = useState('');
-  const [buyNowError, setBuyNowError] = useState('');
   const [isListLoading, setIsListLoading] = useState(true);
-  const [isBuyNowLoading, setIsBuyNowLoading] = useState(true);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isSavingDelivery, setIsSavingDelivery] = useState(false);
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
 
   const [listingId, setListingId] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<IProductListing | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<IProductListing | null>(null);
+  const [productSearchInput, setProductSearchInput] = useState('');
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [products, setProducts] = useState<IProductListing[]>([]);
+  const [productDiscoveryPool, setProductDiscoveryPool] = useState<IProductListing[]>([]);
+  const [productPage, setProductPage] = useState(1);
+  const [productPagination, setProductPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState('');
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0);
+  const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('PICKUP');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -146,14 +235,6 @@ const MyOrdersPage: React.FC = () => {
     isSubmitting: false,
   });
 
-  const [buyNowProducts, setBuyNowProducts] = useState<IProductListing[]>([]);
-  const [buyNowSearchTerm, setBuyNowSearchTerm] = useState('');
-  const [buyNowPage, setBuyNowPage] = useState(1);
-  const [buyNowPagination, setBuyNowPagination] = useState({ page: 1, totalPages: 1, total: 0 });
-  const [focusedBuyNowListingId, setFocusedBuyNowListingId] = useState<string | null>(null);
-  const [focusedBuyNowProduct, setFocusedBuyNowProduct] = useState<IProductListing | null>(null);
-  const [isFocusedBuyNowLoading, setIsFocusedBuyNowLoading] = useState(false);
-
   const [deliveryDraftMethod, setDeliveryDraftMethod] = useState<DeliveryMethod>('PICKUP');
   const [deliveryDraftAddress, setDeliveryDraftAddress] = useState('');
 
@@ -172,8 +253,95 @@ const MyOrdersPage: React.FC = () => {
   });
 
   const createOrderSectionRef = useRef<HTMLDivElement | null>(null);
-  const listingIdInputRef = useRef<HTMLInputElement | null>(null);
+  const productsListSectionRef = useRef<HTMLDivElement | null>(null);
   const hasConsumedRedirectRef = useRef(false);
+
+  const preferredCity = useMemo(() => user?.address?.city?.trim() || '', [user?.address?.city]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setProductSearchTerm(productSearchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [productSearchInput]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(RECENT_SEARCH_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed)) {
+        setRecentSearches(parsed.slice(0, MAX_RECENT_SEARCHES));
+      }
+    } catch {
+      setRecentSearches([]);
+    }
+  }, []);
+
+  const saveRecentSearch = useCallback((term: string) => {
+    const clean = term.trim();
+    if (!clean) return;
+
+    setRecentSearches((prev) => {
+      const next = uniqueStrings([clean, ...prev]).slice(0, MAX_RECENT_SEARCHES);
+      try {
+        window.localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage errors in private mode
+      }
+      return next;
+    });
+  }, []);
+
+  const categoryChipOptions = useMemo(() => {
+    const categories = productDiscoveryPool
+      .map((product) => {
+        if (typeof product.categoryId === 'string') {
+          return { id: product.categoryId, label: 'Category' };
+        }
+
+        return {
+          id: product.categoryId?._id || '',
+          label: product.categoryId?.name || 'Category',
+        };
+      })
+      .filter((entry) => entry.id);
+
+    const seen = new Set<string>();
+    return categories.filter((entry) => {
+      if (seen.has(entry.id)) return false;
+      seen.add(entry.id);
+      return true;
+    });
+  }, [productDiscoveryPool]);
+
+  const suggestionOptions = useMemo(() => {
+    const query = normalizeText(productSearchInput);
+    if (!query) {
+      return uniqueStrings([...recentSearches, ...TRENDING_SEARCHES]).slice(0, 8);
+    }
+
+    const titleCandidates = productDiscoveryPool.map((product) => product.title);
+    const pool = uniqueStrings([...recentSearches, ...TRENDING_SEARCHES, ...titleCandidates]);
+
+    return pool
+      .filter((term) => normalizeText(term).includes(query))
+      .sort((first, second) => {
+        const firstStarts = normalizeText(first).startsWith(query) ? 0 : 1;
+        const secondStarts = normalizeText(second).startsWith(query) ? 0 : 1;
+        return firstStarts - secondStarts;
+      })
+      .slice(0, 8);
+  }, [productDiscoveryPool, productSearchInput, recentSearches]);
+
+  const getSellerDisplay = useCallback((product: IProductListing) => {
+    if (typeof product.ownerId === 'string') {
+      return 'Seller';
+    }
+
+    return product.ownerId?.name || product.ownerId?.email || 'Seller';
+  }, []);
 
   const beginOrderWorkflow = useCallback(
     (product: {
@@ -199,42 +367,11 @@ const MyOrdersPage: React.FC = () => {
       setPrefillContext(product.source ? { source: product.source, listingTitle: product.title } : null);
 
       createOrderSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      window.setTimeout(() => listingIdInputRef.current?.focus(), 250);
       toast.success(
         product.title ? `Order workflow started for ${product.title}.` : 'Order workflow started.'
       );
     },
     []
-  );
-
-  const refreshBuyNowProducts = useCallback(
-    async (targetPage?: number) => {
-      const pageToLoad = targetPage ?? buyNowPage;
-      setIsBuyNowLoading(true);
-      setBuyNowError('');
-
-      try {
-        const { data } = await listingsApi.getAll({
-          page: pageToLoad,
-          limit: BUY_NOW_ITEMS_PER_PAGE,
-          transactionMode: 'BUY_NOW',
-          searchTerm: buyNowSearchTerm.trim() || undefined,
-        });
-
-        setBuyNowProducts(data.data || []);
-        setBuyNowPagination({
-          page: data.pagination?.page ?? pageToLoad,
-          totalPages: data.pagination?.totalPages ?? 1,
-          total: data.pagination?.total ?? (data.data?.length || 0),
-        });
-      } catch {
-        setBuyNowProducts([]);
-        setBuyNowError('Unable to load Buy Now products right now.');
-      } finally {
-        setIsBuyNowLoading(false);
-      }
-    },
-    [buyNowPage, buyNowSearchTerm]
   );
 
   const fetchPaymentForOrder = useCallback(async (orderId: string) => {
@@ -321,21 +458,107 @@ const MyOrdersPage: React.FC = () => {
     void refreshOrders();
   }, [refreshOrders]);
 
+  const loadProducts = useCallback(async () => {
+    setIsProductsLoading(true);
+    setProductsError('');
+    setDidYouMean(null);
+
+    try {
+      const { data } = await listingsApi.getAll({
+        page: productPage,
+        limit: PRODUCT_ITEMS_PER_PAGE,
+        searchTerm: productSearchTerm.trim() || undefined,
+        transactionMode: 'BUY_NOW',
+        categoryId: selectedCategoryId || undefined,
+        city: preferredCity || undefined,
+      });
+
+      const visibleProducts = (data.data || []).filter((product) => {
+        if (!currentUserId) {
+          return true;
+        }
+
+        if (typeof product.ownerId === 'string') {
+          return product.ownerId !== currentUserId;
+        }
+
+        return product.ownerId?._id !== currentUserId && product.ownerId?.id !== currentUserId;
+      });
+
+      setProducts(visibleProducts);
+      setProductPagination({
+        page: data.pagination?.page ?? productPage,
+        totalPages: Math.max(1, data.pagination?.totalPages ?? 1),
+        total: data.pagination?.total ?? visibleProducts.length,
+      });
+
+      if (!productDiscoveryPool.length) {
+        const fallback = await listingsApi.getAll({
+          page: 1,
+          limit: 60,
+          transactionMode: 'BUY_NOW',
+        });
+
+        setProductDiscoveryPool(fallback.data.data || []);
+      }
+
+      if (productSearchTerm && visibleProducts.length === 0) {
+        const candidateTitles = uniqueStrings(
+          productDiscoveryPool.length
+            ? productDiscoveryPool.map((product) => product.title)
+            : (data.data || []).map((product) => product.title)
+        );
+
+        if (candidateTitles.length > 0) {
+          const ranked = candidateTitles
+            .map((title) => ({
+              title,
+              distance: levenshteinDistance(productSearchTerm, title),
+            }))
+            .sort((first, second) => first.distance - second.distance);
+
+          if (ranked[0] && ranked[0].distance <= 4) {
+            setDidYouMean(ranked[0].title);
+          }
+        }
+      }
+    } catch {
+      setProducts([]);
+      setProductPagination({ page: 1, totalPages: 1, total: 0 });
+      setProductsError('Unable to load products right now. Please try again.');
+    } finally {
+      setIsProductsLoading(false);
+    }
+  }, [
+    currentUserId,
+    productDiscoveryPool,
+    productPage,
+    productSearchTerm,
+    preferredCity,
+    selectedCategoryId,
+  ]);
+
   useEffect(() => {
-    void refreshBuyNowProducts();
-  }, [refreshBuyNowProducts]);
+    void loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productSearchTerm, selectedCategoryId]);
+
+  useEffect(() => {
+    setHighlightedSuggestionIndex(0);
+  }, [suggestionOptions]);
 
   useEffect(() => {
     setPage(1);
   }, [statusFilter, searchTerm]);
 
   useEffect(() => {
-    setBuyNowPage(1);
-  }, [buyNowSearchTerm]);
-
-  useEffect(() => {
-    void refreshBuyNowProducts(buyNowPage);
-  }, [buyNowPage, refreshBuyNowProducts]);
+    setStatusFilter('');
+    setSearchTerm('');
+    setPage(1);
+  }, [orderView]);
 
   useEffect(() => {
     if (!selectedOrderId) {
@@ -374,55 +597,132 @@ const MyOrdersPage: React.FC = () => {
       note: state.note,
       source: 'listing-detail',
     });
-    setFocusedBuyNowListingId(state.listingId);
 
     navigate(location.pathname, { replace: true, state: null });
   }, [beginOrderWorkflow, location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    if (!focusedBuyNowListingId) {
-      setFocusedBuyNowProduct(null);
+    if (!listingId.trim()) {
+      setSelectedProduct(null);
       return;
     }
 
-    const existing = buyNowProducts.find((product) => product._id === focusedBuyNowListingId);
-    if (existing) {
-      setFocusedBuyNowProduct(existing);
+    if (selectedProduct?._id === listingId) {
       return;
     }
 
     let mounted = true;
-    setIsFocusedBuyNowLoading(true);
 
     void listingsApi
-      .getById(focusedBuyNowListingId)
+      .getById(listingId)
       .then(({ data }) => {
         if (!mounted) return;
-        setFocusedBuyNowProduct(data.data ?? null);
+        setSelectedProduct(data.data ?? null);
       })
       .catch(() => {
         if (!mounted) return;
-        setFocusedBuyNowProduct(null);
-        setBuyNowError('Unable to load selected Buy Now product.');
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setIsFocusedBuyNowLoading(false);
+        setSelectedProduct(null);
       });
 
     return () => {
       mounted = false;
     };
-  }, [buyNowProducts, focusedBuyNowListingId]);
+  }, [listingId, selectedProduct?._id]);
+
+  const handleSelectProduct = (product: IProductListing) => {
+    setSelectedProduct(product);
+    setPreviewProduct(null);
+    saveRecentSearch(product.title);
+    beginOrderWorkflow({
+      id: product._id,
+      title: product.title,
+      quantity: 1,
+      deliveryMethod: 'PICKUP',
+      source: 'orders-page-selector',
+    });
+  };
+
+  const handleOpenProductPreview = (product: IProductListing) => {
+    setPreviewProduct(product);
+  };
+
+  const handleCloseProductPreview = () => {
+    setPreviewProduct(null);
+  };
+
+  const handleViewAvailableProducts = () => {
+    setProductSearchInput('');
+    setProductPage(1);
+    setSelectedCategoryId('');
+    setDidYouMean(null);
+    setShowSuggestions(false);
+
+    window.setTimeout(() => {
+      productsListSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
+  const applySearchTerm = (term: string) => {
+    setProductSearchInput(term);
+    setShowSuggestions(false);
+    setHighlightedSuggestionIndex(0);
+    saveRecentSearch(term);
+  };
+
+  const handleProductSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestionOptions.length === 0) {
+      if (event.key === 'Enter' && productSearchInput.trim()) {
+        saveRecentSearch(productSearchInput.trim());
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((prev) => Math.min(suggestionOptions.length - 1, prev + 1));
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((prev) => Math.max(0, prev - 1));
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const selectedSuggestion = suggestionOptions[highlightedSuggestionIndex] || suggestionOptions[0];
+      if (selectedSuggestion) {
+        applySearchTerm(selectedSuggestion);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  const viewScopedOrders = useMemo(() => {
+    if (!currentUserId) {
+      return [];
+    }
+
+    if (orderView === 'BUYING') {
+      return orders.filter((order) => order.buyerId === currentUserId);
+    }
+
+    return orders.filter((order) => order.sellerId === currentUserId);
+  }, [currentUserId, orderView, orders]);
 
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     if (!query) {
-      return orders;
+      return viewScopedOrders;
     }
 
-    return orders.filter((order) => {
+    return viewScopedOrders.filter((order) => {
       const otherParty = isBuyerSide(order, currentUserId) ? order.seller : order.buyer;
       const searchableValues = [
         order.titleSnapshot,
@@ -437,7 +737,7 @@ const MyOrdersPage: React.FC = () => {
 
       return searchableValues.includes(query);
     });
-  }, [currentUserId, orders, searchTerm]);
+  }, [currentUserId, searchTerm, viewScopedOrders]);
 
   const sortedOrders = useMemo(
     () =>
@@ -461,9 +761,19 @@ const MyOrdersPage: React.FC = () => {
     return sortedOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [page, sortedOrders]);
 
+  useEffect(() => {
+    setSelectedOrderId((current) => {
+      if (current && sortedOrders.some((order) => order.id === current)) {
+        return current;
+      }
+
+      return sortedOrders[0]?.id ?? null;
+    });
+  }, [sortedOrders]);
+
   const selectedFromList = useMemo(
-    () => orders.find((order) => order.id === selectedOrderId) ?? null,
-    [orders, selectedOrderId]
+    () => sortedOrders.find((order) => order.id === selectedOrderId) ?? null,
+    [sortedOrders, selectedOrderId]
   );
 
   const activeOrder =
@@ -472,13 +782,27 @@ const MyOrdersPage: React.FC = () => {
   const activePayment = activeOrder ? paymentByOrderId[activeOrder.id] ?? null : null;
 
   const orderStats = useMemo(() => {
-    const total = orders.length;
-    const pending = orders.filter((order) => order.status === 'PENDING').length;
-    const inProgress = orders.filter((order) => order.status === 'IN_PROGRESS').length;
-    const completed = orders.filter((order) => order.status === 'COMPLETED').length;
+    const total = viewScopedOrders.length;
+    const pending = viewScopedOrders.filter((order) => order.status === 'PENDING').length;
+    const inProgress = viewScopedOrders.filter((order) => order.status === 'IN_PROGRESS').length;
+    const completed = viewScopedOrders.filter((order) => order.status === 'COMPLETED').length;
 
     return { total, pending, inProgress, completed };
-  }, [orders]);
+  }, [viewScopedOrders]);
+
+  const actionMetrics = useMemo(() => {
+    const actionNeeded = viewScopedOrders.filter((order) => order.actionsAllowed.length > 0).length;
+    const awaitingPayment = viewScopedOrders.filter((order) =>
+      order.actionsAllowed.includes('INITIATE_PAYMENT')
+    ).length;
+    const recentlyUpdated = viewScopedOrders.filter((order) => {
+      const updatedAt = new Date(order.updatedAt).getTime();
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      return updatedAt >= oneDayAgo;
+    }).length;
+
+    return { actionNeeded, awaitingPayment, recentlyUpdated };
+  }, [viewScopedOrders]);
 
   const pollPaymentStatus = useCallback(
     async (orderId: string) => {
@@ -504,8 +828,8 @@ const MyOrdersPage: React.FC = () => {
   const handleCreateOrder = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!listingId.trim()) {
-      toast.error('Listing ID is required.');
+    if (!selectedProduct || !listingId.trim()) {
+      toast.error('Select a product to start your order.');
       return;
     }
 
@@ -548,19 +872,9 @@ const MyOrdersPage: React.FC = () => {
     }
   };
 
-  const beginOrderFromProduct = (product: IProductListing) => {
-    setFocusedBuyNowListingId(null);
-    beginOrderWorkflow({
-      id: product._id,
-      title: product.title,
-      quantity: 1,
-      deliveryMethod: 'PICKUP',
-      source: 'orders-buy-now-panel',
-    });
-  };
-
   const resetPrefill = () => {
     setListingId('');
+    setSelectedProduct(null);
     setQuantity(1);
     setDeliveryMethod('PICKUP');
     setDeliveryAddress('');
@@ -746,150 +1060,289 @@ const MyOrdersPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Order Management</h1>
-        <p className="mt-1 text-slate-500">
-          Create orders, track status, manage delivery details, and complete Stripe test payments.
-        </p>
-      </div>
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-7 shadow-xl">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 -bottom-20 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Buy Now Products</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {focusedBuyNowListingId
-                ? 'Showing only the product selected from listing detail.'
-                : 'Only BUY_NOW products are listed here. Click Begin Order to start the order workflow.'}
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">Marketplace Workspace</p>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Order Management</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-200 sm:text-base">
+              Track purchases and sales, act on priority tasks, and complete payments with confidence.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {focusedBuyNowListingId && (
-              <button
-                type="button"
-                onClick={() => setFocusedBuyNowListingId(null)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Show All Products
-              </button>
-            )}
-            <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
-              {focusedBuyNowListingId ? '1 product' : `${buyNowPagination.total} products`}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              {orderView === 'BUYING' ? 'My Purchases' : 'Sales'}
             </span>
+            <span className="rounded-full border border-amber-300/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold text-amber-100">
+              {actionMetrics.actionNeeded} Action Needed
+            </span>
+            {preferredCity && (
+              <span className="rounded-full border border-cyan-300/40 bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">
+                Near {preferredCity}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current View</p>
+          <p className="mt-2 text-lg font-semibold text-slate-800">
+            {orderView === 'BUYING' ? 'My Purchases' : 'Sales'}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Action Needed</p>
+          <p className="mt-2 text-2xl font-bold text-amber-800">{actionMetrics.actionNeeded}</p>
+        </div>
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Awaiting Payment</p>
+          <p className="mt-2 text-2xl font-bold text-indigo-800">{actionMetrics.awaitingPayment}</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Updated In 24h</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-800">{actionMetrics.recentlyUpdated}</p>
+        </div>
+      </div>
+
+      <div ref={productsListSectionRef} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Start With A Product</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Search products and select one to auto-fill order details.
+              {preferredCity ? ` Showing results near ${preferredCity}.` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleViewAvailableProducts}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            View Products ({productPagination.total})
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="md:col-span-3 relative">
+            <input
+              value={productSearchInput}
+              onChange={(event) => {
+                setProductSearchInput(event.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => {
+                window.setTimeout(() => setShowSuggestions(false), 120);
+              }}
+              onKeyDown={handleProductSearchKeyDown}
+              placeholder="Search products by title, category, or keyword"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            />
+
+            {showSuggestions && suggestionOptions.length > 0 && (
+              <div className="absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                {suggestionOptions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion}-${index}`}
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      applySearchTerm(suggestion);
+                    }}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
+                      highlightedSuggestionIndex === index
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setProductSearchInput('');
+              setProductPage(1);
+              setSelectedCategoryId('');
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent</span>
+            {recentSearches.length === 0 && <span className="text-xs text-slate-400">No recent searches</span>}
+            {recentSearches.map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => applySearchTerm(term)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trending</span>
+            {TRENDING_SEARCHES.map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => applySearchTerm(term)}
+                className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryId('')}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                !selectedCategoryId
+                  ? 'border-primary-300 bg-primary-50 text-primary-700'
+                  : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              All
+            </button>
+            {categoryChipOptions.slice(0, 8).map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setSelectedCategoryId(category.id)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  selectedCategoryId === category.id
+                    ? 'border-primary-300 bg-primary-50 text-primary-700'
+                    : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {category.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {!focusedBuyNowListingId && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input
-              value={buyNowSearchTerm}
-              onChange={(event) => setBuyNowSearchTerm(event.target.value)}
-              placeholder="Search Buy Now products"
-              className="md:col-span-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-            />
+        {didYouMean && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Did you mean{' '}
             <button
               type="button"
-              onClick={() => {
-                setBuyNowSearchTerm('');
-                setBuyNowPage(1);
-              }}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              onClick={() => applySearchTerm(didYouMean)}
+              className="font-semibold underline decoration-amber-400 underline-offset-2"
             >
-              Reset
+              {didYouMean}
             </button>
+            ?
           </div>
         )}
 
-        {buyNowError && (
+        {productsError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {buyNowError}
+            {productsError}
           </div>
         )}
 
-        {!focusedBuyNowListingId && isBuyNowLoading && (
+        {isProductsLoading && (
           <div className="flex items-center justify-center py-10">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           </div>
         )}
 
-        {focusedBuyNowListingId && isFocusedBuyNowLoading && (
-          <div className="flex items-center justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
-          </div>
-        )}
-
-        {!focusedBuyNowListingId && !isBuyNowLoading && !buyNowError && buyNowProducts.length === 0 && (
+        {!isProductsLoading && !productsError && products.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-            No BUY_NOW products found.
+            No products found. Try another search term.
           </div>
         )}
 
-        {focusedBuyNowListingId && !isFocusedBuyNowLoading && focusedBuyNowProduct && (
-          <div className="grid grid-cols-1 gap-4">
-            <div className="rounded-xl border border-primary-200 bg-primary-50/40 p-4">
-              <p className="font-semibold text-slate-800 truncate">{focusedBuyNowProduct.title}</p>
-              <p className="mt-1 text-xs text-slate-500 line-clamp-2">{focusedBuyNowProduct.description}</p>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="font-semibold text-slate-800">
-                  {formatCurrency(focusedBuyNowProduct.price, focusedBuyNowProduct.currency)}
-                </span>
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                  BUY_NOW
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => beginOrderFromProduct(focusedBuyNowProduct)}
-                className="mt-3 w-full rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:from-primary-700 hover:to-indigo-700"
-              >
-                Begin Order
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!focusedBuyNowListingId && !isBuyNowLoading && buyNowProducts.length > 0 && (
+        {!isProductsLoading && products.length > 0 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {buyNowProducts.map((product) => (
-                <div key={product._id} className="rounded-xl border border-slate-200 p-4">
-                  <p className="font-semibold text-slate-800 truncate">{product.title}</p>
-                  <p className="mt-1 text-xs text-slate-500 line-clamp-2 min-h-[2.25rem]">{product.description}</p>
-                  <div className="mt-3 flex items-center justify-between text-sm">
-                    <span className="font-semibold text-slate-800">{formatCurrency(product.price, product.currency)}</span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                      BUY_NOW
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => beginOrderFromProduct(product)}
-                    className="mt-3 w-full rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:from-primary-700 hover:to-indigo-700"
+              {products.map((product) => {
+                const isSelected = selectedProduct?._id === product._id;
+
+                return (
+                  <div
+                    key={product._id}
+                    onClick={() => handleOpenProductPreview(product)}
+                    className={`rounded-xl border p-4 ${
+                      isSelected
+                        ? 'border-primary-300 bg-primary-50/60 shadow-md shadow-primary-500/10'
+                        : 'border-slate-200 bg-white'
+                    }`}
                   >
-                    Begin Order
-                  </button>
-                </div>
-              ))}
+                    <p className="truncate font-semibold text-slate-800">{product.title}</p>
+                    <p className="mt-1 text-xs text-slate-500 line-clamp-2 min-h-[2.25rem]">{product.description}</p>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <span className="font-semibold text-slate-800">{formatCurrency(product.price, product.currency)}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                        {getSellerDisplay(product)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleOpenProductPreview(product);
+                      }}
+                      className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      View Product
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleSelectProduct(product);
+                      }}
+                      className={`mt-3 w-full rounded-xl px-4 py-2 text-sm font-semibold ${
+                        isSelected
+                          ? 'bg-primary-700 text-white'
+                          : 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:from-primary-700 hover:to-indigo-700'
+                      }`}
+                    >
+                      {isSelected ? 'Selected' : 'Select Product'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setBuyNowPage((prev) => Math.max(1, prev - 1))}
-                disabled={buyNowPage <= 1}
+                onClick={() => setProductPage((prev) => Math.max(1, prev - 1))}
+                disabled={productPage <= 1}
                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Previous
               </button>
               <span className="text-sm text-slate-500">
-                Page {buyNowPage} of {Math.max(1, buyNowPagination.totalPages)}
+                Page {productPagination.page} of {Math.max(1, productPagination.totalPages)}
               </span>
               <button
                 type="button"
                 onClick={() =>
-                  setBuyNowPage((prev) => Math.min(Math.max(1, buyNowPagination.totalPages), prev + 1))
+                  setProductPage((prev) => Math.min(Math.max(1, productPagination.totalPages), prev + 1))
                 }
-                disabled={buyNowPage >= Math.max(1, buyNowPagination.totalPages)}
+                disabled={productPage >= Math.max(1, productPagination.totalPages)}
                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
@@ -899,16 +1352,87 @@ const MyOrdersPage: React.FC = () => {
         )}
       </div>
 
+      {previewProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">{previewProduct.title}</h3>
+                <p className="mt-1 text-sm text-slate-500">Seller: {getSellerDisplay(previewProduct)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProductPreview}
+                className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Close product preview"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+
+            {previewProduct.images?.length > 0 && (
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <img
+                  src={previewProduct.images[0]}
+                  alt={previewProduct.title}
+                  className="h-56 w-full object-cover"
+                />
+              </div>
+            )}
+
+            <p className="mt-4 text-sm text-slate-600">{previewProduct.description}</p>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 text-sm">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Price</p>
+                <p className="font-semibold text-slate-800">
+                  {formatCurrency(previewProduct.price, previewProduct.currency)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Category</p>
+                <p className="font-semibold text-slate-800">
+                  {typeof previewProduct.categoryId === 'string'
+                    ? 'Category'
+                    : previewProduct.categoryId?.name || 'Category'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Location</p>
+                <p className="font-semibold text-slate-800">{previewProduct.location?.city || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCloseProductPreview}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectProduct(previewProduct)}
+                className="rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:from-primary-700 hover:to-indigo-700"
+              >
+                Select Product
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div ref={createOrderSectionRef} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <form onSubmit={handleCreateOrder} className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
           <h2 className="text-lg font-semibold text-slate-800">Create Order</h2>
-          <p className="mt-1 text-sm text-slate-500">Use this panel to create a new product order.</p>
+          <p className="mt-1 text-sm text-slate-500">Create an order from your selected product.</p>
 
           {prefillContext && (
             <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-primary-800">
-                  Prefilled from {prefillContext.source === 'listing-detail' ? 'listing detail' : 'Buy Now panel'}
+                  Prefilled from {prefillContext.source === 'listing-detail' ? 'listing detail' : 'orders page selector'}
                   {prefillContext.listingTitle ? `: ${prefillContext.listingTitle}` : ''}
                 </p>
                 <button
@@ -922,19 +1446,24 @@ const MyOrdersPage: React.FC = () => {
             </div>
           )}
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Listing ID</label>
-              <input
-                ref={listingIdInputRef}
-                value={listingId}
-                onChange={(event) => setListingId(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                placeholder="Enter listing ObjectId"
-                required
-              />
+          {!selectedProduct && (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+              Select a product to start your order.
             </div>
+          )}
 
+          {selectedProduct && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Selected Product</p>
+              <p className="mt-1 font-semibold text-slate-800">{selectedProduct.title}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                <span>{formatCurrency(selectedProduct.price, selectedProduct.currency)}</span>
+                <span>Seller: {getSellerDisplay(selectedProduct)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Quantity</label>
               <input
@@ -986,7 +1515,7 @@ const MyOrdersPage: React.FC = () => {
           <div className="mt-5 flex justify-end">
             <button
               type="submit"
-              disabled={isCreatingOrder}
+              disabled={isCreatingOrder || !selectedProduct}
               className="rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary-500/20 hover:from-primary-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isCreatingOrder ? 'Creating...' : 'Create Order'}
@@ -1018,6 +1547,31 @@ const MyOrdersPage: React.FC = () => {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOrderView('BUYING')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              orderView === 'BUYING'
+                ? 'bg-primary-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            My Purchases
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderView('SELLING')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              orderView === 'SELLING'
+                ? 'bg-primary-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Sales
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input
             value={searchTerm}
@@ -1048,7 +1602,9 @@ const MyOrdersPage: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-5 rounded-2xl border border-slate-200 bg-white shadow-card">
           <div className="border-b border-slate-200 px-5 py-4">
-            <h3 className="font-semibold text-slate-800">Orders</h3>
+            <h3 className="font-semibold text-slate-800">
+              {orderView === 'BUYING' ? 'My Purchases' : 'Sales'}
+            </h3>
             <p className="text-xs text-slate-500 mt-1">
               Showing {paginatedOrders.length} of {sortedOrders.length} matching orders
             </p>
@@ -1071,7 +1627,8 @@ const MyOrdersPage: React.FC = () => {
               paginatedOrders.map((order) => {
                 const selected = order.id === selectedOrderId;
                 const otherParty = isBuyerSide(order, currentUserId) ? order.seller : order.buyer;
-                const roleLabel = isBuyerSide(order, currentUserId) ? 'Buyer View' : 'Seller View';
+                const roleLabel = isBuyerSide(order, currentUserId) ? 'You are Buyer' : 'You are Seller';
+                const primaryAction = getPrimaryAction(order.actionsAllowed);
 
                 return (
                   <button
@@ -1102,6 +1659,12 @@ const MyOrdersPage: React.FC = () => {
                     <p className="mt-2 text-xs text-slate-500 truncate">
                       {otherParty?.name || 'Unknown party'} · {formatDateTime(order.createdAt)}
                     </p>
+
+                    {primaryAction && (
+                      <div className="mt-2 inline-flex items-center rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-700">
+                        Next: {ACTION_LABELS[primaryAction]}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -1153,6 +1716,41 @@ const MyOrdersPage: React.FC = () => {
                   <p className="text-sm text-slate-500 mt-1">Order #{activeOrder.id}</p>
                 </div>
                 <OrderStatusBadge status={activeOrder.status} />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-sm font-semibold text-slate-800">Order Journey</p>
+                {(activeOrder.status === 'REJECTED' || activeOrder.status === 'CANCELLED') ? (
+                  <p className="mt-2 text-sm text-slate-600">
+                    This order is {activeOrder.status.toLowerCase()} and no longer in active fulfillment.
+                  </p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {ORDER_JOURNEY.map((step, index) => {
+                      const currentIndex = ORDER_JOURNEY.findIndex(
+                        (item) => item.status === activeOrder.status
+                      );
+                      const isReached = currentIndex >= index;
+                      const StepIcon = ORDER_JOURNEY_ICON[step.status];
+
+                      return (
+                        <div
+                          key={step.status}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                            isReached
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-500'
+                          }`}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <StepIcon size={12} />
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1275,6 +1873,7 @@ const MyOrdersPage: React.FC = () => {
                       const key = `${activeOrder.id}:${action}`;
                       const isBusy = activeActionKey === key;
                       const dangerAction = action === 'CANCEL' || action === 'REJECT';
+                      const isPrimaryAction = action === getPrimaryAction(visibleActions);
 
                       return (
                         <button
@@ -1283,7 +1882,9 @@ const MyOrdersPage: React.FC = () => {
                           onClick={() => void runOrderAction(activeOrder, action)}
                           disabled={isBusy}
                           className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                            dangerAction
+                            isPrimaryAction
+                              ? 'bg-primary-600 text-white hover:bg-primary-700'
+                              : dangerAction
                               ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
                               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}
