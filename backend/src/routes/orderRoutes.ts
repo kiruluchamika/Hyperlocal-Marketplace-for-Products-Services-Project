@@ -12,7 +12,7 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
-import { validate } from "../middlewares/validate";
+import { validateOrder } from "../middlewares/validateOrder";
 import {
   createOrderSchema,
   listOrdersSchema,
@@ -21,7 +21,8 @@ import {
   cancelOrderSchema,
   confirmReceivedSchema,
   confirmDeliveryWithOtpSchema,
-  updateDeliveryDetailsSchema
+  updateDeliveryDetailsSchema,
+  deleteOrderSchema
 } from "../validators/orderSchemas";
 import {
   createOrder,
@@ -33,7 +34,8 @@ import {
   cancelOrder,
   confirmReceived,
   confirmDeliveryWithOtp,
-  updateDeliveryDetails
+  updateDeliveryDetails,
+  deleteOrder
 } from "../controllers/orderController";
 
 const router = Router();
@@ -91,7 +93,7 @@ router.post(
   "/",
   auth,
   requireRole(["user"]),
-  validate(createOrderSchema),
+  validateOrder(createOrderSchema),
   createOrder
 );
 
@@ -127,7 +129,7 @@ router.patch(
   "/:id/cancel",
   auth,
   requireRole(["user"]),
-  validate(cancelOrderSchema),
+  validateOrder(cancelOrderSchema),
   cancelOrder
 );
 
@@ -163,7 +165,7 @@ router.patch(
   "/:id/confirm-received",
   auth,
   requireRole(["user"]),
-  validate(confirmReceivedSchema),
+  validateOrder(confirmReceivedSchema),
   confirmReceived
 );
 
@@ -227,7 +229,7 @@ router.put(
   "/:id/delivery-details",
   auth,
   requireRole(["user"]),
-  validate(updateDeliveryDetailsSchema),
+  validateOrder(updateDeliveryDetailsSchema),
   updateDeliveryDetails
 );
 
@@ -267,7 +269,7 @@ router.patch(
   "/:id/accept",
   auth,
   requireRole(["user"]),
-  validate(updateOrderStatusSchema),
+  validateOrder(updateOrderStatusSchema),
   acceptOrder
 );
 
@@ -303,7 +305,7 @@ router.patch(
   "/:id/reject",
   auth,
   requireRole(["user"]),
-  validate(updateOrderStatusSchema),
+  validateOrder(updateOrderStatusSchema),
   rejectOrder
 );
 
@@ -339,7 +341,7 @@ router.patch(
   "/:id/start",
   auth,
   requireRole(["user"]),
-  validate(updateOrderStatusSchema),
+  validateOrder(updateOrderStatusSchema),
   startOrder
 );
 
@@ -387,7 +389,7 @@ router.post(
   "/:id/confirm-delivery",
   auth,
   requireRole(["user"]),
-  validate(confirmDeliveryWithOtpSchema),
+  validateOrder(confirmDeliveryWithOtpSchema),
   confirmDeliveryWithOtp
 );
 
@@ -442,7 +444,7 @@ router.get(
   "/",
   auth,
   requireRole(["user", "admin"]),
-  validate(listOrdersSchema),
+  validateOrder(listOrdersSchema),
   listOrders
 );
 
@@ -476,8 +478,97 @@ router.get(
   "/:id",
   auth,
   requireRole(["user", "admin"]),
-  validate(getOrderByIdSchema),
+  validateOrder(getOrderByIdSchema),
   getOrderById
+);
+
+/**
+ * @openapi
+ * /orders/{id}:
+ *   delete:
+ *     tags: [Orders]
+ *     summary: Delete/Archive order (Admin only)
+ *     description: |
+ *       Soft delete (archive) an order. Admin can cancel any order and optionally refund payment.
+ *       
+ *       REAL-WORLD USE CASES:
+ *       - Cancel fraudulent orders
+ *       - Remove duplicate orders
+ *       - Clean up test/accidental orders
+ *       - Dispute resolution
+ *       
+ *       REFUND RULES:
+ *       - If refund=true (default): Payment is refunded if HELD
+ *       - If payment already RELEASED to seller: Use manual refund process (returns 400)
+ *       - Preserves audit trail with isDeleted & deletedAt fields
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 minLength: 5
+ *                 maxLength: 500
+ *                 description: Reason for archiving order (for audit trail)
+ *                 example: "Fraudulent payment detected"
+ *               refund:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether to refund payment (if HELD status)
+ *     responses:
+ *       200:
+ *         description: Order archived successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     order:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         isDeleted:
+ *                           type: boolean
+ *                         deletedAt:
+ *                           type: string
+ *                           format: date-time
+ *       400:
+ *         description: Cannot refund (payment released) or order already deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - requires admin role
+ *       404:
+ *         description: Order not found
+ */
+router.delete(
+  "/:id",
+  auth,
+  requireRole(["admin"]),
+  validateOrder(deleteOrderSchema),
+  deleteOrder
 );
 
 export default router;

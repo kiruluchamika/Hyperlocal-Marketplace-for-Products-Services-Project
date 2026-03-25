@@ -96,19 +96,23 @@ export const getPaymentByOrder = asyncHandler(
  */
 export const testCompletePayment = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const { paymentId } = req.params;
+    const paymentId = req.params.paymentId || req.params.id;
+    const userId = req.user!.id;
+
+    if (!paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment ID is required"
+      });
+    }
     
     console.log("🧪 TEST ENDPOINT: Updating payment status to HELD");
     console.log("Payment ID:", paymentId);
     
     const Payment = require("../models/Payment").default;
     const { PaymentStatus } = require("../models/Payment");
-    
-    const payment = await Payment.findByIdAndUpdate(
-      paymentId,
-      { status: PaymentStatus.HELD },
-      { new: true }
-    );
+
+    const payment = await Payment.findById(paymentId);
     
     if (!payment) {
       return res.status(404).json({
@@ -116,6 +120,16 @@ export const testCompletePayment = asyncHandler(
         message: "Payment not found"
       });
     }
+
+    if (payment.buyerId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to update this payment"
+      });
+    }
+
+    payment.status = PaymentStatus.HELD;
+    await payment.save();
     
     res.status(200).json({
       success: true,

@@ -19,7 +19,8 @@ import {
   initiatePayment,
   stripeWebhook,
   getPaymentByOrder,
-  getPaymentById
+  getPaymentById,
+  testCompletePayment
 } from "../controllers/paymentController";
 
 const router = Router();
@@ -112,6 +113,45 @@ router.post("/webhook/stripe", stripeWebhook);
 
 /**
  * @openapi
+ * /payments/test/complete/{id}:
+ *   patch:
+ *     tags: [Payments]
+ *     summary: TEST ONLY - Mark own payment as HELD (Buyer)
+ *     description: |
+ *       Testing endpoint for buyer flow checks.
+ *       Allows the authenticated buyer to force their own payment into HELD status without Stripe webhook.
+ *       Use only for local testing and remove/disable in production.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Payment document ID
+ *     responses:
+ *       200:
+ *         description: Payment status updated to HELD
+ *       400:
+ *         description: Invalid payment ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - only payment owner can update
+ *       404:
+ *         description: Payment not found
+ */
+router.patch(
+  "/test/complete/:id",
+  auth,
+  requireRole(["user"]),
+  validate(getPaymentByIdSchema, "params"),
+  testCompletePayment
+);
+
+/**
+ * @openapi
  * /payments/order/{orderId}:
  *   get:
  *     tags: [Payments]
@@ -161,7 +201,7 @@ router.get(
   "/order/:orderId",
   auth,
   requireRole(["user", "admin"]),
-  validate(getPaymentByOrderSchema),
+  validate(getPaymentByOrderSchema, "params"),
   getPaymentByOrder
 );
 
@@ -216,7 +256,7 @@ router.get(
   "/:id",
   auth,
   requireRole(["user", "admin"]),
-  validate(getPaymentByIdSchema),
+  validate(getPaymentByIdSchema, "params"),
   getPaymentById
 );
 

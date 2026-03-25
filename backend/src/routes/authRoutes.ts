@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, googleSocialLogin } from "../controllers/authController";
+import { register, login, googleSocialLogin, adminLogin } from "../controllers/authController";
 import { validate } from "../middlewares/validate";
 import { registerSchema, loginSchema, googleSocialLoginSchema } from "../validators/authSchemas";
 
@@ -161,6 +161,37 @@ router.post("/register", validate(registerSchema), register);
  *         description: Invalid credentials
  */
 router.post("/login", validate(loginSchema), login);
+
+/**
+ * @openapi
+ * /auth/admin/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login to admin panel with email and password
+ *     description: Authenticates admin user and returns JWT token. Non-admin users receive 403.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Admin login successful
+ *       401:
+ *         description: Invalid credentials
+ *       403:
+ *         description: Admin access required
+ */
+router.post("/admin/login", validate(loginSchema), adminLogin);
 
 /**
  * @openapi

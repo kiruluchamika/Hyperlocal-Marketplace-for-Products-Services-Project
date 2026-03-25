@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { getMe, getAllUsers } from "../controllers/userController";
+import { changeMyPassword, getMe, getAllUsers, updateMe } from "../controllers/userController";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
+import { validate } from "../middlewares/validate";
+import { changePasswordSchema, updateProfileSchema } from "../validators/userSchemas";
 
 const router = Router();
 
@@ -20,6 +22,38 @@ const router = Router();
  *         description: Unauthorized
  */
 router.get("/me", auth, getMe);
+
+/**
+ * @openapi
+ * /users/me:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Update current user profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch("/me", auth, validate(updateProfileSchema), updateMe);
+
+/**
+ * @openapi
+ * /users/me/password:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Change current user password
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Password changed
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch("/me/password", auth, validate(changePasswordSchema), changeMyPassword);
 
 /**
  * @openapi

@@ -11,13 +11,30 @@ export const createServiceSellingSchema = z.object({
 
   locationText: z.string().min(2).max(120),
 
+  // ✅ ADD (optional): Geo location for geo search (MongoDB 2dsphere)
+  // coordinates.coordinates must be [lng, lat]
+  location: z
+    .object({
+      city: z.string().min(2).max(120),
+      address: z.string().min(2).max(200).optional(),
+      coordinates: z.object({
+        type: z.literal("Point").default("Point"),
+        coordinates: z
+          .tuple([z.number(), z.number()]) // [lng, lat]
+          .refine(
+            ([lng, lat]) => lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90,
+            { message: "Invalid coordinates. Use [lng, lat]." }
+          ),
+      }),
+    })
+    .optional(),
+
   images: z.array(z.string().url()).optional().default([]),
 
   attributeValues: z.record(z.unknown()).optional().default({}),
 });
 
-export const updateServiceSellingSchema =
-  createServiceSellingSchema.partial();
+export const updateServiceSellingSchema = createServiceSellingSchema.partial();
 
 export const listServiceSellingQuerySchema = z.object({
   search: z.string().optional(),
