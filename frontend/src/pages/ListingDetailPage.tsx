@@ -12,7 +12,6 @@ import {
   FiTag,
 } from 'react-icons/fi';
 import { listingsApi } from '@/api/listings';
-import { ordersApi } from '@/api/orders';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useAuthStore } from '@/store/authStore';
@@ -28,7 +27,6 @@ const ListingDetailPage: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activeImage, setActiveImage] = React.useState(0);
-  const [isOrdering, setIsOrdering] = React.useState(false);
   const [orderForm, setOrderForm] = React.useState({
     quantity: 1,
     deliveryMethod: 'PICKUP' as 'PICKUP' | 'DELIVERY',
@@ -62,13 +60,13 @@ const ListingDetailPage: React.FC = () => {
   const images = listing?.images?.length ? listing.images : [listing ? getListingImage(listing) : ''];
   const canBuyNow = !!listing && listing.transactionMode === 'BUY_NOW' && !isOwner;
 
-  const handleCreateOrder = async () => {
+  const handleBuyNowRedirect = () => {
     if (!listing) {
       return;
     }
 
     if (!isAuthenticated) {
-      toast.error('Please sign in to place an order.');
+      toast.error('Please sign in to continue with Buy Now.');
       navigate('/login');
       return;
     }
@@ -78,21 +76,18 @@ const ListingDetailPage: React.FC = () => {
       return;
     }
 
-    try {
-      setIsOrdering(true);
-      await ordersApi.create({
+    navigate('/dashboard/orders', {
+      state: {
+        source: 'listing-detail-buy-now',
         listingId: listing._id,
+        listingTitle: listing.title,
         quantity: orderForm.quantity,
         deliveryMethod: orderForm.deliveryMethod,
-        deliveryAddress: orderForm.deliveryMethod === 'DELIVERY' ? orderForm.deliveryAddress.trim() : undefined,
+        deliveryAddress:
+          orderForm.deliveryMethod === 'DELIVERY' ? orderForm.deliveryAddress.trim() : undefined,
         note: orderForm.note.trim() || undefined,
-      });
-
-      toast.success('Order created successfully.');
-      navigate('/dashboard/orders');
-    } catch {
-      setIsOrdering(false);
-    }
+      },
+    });
   };
 
   if (loading) {
@@ -316,12 +311,15 @@ const ListingDetailPage: React.FC = () => {
                   <Button
                     type="button"
                     fullWidth
-                    isLoading={isOrdering}
-                    onClick={handleCreateOrder}
+                    onClick={handleBuyNowRedirect}
                     leftIcon={<FiShoppingBag size={16} />}
                   >
-                    Place Order
+                    Buy Now
                   </Button>
+
+                  <p className="text-xs text-slate-500">
+                    You will continue on the Orders page to finalize and create this order.
+                  </p>
                 </div>
               )}
             </div>

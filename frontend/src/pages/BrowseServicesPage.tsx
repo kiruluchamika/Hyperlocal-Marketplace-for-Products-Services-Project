@@ -3,8 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiArrowRight,
-  FiChevronDown,
-  FiChevronUp,
   FiClock,
   FiCrosshair,
   FiImage,
@@ -12,9 +10,9 @@ import {
   FiSliders,
 } from 'react-icons/fi';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
+import { servicesApi } from '@/api/services';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import { servicesApi } from '@/api/services';
 import { useCategoryStore } from '@/store/categoryStore';
 import { GeoNearbyItem, IServiceSelling } from '@/types';
 
@@ -30,6 +28,12 @@ interface BrowseServiceFilters {
   maxPrice?: number;
   sort: SortOption;
 }
+
+const sortOptions: { label: string; value: SortOption }[] = [
+  { label: 'Most Recent', value: 'recent' },
+  { label: 'Price: Low to High', value: 'priceAsc' },
+  { label: 'Price: High to Low', value: 'priceDesc' },
+];
 
 const SRI_LANKAN_DISTRICTS: { name: string; lat: number; lng: number }[] = [
   { name: 'Ampara', lat: 7.2917, lng: 81.6725 },
@@ -73,12 +77,14 @@ const sortServices = (services: IServiceSelling[], sort: SortOption) => {
 };
 
 const getServiceCity = (service: IServiceSelling) => service.location?.city || service.locationText || 'Location unavailable';
-const getServiceCategory = (service: IServiceSelling) => typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
+
+const getServiceCategory = (service: IServiceSelling) =>
+  typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
 
 const matchesDistrict = (service: IServiceSelling, districtName: string) => {
   if (!districtName) return true;
   const normalizedDistrict = districtName.toLowerCase();
-  const normalizedLocation = `${service.location?.city || ''} ${service.locationText}`.toLowerCase();
+  const normalizedLocation = `${service.location?.city || ''} ${service.locationText || ''}`.toLowerCase();
   return normalizedLocation.includes(normalizedDistrict);
 };
 
@@ -98,9 +104,9 @@ const toGeoItem = (service: IServiceSelling): GeoNearbyItem | null => {
     pricingType: service.pricingType,
     city: getServiceCity(service),
     distance: 0,
-    sellerId: typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id,
-    categoryId: typeof service.categoryId === 'string' ? service.categoryId : service.categoryId._id,
-    location: { coordinates: [lat, lng], text: service.locationText },
+    sellerId: typeof service.sellerId === 'string' ? service.sellerId : service.sellerId?.id || '',
+    categoryId: typeof service.categoryId === 'string' ? service.categoryId : service.categoryId?._id || '',
+    location: { coordinates: [lat, lng], text: service.locationText || '' },
     images: service.images,
     status: service.status,
     isActive: service.isActive,
@@ -109,7 +115,7 @@ const toGeoItem = (service: IServiceSelling): GeoNearbyItem | null => {
 
 const BrowseServicesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navbarSearch = searchParams.get('search') || '';
+  const navbarSearch = searchParams.get('search') || searchParams.get('searchTerm') || '';
   const [center, setCenter] = React.useState<[number, number]>([6.9271, 79.8612]);
   const [isMapOpen, setIsMapOpen] = React.useState(true);
   const [isBrowseOpen, setIsBrowseOpen] = React.useState(false);
@@ -237,7 +243,7 @@ const BrowseServicesPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-transparent py-10 sm:py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <section className={`grid grid-cols-1 items-start gap-6 xl:gap-8 ${isMapOpen ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
+        <section className="grid grid-cols-1 items-start gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="order-1 rounded-[28px] border border-white/70 bg-white/92 p-5 shadow-card backdrop-blur-xl sm:p-6 lg:flex lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:self-start lg:overflow-hidden">
             <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="space-y-1">
@@ -245,8 +251,12 @@ const BrowseServicesPage: React.FC = () => {
                 <p className="text-sm text-slate-500">Browse active service ads and open a service to continue to booking</p>
               </div>
               <div className="flex items-center gap-3 self-start sm:self-auto">
-                <Badge variant="info" className="!px-3 !py-1 text-xs">{mapItems.length} geo-mapped</Badge>
-                <p className="text-sm text-slate-500">{filters.search || filters.city || filters.categoryId ? 'Filtered results' : 'All active services'}</p>
+                <Badge variant="info" className="!px-3 !py-1 text-xs">
+                  {mapItems.length} geo-mapped
+                </Badge>
+                <p className="text-sm text-slate-500">
+                  {filters.search || filters.city || filters.categoryId ? 'Filtered results' : 'All active services'}
+                </p>
               </div>
             </div>
 
@@ -290,10 +300,22 @@ const BrowseServicesPage: React.FC = () => {
             <div className="space-y-4 lg:sticky lg:top-24">
               <div className="rounded-[24px] border border-white/70 bg-white/90 p-4 shadow-card backdrop-blur-xl">
                 <div className="flex flex-wrap gap-3">
-                  <Button type="button" variant="outline" size="sm" leftIcon={<FiSliders size={14} />} onClick={() => setIsBrowseOpen((prev) => !prev)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<FiSliders size={14} />}
+                    onClick={() => setIsBrowseOpen((prev) => !prev)}
+                  >
                     {isBrowseOpen ? 'Hide Browse' : 'Browse'}
                   </Button>
-                  <Button type="button" variant="secondary" size="sm" leftIcon={<FiCrosshair size={14} />} onClick={useCurrentLocation}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FiCrosshair size={14} />}
+                    onClick={useCurrentLocation}
+                  >
                     Use My Location
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => setIsMapOpen((prev) => !prev)}>
@@ -317,7 +339,11 @@ const BrowseServicesPage: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <select value={filters.categoryId} onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value }))} className="input-field py-2.5">
+                      <select
+                        value={filters.categoryId}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value }))}
+                        className="input-field py-2.5"
+                      >
                         <option value="">All Categories</option>
                         {serviceCategories.map((category) => (
                           <option key={category._id} value={category._id}>
@@ -326,18 +352,42 @@ const BrowseServicesPage: React.FC = () => {
                         ))}
                       </select>
                       <div className="grid grid-cols-2 gap-3">
-                        <input value={filters.minPrice ?? ''} onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: parseNumber(event.target.value) }))} type="number" min={0} className="input-field py-2.5" placeholder="Min price" />
-                        <input value={filters.maxPrice ?? ''} onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: parseNumber(event.target.value) }))} type="number" min={0} className="input-field py-2.5" placeholder="Max price" />
+                        <input
+                          value={filters.minPrice ?? ''}
+                          onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: parseNumber(event.target.value) }))}
+                          type="number"
+                          min={0}
+                          className="input-field py-2.5"
+                          placeholder="Min price"
+                        />
+                        <input
+                          value={filters.maxPrice ?? ''}
+                          onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: parseNumber(event.target.value) }))}
+                          type="number"
+                          min={0}
+                          className="input-field py-2.5"
+                          placeholder="Max price"
+                        />
                       </div>
-                      <select value={filters.pricingType} onChange={(event) => setFilters((prev) => ({ ...prev, pricingType: event.target.value as ServicePricingFilter }))} className="input-field py-2.5">
+                      <select
+                        value={filters.pricingType}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, pricingType: event.target.value as ServicePricingFilter }))}
+                        className="input-field py-2.5"
+                      >
                         <option value="">All Pricing Types</option>
                         <option value="FIXED">Fixed Pricing</option>
                         <option value="HOURLY">Hourly Pricing</option>
                       </select>
-                      <select value={filters.sort} onChange={(event) => setFilters((prev) => ({ ...prev, sort: event.target.value as SortOption }))} className="input-field py-2.5">
-                        <option value="recent">Most Recent</option>
-                        <option value="priceAsc">Price: Low to High</option>
-                        <option value="priceDesc">Price: High to Low</option>
+                      <select
+                        value={filters.sort}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, sort: event.target.value as SortOption }))}
+                        className="input-field py-2.5"
+                      >
+                        {sortOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -346,8 +396,8 @@ const BrowseServicesPage: React.FC = () => {
                         {locationSource === 'live'
                           ? `Using live location (${center[0].toFixed(5)}, ${center[1].toFixed(5)})`
                           : locationSource === 'district'
-                          ? `Using district center (${center[0].toFixed(5)}, ${center[1].toFixed(5)})`
-                          : 'Pick a district or use your live location for more local service discovery.'}
+                            ? `Using district center (${center[0].toFixed(5)}, ${center[1].toFixed(5)})`
+                            : 'Pick a district or use your live location for more local service discovery.'}
                       </p>
                       <div className="flex gap-2">
                         <Button type="button" variant="ghost" size="sm" onClick={onResetFilters}>
@@ -415,7 +465,11 @@ const ServiceCard: React.FC<{
     >
       <div className="h-52 w-full overflow-hidden bg-slate-100">
         {hasImage ? (
-          <img src={service.images[0]} alt={service.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
+          <img
+            src={service.images[0]}
+            alt={service.title}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 text-slate-500">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm">

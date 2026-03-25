@@ -9,17 +9,52 @@ import {
   useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { GeoNearbyItem } from '@/types';
 
-// Fix default Leaflet marker asset resolution in Vite builds.
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
+const centerMarkerIcon = L.divIcon({
+  className: 'geo-center-marker-icon',
+  html: `
+    <div style="
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      background: #2563eb;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.22);
+    "></div>
+  `,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -10],
 });
+
+const getServiceMarkerIcon = (isSelected: boolean) =>
+  L.divIcon({
+    className: 'geo-service-marker-icon',
+    html: `
+      <div style="
+        width: 22px;
+        height: 22px;
+        border-radius: 9999px;
+        background: ${isSelected ? '#2563eb' : '#0f766e'};
+        border: 2px solid #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+      ">
+        <div style="
+          width: 6px;
+          height: 6px;
+          border-radius: 9999px;
+          background: #ffffff;
+        "></div>
+      </div>
+    `,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -12],
+  });
 
 interface GeoMapCanvasProps {
   center: [number, number];
@@ -88,7 +123,7 @@ const GeoMapCanvas: React.FC<GeoMapCanvasProps> = ({
           pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.12 }}
         />
 
-        <Marker position={center}>
+        <Marker position={center} icon={centerMarkerIcon}>
           <Popup>Selected center</Popup>
         </Marker>
 
@@ -98,6 +133,7 @@ const GeoMapCanvas: React.FC<GeoMapCanvasProps> = ({
             <Marker
               key={item.id}
               position={[lat, lng]}
+              icon={getServiceMarkerIcon(selectedItemId === item.id)}
               eventHandlers={{ click: () => onSelectItem?.(item) }}
             >
               <Popup>
