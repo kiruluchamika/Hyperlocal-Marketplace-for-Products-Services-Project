@@ -12,9 +12,9 @@ import {
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-slate-900 text-slate-300">
+    <footer className="bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 text-slate-300">
       {/* Newsletter section */}
-      <div className="border-b border-slate-800">
+      <div className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
@@ -29,15 +29,14 @@ const Footer: React.FC = () => {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 md:w-72 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700
-                           text-white placeholder:text-slate-500 focus:border-primary-500
-                           focus:ring-2 focus:ring-primary-500/20 outline-none transition-all text-sm"
+                className="flex-1 md:w-72 rounded-xl border border-white/70 bg-white px-4 py-3
+                           text-slate-800 placeholder:text-slate-400 focus:border-indigo-300
+                           focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all text-sm"
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 text-white
-                           rounded-xl font-semibold text-sm hover:from-primary-700 hover:to-indigo-700
-                           transition-all shadow-lg shadow-primary-500/20"
+                className="rounded-xl bg-indigo-700 px-6 py-3 text-sm font-semibold text-white
+                           transition-all shadow-sm hover:bg-indigo-800 hover:shadow-md"
               >
                 Subscribe
               </button>
@@ -52,7 +51,7 @@ const Footer: React.FC = () => {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 bg-gradient-to-br from-primary-500 to-indigo-500 rounded-xl flex items-center justify-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-700 via-indigo-600 to-slate-900 shadow-lg shadow-indigo-500/20">
                 <span className="text-white font-bold text-lg">B</span>
               </div>
               <span className="text-xl font-bold text-white">Bazaaro</span>
@@ -115,7 +114,7 @@ const Footer: React.FC = () => {
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-slate-800">
+      <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">

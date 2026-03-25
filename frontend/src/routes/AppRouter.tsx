@@ -30,6 +30,8 @@ const MyListingsPage = React.lazy(() => import('@/pages/dashboard/MyListingsPage
 const CreateListingPage = React.lazy(() => import('@/pages/dashboard/CreateListingPage'));
 const MyOrdersPage = React.lazy(() => import('@/pages/dashboard/MyOrdersPage'));
 const MyServicesPage = React.lazy(() => import('@/pages/dashboard/MyServicesPage'));
+const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServicePage'));
+const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 
@@ -211,7 +213,7 @@ const router = createBrowserRouter([
       {
         path: '/dashboard/listings/new',
         element: (
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="user">
             <React.Suspense fallback={<PageLoader />}>
               <CreateListingPage />
             </React.Suspense>
@@ -231,9 +233,29 @@ const router = createBrowserRouter([
       {
         path: '/dashboard/services',
         element: (
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="user">
             <React.Suspense fallback={<PageLoader />}>
               <MyServicesPage />
+            </React.Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/dashboard/services/new',
+        element: (
+          <ProtectedRoute requiredRole="user">
+            <React.Suspense fallback={<PageLoader />}>
+              <CreateServicePage />
+            </React.Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/dashboard/services/posted',
+        element: (
+          <ProtectedRoute requiredRole="user">
+            <React.Suspense fallback={<PageLoader />}>
+              <MyPostedServicesPage />
             </React.Suspense>
           </ProtectedRoute>
         ),

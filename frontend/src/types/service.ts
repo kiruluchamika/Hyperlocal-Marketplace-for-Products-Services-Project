@@ -5,6 +5,15 @@ export type PricingType = 'FIXED' | 'HOURLY';
 export type ServiceStatus = 'ACTIVE' | 'REMOVED' | 'DELETED';
 export type BookingStatus = 'PENDING' | 'PROVIDER_ACCEPTED' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
 
+export interface IServiceLocation {
+  city: string;
+  address?: string;
+  coordinates?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+}
+
 export interface IServiceSelling {
   _id: string;
   sellerId: string | IUser;
@@ -14,6 +23,7 @@ export interface IServiceSelling {
   price: number;
   pricingType: PricingType;
   locationText: string;
+  location?: IServiceLocation;
   images: string[];
   attributeValues: Record<string, unknown>;
   status: ServiceStatus;
@@ -31,6 +41,11 @@ export interface BookingDeposit {
   currency: string;
   stripePaymentIntentId?: string;
   paidAt?: string;
+}
+
+export interface IServiceBookingSlot {
+  startAt: string;
+  endAt: string;
 }
 
 export interface IServiceBooking {
