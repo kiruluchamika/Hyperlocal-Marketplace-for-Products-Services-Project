@@ -17,6 +17,7 @@ import {
 } from "../validators/paymentSchemas";
 import {
   initiatePayment,
+  getStripeConfig,
   stripeWebhook,
   getPaymentByOrder,
   getPaymentById,
@@ -24,6 +25,8 @@ import {
 } from "../controllers/paymentController";
 
 const router = Router();
+
+router.get("/config", getStripeConfig);
 
 /**
  * @openapi

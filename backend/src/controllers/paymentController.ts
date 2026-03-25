@@ -71,6 +71,17 @@ export const stripeWebhook = asyncHandler(
   }
 );
 
+export const getStripeConfig = asyncHandler(
+  async (_req: Request, res: Response, _next: NextFunction) => {
+    res.status(200).json({
+      success: true,
+      data: {
+        publishableKey: paymentService.getPublishableKey(),
+      },
+    });
+  }
+);
+
 /**
  * GET /payments/order/:orderId
  * Get payment by order ID
@@ -100,10 +111,11 @@ export const testCompletePayment = asyncHandler(
     const userId = req.user!.id;
 
     if (!paymentId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: "Payment ID is required"
       });
+      return;
     }
     
     console.log("🧪 TEST ENDPOINT: Updating payment status to HELD");
@@ -115,17 +127,19 @@ export const testCompletePayment = asyncHandler(
     const payment = await Payment.findById(paymentId);
     
     if (!payment) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Payment not found"
       });
+      return;
     }
 
     if (payment.buyerId.toString() !== userId) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         message: "You are not authorized to update this payment"
       });
+      return;
     }
 
     payment.status = PaymentStatus.HELD;
