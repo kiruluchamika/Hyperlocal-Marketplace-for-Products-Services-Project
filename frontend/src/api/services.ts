@@ -56,5 +56,8 @@ export const bookingsApi = {
     apiClient.patch(`/servicebookings/${id}/decision`, { action: decision }),
 
   initiateDeposit: (id: string) =>
-    apiClient.post<{ success: boolean; data: { clientSecret: string } }>(`/servicebookings/${id}/deposit/initiate`),
+    apiClient.post<{
+      success: boolean;
+      data: { clientSecret: string; amount: number; currency: string; paymentIntentId?: string };
+    }>(`/servicebookings/${id}/deposit/initiate`),
 };

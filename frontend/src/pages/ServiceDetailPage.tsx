@@ -255,95 +255,97 @@ const ServiceDetailPage: React.FC = () => {
           <FiArrowLeft size={16} /> Back to results
         </button>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="space-y-4 lg:col-span-7">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-              {images.length > 0 ? (
-                <img
-                  src={images[activeImage]}
-                  alt={service.title}
-                  className="h-[280px] w-full rounded-xl object-cover"
-                />
-              ) : (
-                <div className="flex h-[280px] w-full items-end rounded-xl bg-gradient-to-br from-primary-600 via-indigo-500 to-sky-400 p-8">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">{getCategoryName(service)}</p>
-                    <h1 className="mt-2 text-4xl font-bold text-white">{service.title}</h1>
-                  </div>
-                </div>
-              )}
-
-              {images.length > 1 && (
-                <div className="mt-3 grid grid-cols-4 gap-2 md:grid-cols-6">
-                  {images.map((image, index) => (
-                    <button
-                      key={`${image}-${index}`}
-                      type="button"
-                      onClick={() => setActiveImage(index)}
-                      className={`overflow-hidden rounded-lg border ${
-                        activeImage === index ? 'border-primary-500' : 'border-slate-200'
-                      }`}
-                    >
-                      <img src={image} alt={`${service.title} ${index + 1}`} className="h-16 w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="primary">{service.pricingType === 'HOURLY' ? 'Hourly Service' : 'Fixed Service'}</Badge>
-                <Badge variant="neutral">{getCategoryName(service)}</Badge>
-                <Badge variant="info">{service.status}</Badge>
-              </div>
-
-              <h1 className="mt-3 text-3xl font-bold text-slate-800">{service.title}</h1>
-
-              <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-1"><FiTag size={14} /> LKR {service.price.toLocaleString()}</span>
-                <span className="inline-flex items-center gap-1"><FiMapPin size={14} /> {service.location?.city || service.locationText}</span>
-                <span className="inline-flex items-center gap-1"><FiCalendar size={14} /> {new Date(service.createdAt).toLocaleDateString()}</span>
-              </div>
-
-              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700">{service.description}</p>
-            </div>
-
-            {mapItems.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-800">Location Map</h2>
-                    <p className="mt-1 text-xs text-slate-500">Open only when you need a quick location view.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsMapVisible((prev) => !prev)}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700"
-                  >
-                    {isMapVisible ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-                    {isMapVisible ? 'Hide Map' : 'Show Map'}
-                  </button>
-                </div>
-
-                {isMapVisible && (
-                  <div className="mt-4">
-                    <GeoMapCanvas
-                      center={mapItems[0].location!.coordinates!}
-                      radiusKm={3}
-                      items={mapItems}
-                      selectedItemId={service._id}
-                      onCenterChange={() => undefined}
-                      onSelectItem={() => undefined}
-                      heightClassName="h-[200px]"
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+                <div>
+                  {images.length > 0 ? (
+                    <img
+                      src={images[activeImage]}
+                      alt={service.title}
+                      className="h-[220px] w-full rounded-xl object-cover"
                     />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  ) : (
+                    <div className="flex h-[220px] w-full items-end rounded-xl bg-gradient-to-br from-primary-600 via-indigo-500 to-sky-400 p-6">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{getCategoryName(service)}</p>
+                        <h1 className="mt-2 text-2xl font-bold text-white">{service.title}</h1>
+                      </div>
+                    </div>
+                  )}
 
-          <div className="space-y-4">
+                  {images.length > 1 && (
+                    <div className="mt-3 grid grid-cols-4 gap-2">
+                      {images.map((image, index) => (
+                        <button
+                          key={`${image}-${index}`}
+                          type="button"
+                          onClick={() => setActiveImage(index)}
+                          className={`overflow-hidden rounded-lg border ${
+                            activeImage === index ? 'border-primary-500' : 'border-slate-200'
+                          }`}
+                        >
+                          <img src={image} alt={`${service.title} ${index + 1}`} className="h-14 w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="primary">{service.pricingType === 'HOURLY' ? 'Hourly Service' : 'Fixed Service'}</Badge>
+                    <Badge variant="neutral">{getCategoryName(service)}</Badge>
+                    <Badge variant="info">{service.status}</Badge>
+                  </div>
+
+                  <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-800">{service.title}</h1>
+
+                  <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
+                    <span className="inline-flex items-center gap-1"><FiTag size={14} /> LKR {service.price.toLocaleString()}</span>
+                    <span className="inline-flex items-center gap-1"><FiMapPin size={14} /> {service.location?.city || service.locationText}</span>
+                    <span className="inline-flex items-center gap-1"><FiCalendar size={14} /> {new Date(service.createdAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700">{service.description}</p>
+
+                  {mapItems.length > 0 && (
+                    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h2 className="text-sm font-semibold text-slate-800">Location Map</h2>
+                          <p className="mt-1 text-xs text-slate-500">Use the map only if you need a quick location preview.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsMapVisible((prev) => !prev)}
+                          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700"
+                        >
+                          {isMapVisible ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                          {isMapVisible ? 'Hide Map' : 'Show Map'}
+                        </button>
+                      </div>
+
+                      {isMapVisible && (
+                        <div className="mt-3">
+                          <GeoMapCanvas
+                            center={mapItems[0].location!.coordinates!}
+                            radiusKm={3}
+                            items={mapItems}
+                            selectedItemId={service._id}
+                            onCenterChange={() => undefined}
+                            onSelectItem={() => undefined}
+                            heightClassName="h-[140px]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-bold text-slate-800">Confirmed Slots</h2>
@@ -371,8 +373,10 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
 
-            <div className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 via-white to-indigo-50 p-5 shadow-card">
+          <div className="space-y-5 lg:col-span-5">
+            <div className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 via-white to-indigo-50 p-6 shadow-card">
               <h2 className="text-lg font-bold text-slate-800">Request Booking</h2>
               <p className="mt-2 text-sm text-slate-600">
                 Choose a date, time, and duration to submit your booking request for this service.
@@ -459,7 +463,7 @@ const ServiceDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
               <h2 className="text-lg font-bold text-slate-800">Booking Information</h2>
               <div className="mt-4 space-y-4 text-sm text-slate-600">
                 <div>

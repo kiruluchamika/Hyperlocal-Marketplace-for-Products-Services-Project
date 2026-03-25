@@ -14,6 +14,7 @@ import {
   FiSettings,
   FiChevronDown,
   FiBookOpen,
+  FiCalendar,
   FiPlus,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
@@ -21,11 +22,11 @@ import { useUIStore } from '@/store/uiStore';
 import { Avatar } from '@/components/ui';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `relative rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-    isActive ? 'text-indigo-700' : 'text-slate-600 hover:text-indigo-700'
+  `relative rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+    isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/80' : 'text-slate-600 hover:bg-indigo-50/70 hover:text-indigo-700'
   }`;
 
-const activeUnderline = 'after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-indigo-700';
+const activeUnderline = 'after:absolute after:left-4 after:right-4 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-indigo-700';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -64,7 +65,8 @@ const Navbar: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/listings?search=${encodeURIComponent(searchQuery.trim())}`);
+      const targetBase = location.pathname.startsWith('/services') ? '/services' : '/listings';
+      navigate(`${targetBase}?search=${encodeURIComponent(searchQuery.trim())}`);
       closeMobileMenu();
     }
   };
@@ -84,7 +86,7 @@ const Navbar: React.FC = () => {
       className={`fixed left-0 right-0 top-0 z-[1200] transition-all duration-300 ${
         isScrolled
           ? 'border-b border-indigo-100/80 bg-white/85 shadow-nav backdrop-blur-2xl'
-          : 'bg-white/70 backdrop-blur-xl'
+          : 'border-b border-white/60 bg-white/78 shadow-sm shadow-slate-200/70 backdrop-blur-xl'
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -109,8 +111,8 @@ const Navbar: React.FC = () => {
             </div>
           </form>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-1 lg:flex">
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 lg:flex">
               <NavLink to="/listings" className={(props) => `${navLinkClass(props)} ${props.isActive ? activeUnderline : ''}`}>
                 Products
               </NavLink>
@@ -123,7 +125,7 @@ const Navbar: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddMenuOpen((prev) => !prev)}
-                    className={`relative rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                       isAddActive ? `text-indigo-700 ${activeUnderline}` : 'text-slate-600 hover:text-indigo-700'
                     }`}
                   >
@@ -162,7 +164,7 @@ const Navbar: React.FC = () => {
                   <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
                 </Link>
 
-                <div className="relative" ref={profileRef}>
+                <div className="relative ml-2" ref={profileRef}>
                   <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-indigo-500 px-2.5 py-1.5 text-white shadow-md shadow-indigo-500/20 transition-all hover:shadow-lg"
@@ -190,8 +192,9 @@ const Navbar: React.FC = () => {
 
                         <div className="py-1">
                           <DropdownLink to="/dashboard" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="My Listings" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/services" icon={<FiBookOpen />} label="My Services" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="My Product Listing" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/services" icon={<FiBookOpen />} label="My Services Listings" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Booking" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
                           {user.role === 'admin' && (
