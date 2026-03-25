@@ -31,6 +31,12 @@ const formatDateInput = (date: Date) => {
 const formatTime = (value: string) =>
   new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+const formatTimeInput = (date: Date) => {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 const getCategoryName = (service: IServiceSelling) =>
   typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
 
@@ -96,6 +102,16 @@ const ServiceDetailPage: React.FC = () => {
     durationMinutes: 60,
     note: '',
   });
+  const todayDate = formatDateInput(new Date());
+  const minimumTimeForSelectedDate = React.useMemo(() => {
+    if (bookingForm.date !== todayDate) {
+      return undefined;
+    }
+
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 1, 0, 0);
+    return formatTimeInput(now);
+  }, [bookingForm.date, todayDate]);
 
   React.useEffect(() => {
     if (!id) {
@@ -129,23 +145,20 @@ const ServiceDetailPage: React.FC = () => {
   }, [id, isAuthenticated, state?.service]);
 
   React.useEffect(() => {
-    if (!id || !bookingForm.date) {
+    if (!id) {
       return;
     }
 
     const fetchSlots = async () => {
       setSlotsLoading(true);
-
-      const startOfDay = new Date(`${bookingForm.date}T00:00:00`);
-      const endOfDay = new Date(`${bookingForm.date}T23:59:59`);
+      const now = new Date();
 
       try {
         const { data } = await bookingsApi.getSlots({
           serviceId: id,
-          from: startOfDay.toISOString(),
-          to: endOfDay.toISOString(),
+          from: now.toISOString(),
         });
-        setSlots(data.data || []);
+        setSlots((data.data || []).filter((slot) => new Date(slot.endAt).getTime() > now.getTime()));
       } catch {
         setSlots([]);
       } finally {
@@ -154,7 +167,18 @@ const ServiceDetailPage: React.FC = () => {
     };
 
     void fetchSlots();
-  }, [bookingForm.date, id]);
+  }, [id]);
+
+  React.useEffect(() => {
+    if (!minimumTimeForSelectedDate || bookingForm.time >= minimumTimeForSelectedDate) {
+      return;
+    }
+
+    setBookingForm((prev) => ({
+      ...prev,
+      time: minimumTimeForSelectedDate,
+    }));
+  }, [bookingForm.time, minimumTimeForSelectedDate]);
 
   const isOwner = service && user ? (typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id) === user.id : false;
   const images = service?.images?.length ? service.images : [];
@@ -205,7 +229,7 @@ const ServiceDetailPage: React.FC = () => {
         note: bookingForm.note.trim() || undefined,
       });
 
-      toast.success('Booking request submitted. It is now waiting for provider approval.');
+      toast.success('Your booking request has been sent successfully. The provider will review it and reply soon.');
       setBookingForm((prev) => ({ ...prev, note: '' }));
       setSubmitting(false);
     } catch {
@@ -348,15 +372,15 @@ const ServiceDetailPage: React.FC = () => {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-800">Confirmed Slots</h2>
-                <span className="text-xs font-medium text-slate-500">{bookingForm.date}</span>
+                <h2 className="text-lg font-bold text-slate-800">Upcoming Confirmed Slots</h2>
+                <span className="text-xs font-medium text-slate-500">Future bookings only</span>
               </div>
 
               {slotsLoading && <p className="mt-3 text-sm text-slate-500">Loading confirmed slots...</p>}
 
               {!slotsLoading && slots.length === 0 && (
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                  <span className="inline-flex items-center gap-2 font-semibold"><FiCheckCircle size={14} /> No confirmed bookings found for this date.</span>
+                  <span className="inline-flex items-center gap-2 font-semibold"><FiCheckCircle size={14} /> No upcoming confirmed bookings right now.</span>
                 </div>
               )}
 
@@ -365,9 +389,25 @@ const ServiceDetailPage: React.FC = () => {
                   {slots.map((slot) => (
                     <div key={`${slot.startAt}-${slot.endAt}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <p className="text-sm font-semibold text-slate-800">
+                        {new Date(slot.startAt).toLocaleDateString([], {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700">
                         {formatTime(slot.startAt)} - {formatTime(slot.endAt)}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">This time is already confirmed and unavailable.</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Duration:{' '}
+                        {Math.max(
+                          1,
+                          Math.round(
+                            (new Date(slot.endAt).getTime() - new Date(slot.startAt).getTime()) / (1000 * 60)
+                          )
+                        )}{' '}
+                        minutes. This slot is already confirmed and unavailable.
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -398,10 +438,16 @@ const ServiceDetailPage: React.FC = () => {
                   <label className="mb-1 block text-xs font-medium text-slate-500">Start time</label>
                   <input
                     type="time"
+                    min={minimumTimeForSelectedDate}
                     value={bookingForm.time}
                     onChange={(event) => setBookingForm((prev) => ({ ...prev, time: event.target.value }))}
                     className="input-field py-2"
                   />
+                  {minimumTimeForSelectedDate && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      For today, only times after {minimumTimeForSelectedDate} are available.
+                    </p>
+                  )}
                 </div>
 
                 <div>

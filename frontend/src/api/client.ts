@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { authStorage } from '@/utils/authStorage';
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -11,7 +12,7 @@ const apiClient = axios.create({
 // Request interceptor — attach JWT token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('bazaaro_token');
+    const token = authStorage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,8 +29,7 @@ apiClient.interceptors.response.use(
       error.response?.data?.message || error.message || 'Something went wrong';
 
     if (error.response?.status === 401) {
-      localStorage.removeItem('bazaaro_token');
-      localStorage.removeItem('bazaaro_user');
+      authStorage.clearSession();
       const isAdminPath = window.location.pathname.startsWith('/admin');
       const authPath = isAdminPath ? '/admin/login' : '/login';
 

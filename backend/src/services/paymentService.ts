@@ -22,6 +22,7 @@ import Stripe from "stripe";
 import { env } from "../config/env";
 import Order from "../models/Order";
 import Payment, { PaymentStatus } from "../models/Payment";
+import ServiceBooking from "../models/ServiceBooking";
 import { AppError } from "../utils/AppError";
 
 // ✅ ADD: booking confirm handler (ONLY used when paymentPurpose === BOOKING_DEPOSIT)
@@ -33,6 +34,10 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
 });
 
 export class PaymentService {
+  getPublishableKey() {
+    return env.STRIPE_PUBLISHABLE_KEY;
+  }
+
   /**
    * Initiate Payment
    * Creates Stripe PaymentIntent and Payment record
@@ -390,7 +395,60 @@ export class PaymentService {
     return payment;
   }
 
-    /**
+  async confirmBookingDepositPayment(args: {
+    bookingId: string;
+    buyerId: string;
+    paymentIntentId: string;
+  }) {
+    const booking = await ServiceBooking.findById(args.bookingId);
+
+    if (!booking) {
+      throw new AppError("Booking not found", 404);
+    }
+
+    if (String(booking.buyerId) !== String(args.buyerId)) {
+      throw new AppError("You are not authorized to confirm this booking payment", 403);
+    }
+
+    if (booking.status === "CONFIRMED") {
+      return booking;
+    }
+
+    if (booking.status !== "PROVIDER_ACCEPTED") {
+      throw new AppError("This booking is not ready for payment confirmation", 400);
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(args.paymentIntentId);
+
+    if (!paymentIntent) {
+      throw new AppError("Payment not found", 404);
+    }
+
+    const paymentPurpose = (paymentIntent.metadata as any)?.paymentPurpose;
+    const paymentBookingId = (paymentIntent.metadata as any)?.bookingId;
+
+    if (paymentPurpose !== "BOOKING_DEPOSIT" || String(paymentBookingId) !== String(args.bookingId)) {
+      throw new AppError("This payment does not belong to the selected booking", 400);
+    }
+
+    if (!["succeeded", "processing", "requires_capture"].includes(paymentIntent.status)) {
+      throw new AppError("Payment has not completed successfully yet", 400);
+    }
+
+    const amountSmallest =
+      typeof paymentIntent.amount_received === "number" && paymentIntent.amount_received > 0
+        ? paymentIntent.amount_received
+        : paymentIntent.amount;
+
+    return confirmBookingFromStripeSuccess({
+      bookingId: args.bookingId,
+      paymentIntentId: paymentIntent.id,
+      amount: amountSmallest / 100,
+      currency: (paymentIntent.currency || env.CURRENCY).toUpperCase(),
+    });
+  }
+
+  /**
    * Initiate Booking Deposit PaymentIntent (Service Booking)
    * NOTE: This does NOT create Payment DB record (separate from orders).
    * It ONLY creates a Stripe PaymentIntent and returns clientSecret.

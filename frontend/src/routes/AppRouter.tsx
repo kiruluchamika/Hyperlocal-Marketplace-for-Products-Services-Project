@@ -31,6 +31,7 @@ const CreateListingPage = React.lazy(() => import('@/pages/dashboard/CreateListi
 const MyOrdersPage = React.lazy(() => import('@/pages/dashboard/MyOrdersPage'));
 const MyServicesPage = React.lazy(() => import('@/pages/dashboard/MyServicesPage'));
 const MyServiceRequestsPage = React.lazy(() => import('@/pages/dashboard/MyServiceRequestsPage'));
+const ServiceBookingPaymentPage = React.lazy(() => import('@/pages/dashboard/ServiceBookingPaymentPage'));
 const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServicePage'));
 const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
@@ -247,6 +248,16 @@ const router = createBrowserRouter([
           <ProtectedRoute requiredRole="user">
             <React.Suspense fallback={<PageLoader />}>
               <MyServiceRequestsPage />
+            </React.Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/dashboard/service-requests/:bookingId/payment',
+        element: (
+          <ProtectedRoute requiredRole="user">
+            <React.Suspense fallback={<PageLoader />}>
+              <ServiceBookingPaymentPage />
             </React.Suspense>
           </ProtectedRoute>
         ),

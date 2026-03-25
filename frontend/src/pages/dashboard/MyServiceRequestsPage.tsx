@@ -1,27 +1,22 @@
 import React from 'react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import {
   FiCalendar,
   FiCheckCircle,
   FiClock,
   FiCreditCard,
   FiMapPin,
+  FiX,
   FiXCircle,
 } from 'react-icons/fi';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { bookingsApi, servicesApi } from '@/api/services';
-import { BookingStatus, IServiceBooking, IServiceSelling } from '@/types';
+import { bookingsApi } from '@/api/services';
+import { BookingStatus, IServiceBooking } from '@/types';
 import { formatCurrency } from '@/utils/listings';
 
 type RequestSection = 'active' | 'history';
-
-type DepositPreview = {
-  amount: number;
-  currency: string;
-  clientSecret: string;
-  paymentIntentId?: string;
-};
 
 const ACTIVE_STATUSES: BookingStatus[] = ['PENDING', 'PROVIDER_ACCEPTED', 'CONFIRMED'];
 const HISTORY_STATUSES: BookingStatus[] = ['CONFIRMED', 'REJECTED', 'CANCELLED'];
@@ -31,24 +26,20 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-LK', {
   timeStyle: 'short',
 });
 
-const getServiceId = (service: IServiceBooking['serviceId']) =>
-  typeof service === 'string' ? service : service?._id || '';
-
-const getServiceTitle = (booking: IServiceBooking, servicesById: Record<string, IServiceSelling>) => {
+const getServiceTitle = (booking: IServiceBooking) => {
   if (typeof booking.serviceId === 'object') {
     return booking.serviceId?.title || 'Service request';
   }
 
-  return servicesById[booking.serviceId]?.title || 'Service request';
+  return 'Service request';
 };
 
-const getServiceLocation = (booking: IServiceBooking, servicesById: Record<string, IServiceSelling>) => {
+const getServiceLocation = (booking: IServiceBooking) => {
   if (typeof booking.serviceId === 'object') {
     return booking.serviceId?.locationText || booking.serviceId?.location?.city || 'Location unavailable';
   }
 
-  const service = servicesById[booking.serviceId];
-  return service?.locationText || service?.location?.city || 'Location unavailable';
+  return 'Location unavailable';
 };
 
 const getProviderName = (booking: IServiceBooking) => {
@@ -89,42 +80,20 @@ const getStatusMessage = (booking: IServiceBooking) => {
 };
 
 const MyServiceRequestsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [section, setSection] = React.useState<RequestSection>('active');
   const [bookings, setBookings] = React.useState<IServiceBooking[]>([]);
-  const [servicesById, setServicesById] = React.useState<Record<string, IServiceSelling>>({});
   const [loading, setLoading] = React.useState(true);
-  const [payingId, setPayingId] = React.useState('');
-  const [depositPreviewById, setDepositPreviewById] = React.useState<Record<string, DepositPreview>>({});
+  const [actingId, setActingId] = React.useState('');
 
   const fetchBookings = React.useCallback(async () => {
     setLoading(true);
 
     try {
       const { data } = await bookingsApi.getMyBookings();
-      const bookingItems = data.data || [];
-      setBookings(bookingItems);
-
-      const serviceIds = Array.from(
-        new Set(
-          bookingItems
-            .map((booking) => getServiceId(booking.serviceId))
-            .filter(Boolean)
-        )
-      );
-
-      const serviceResponses = await Promise.allSettled(serviceIds.map((id) => servicesApi.getById(id)));
-      const resolvedServices = serviceResponses.reduce<Record<string, IServiceSelling>>((result, response) => {
-        if (response.status === 'fulfilled') {
-          const service = response.value.data.data;
-          result[service._id] = service;
-        }
-        return result;
-      }, {});
-
-      setServicesById(resolvedServices);
+      setBookings(data.data || []);
     } catch {
       setBookings([]);
-      setServicesById({});
     } finally {
       setLoading(false);
     }
@@ -133,6 +102,19 @@ const MyServiceRequestsPage: React.FC = () => {
   React.useEffect(() => {
     void fetchBookings();
   }, [fetchBookings]);
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      setActingId(bookingId);
+      await bookingsApi.cancel(bookingId);
+      toast.success('Booking request cancelled.');
+      await fetchBookings();
+    } catch {
+      // global error toast handles the API message
+    } finally {
+      setActingId('');
+    }
+  };
 
   const activeRequests = React.useMemo(
     () => bookings.filter((booking) => ACTIVE_STATUSES.includes(booking.status)),
@@ -146,32 +128,11 @@ const MyServiceRequestsPage: React.FC = () => {
 
   const visibleRequests = section === 'active' ? activeRequests : historyRequests;
 
-  const handlePayNow = async (bookingId: string) => {
-    try {
-      setPayingId(bookingId);
-      const { data } = await bookingsApi.initiateDeposit(bookingId);
-      setDepositPreviewById((prev) => ({
-        ...prev,
-        [bookingId]: {
-          amount: data.data.amount,
-          currency: data.data.currency,
-          clientSecret: data.data.clientSecret,
-          paymentIntentId: data.data.paymentIntentId,
-        },
-      }));
-      toast.success('Deposit payment is ready for this booking.');
-    } catch {
-      // global toast
-    } finally {
-      setPayingId('');
-    }
-  };
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">My Service Requests</h1>
+          <h1 className="text-3xl font-bold text-slate-800">My Service Booking</h1>
           <p className="mt-1 text-sm text-slate-500">
             Track the service bookings you created as a buyer, including active requests and past request history.
           </p>
@@ -238,8 +199,7 @@ const MyServiceRequestsPage: React.FC = () => {
       {!loading && visibleRequests.length > 0 && (
         <div className="space-y-4">
           {visibleRequests.map((booking) => {
-            const serviceTitle = getServiceTitle(booking, servicesById);
-            const depositPreview = depositPreviewById[booking._id];
+            const serviceTitle = getServiceTitle(booking);
 
             return (
               <div key={booking._id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
@@ -280,7 +240,7 @@ const MyServiceRequestsPage: React.FC = () => {
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Location</p>
                     <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
                       <FiMapPin size={14} />
-                      {getServiceLocation(booking, servicesById)}
+                      {getServiceLocation(booking)}
                     </p>
                   </div>
                 </div>
@@ -329,27 +289,52 @@ const MyServiceRequestsPage: React.FC = () => {
 
                 {booking.status === 'PROVIDER_ACCEPTED' && (
                   <div className="mt-4 space-y-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      leftIcon={<FiCreditCard size={14} />}
-                      isLoading={payingId === booking._id}
-                      onClick={() => void handlePayNow(booking._id)}
-                    >
-                      Pay Now
-                    </Button>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        leftIcon={<FiCreditCard size={14} />}
+                        disabled={!!actingId}
+                        onClick={() => navigate(`/dashboard/service-requests/${booking._id}/payment`)}
+                      >
+                        Pay Now
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<FiX size={14} />}
+                        isLoading={actingId === booking._id}
+                        disabled={!!actingId && actingId !== booking._id}
+                        onClick={() => void handleCancelBooking(booking._id)}
+                      >
+                        Cancel Request
+                      </Button>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      The provider has accepted this booking. You can pay now to confirm the slot or cancel it before payment.
+                    </p>
+                  </div>
+                )}
 
-                    {depositPreview && (
-                      <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-sm text-slate-700">
-                        <p className="font-semibold text-slate-800">Deposit payment ready</p>
-                        <p className="mt-2">
-                          Amount: {formatCurrency(depositPreview.amount, depositPreview.currency.toUpperCase())}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Payment intent prepared for this booking. Client secret has been received for the next payment step.
-                        </p>
-                      </div>
-                    )}
+                {booking.status === 'PENDING' && (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<FiX size={14} />}
+                        isLoading={actingId === booking._id}
+                        disabled={!!actingId && actingId !== booking._id}
+                        onClick={() => void handleCancelBooking(booking._id)}
+                      >
+                        Cancel Request
+                      </Button>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Cancel this request any time before the provider accepts it.
+                    </p>
                   </div>
                 )}
               </div>

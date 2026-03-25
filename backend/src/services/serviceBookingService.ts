@@ -52,13 +52,31 @@ export async function createBooking(buyerId: string, body: any) {
 export async function listMyBookings(buyerId: string, status?: string) {
   const query: any = { buyerId: new mongoose.Types.ObjectId(buyerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query).sort({ createdAt: -1 });
+  return ServiceBooking.find(query)
+    .populate({
+      path: "serviceId",
+      select: "title locationText location price pricingType images status isActive sellerId",
+    })
+    .populate({
+      path: "providerId",
+      select: "name email profileImage",
+    })
+    .sort({ createdAt: -1 });
 }
 
 export async function listProviderBookings(providerId: string, status?: string) {
   const query: any = { providerId: new mongoose.Types.ObjectId(providerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query).sort({ startAt: 1 });
+  return ServiceBooking.find(query)
+    .populate({
+      path: "serviceId",
+      select: "title locationText location price pricingType images status isActive sellerId",
+    })
+    .populate({
+      path: "buyerId",
+      select: "name email profileImage",
+    })
+    .sort({ startAt: 1 });
 }
 
 export async function cancelBooking(id: string, buyerId: string) {
@@ -69,8 +87,14 @@ export async function cancelBooking(id: string, buyerId: string) {
     throw new AppError("Forbidden", 403);
   }
 
-  if (booking.status !== "PENDING") {
-    throw new AppError("Only PENDING bookings can be cancelled", 400);
+  const cancellableStatuses = ["PENDING", "PROVIDER_ACCEPTED"];
+
+  if (!cancellableStatuses.includes(booking.status)) {
+    throw new AppError("Only pending or accepted unpaid bookings can be cancelled", 400);
+  }
+
+  if (booking.deposit?.paidAt) {
+    throw new AppError("Confirmed bookings cannot be cancelled from this page", 400);
   }
 
   booking.status = "CANCELLED";

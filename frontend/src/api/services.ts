@@ -60,4 +60,9 @@ export const bookingsApi = {
       success: boolean;
       data: { clientSecret: string; amount: number; currency: string; paymentIntentId?: string };
     }>(`/servicebookings/${id}/deposit/initiate`),
+
+  confirmDeposit: (id: string, paymentIntentId: string) =>
+    apiClient.post<{ success: boolean; data: IServiceBooking }>(`/servicebookings/${id}/deposit/confirm`, {
+      paymentIntentId,
+    }),
 };
