@@ -14,6 +14,7 @@ import {
   FiSettings,
   FiChevronDown,
   FiBookOpen,
+  FiCreditCard,
   FiCalendar,
   FiPlus,
 } from 'react-icons/fi';
@@ -196,6 +197,7 @@ const Navbar: React.FC = () => {
                           <DropdownLink to="/dashboard/services" icon={<FiBookOpen />} label="My Services Listings" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Booking" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="My Payments" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
                           {user.role === 'admin' && (
                             <DropdownLink to="/admin" icon={<FiSettings />} label="Admin Panel" onClick={() => setIsProfileOpen(false)} />
