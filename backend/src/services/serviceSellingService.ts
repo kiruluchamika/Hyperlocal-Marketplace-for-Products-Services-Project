@@ -5,6 +5,29 @@ import { AppError } from "../utils/AppError";
 
 type Role = "admin" | "user";
 
+const deriveServiceVisibility = (service: any) => {
+  if (service.deletedAt || service.status === "DELETED") {
+    return { status: "DELETED" as const, isActive: false };
+  }
+
+  if (service.removedAt || service.removedReason || service.status === "REMOVED" || service.isActive === false) {
+    return { status: "REMOVED" as const, isActive: false };
+  }
+
+  return { status: "ACTIVE" as const, isActive: true };
+};
+
+const normalizeServiceSelling = (service: any) => {
+  const normalized = deriveServiceVisibility(service);
+  const raw = typeof service?.toObject === "function" ? service.toObject() : service;
+
+  return {
+    ...raw,
+    status: normalized.status,
+    isActive: normalized.isActive,
+  };
+};
+
 const isFilled = (v: unknown) => {
   if (v === null || v === undefined) return false;
   if (typeof v === "string") return v.trim().length > 0;
@@ -87,7 +110,12 @@ export const createServiceSelling = async (userId: string, payload: any) => {
  * Public feed: only ACTIVE ads
  */
 export const listServiceSelling = async (query: any) => {
-  const filter: any = { status: "ACTIVE" };
+  const filter: any = {
+    status: "ACTIVE",
+    isActive: { $ne: false },
+    deletedAt: { $exists: false },
+    removedAt: { $exists: false },
+  };
 
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.pricingType) filter.pricingType = query.pricingType;
@@ -106,22 +134,25 @@ export const listServiceSelling = async (query: any) => {
     ];
   }
 
-  return ServiceSelling.find(filter)
+  const services = await ServiceSelling.find(filter)
     .select("-description")
     .sort({ createdAt: -1 })
     .populate("categoryId", "name type");
+
+  return services.map(normalizeServiceSelling);
 };
 
 export const listMyServiceSelling = async (userId: string) => {
-  return ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
+  const services = await ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
     .sort({ createdAt: -1 })
     .populate("categoryId", "name type");
+
+  return services.map(normalizeServiceSelling);
 };
 
 export const listAdminServiceSelling = async (query: any) => {
   const filter: any = {};
 
-  if (query.status) filter.status = query.status;
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.pricingType) filter.pricingType = query.pricingType;
 
@@ -133,9 +164,17 @@ export const listAdminServiceSelling = async (query: any) => {
     ];
   }
 
-  return ServiceSelling.find(filter)
+  const services = await ServiceSelling.find(filter)
     .sort({ createdAt: -1 })
     .populate("categoryId", "name type");
+
+  const normalizedServices = services.map(normalizeServiceSelling);
+
+  if (!query.status) {
+    return normalizedServices;
+  }
+
+  return normalizedServices.filter((service) => service.status === query.status);
 };
 
 export const getServiceSellingById = async (
@@ -148,13 +187,14 @@ export const getServiceSellingById = async (
 
   const isOwner = requesterId && doc.sellerId.toString() === requesterId;
   const isAdmin = requesterRole === "admin";
-  const isActive = doc.status === "ACTIVE";
+  const normalized = deriveServiceVisibility(doc);
+  const isActive = normalized.status === "ACTIVE";
 
   if (!isActive && !isOwner && !isAdmin) {
     throw new AppError("Service ad not found", 404);
   }
 
-  return doc;
+  return normalizeServiceSelling(doc);
 };
 
 /**
@@ -168,7 +208,7 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
     throw new AppError("Forbidden", 403);
   }
 
-  if (existing.status !== "ACTIVE") {
+  if (deriveServiceVisibility(existing).status !== "ACTIVE") {
     throw new AppError("Cannot update a removed/deleted ad", 400);
   }
 
@@ -225,7 +265,7 @@ export const moderateRemoveServiceSelling = async (
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
 
-  if (existing.status === "DELETED") {
+  if (deriveServiceVisibility(existing).status === "DELETED") {
     throw new AppError("Cannot moderate a deleted ad", 400);
   }
 

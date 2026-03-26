@@ -561,8 +561,22 @@ export class OrderService {
    */
   private getActionsAllowed(order: any, userId: string, role: string): string[] {
     const actions: string[] = [];
-    const isBuyer = order.buyerId._id.toString() === userId;
-    const isSeller = order.sellerId._id.toString() === userId;
+    const toIdString = (value: any): string | null => {
+      if (!value) return null;
+
+      // Populated refs have an _id, plain refs can already be ObjectId/string.
+      if (value._id) {
+        return value._id.toString();
+      }
+
+      return value.toString();
+    };
+
+    const buyerId = toIdString(order.buyerId);
+    const sellerId = toIdString(order.sellerId);
+
+    const isBuyer = buyerId === userId;
+    const isSeller = sellerId === userId;
     
     if (isBuyer) {
       if (order.status === OrderStatus.PENDING) {
