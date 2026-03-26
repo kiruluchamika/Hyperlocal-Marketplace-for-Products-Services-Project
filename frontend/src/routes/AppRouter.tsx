@@ -30,6 +30,7 @@ const MyListingsPage = React.lazy(() => import('@/pages/dashboard/MyListingsPage
 const CreateListingPage = React.lazy(() => import('@/pages/dashboard/CreateListingPage'));
 const MyOrdersPage = React.lazy(() => import('@/pages/dashboard/MyOrdersPage'));
 const MyServicesPage = React.lazy(() => import('@/pages/dashboard/MyServicesPage'));
+const MyPaymentsPage = React.lazy(() => import('@/pages/dashboard/MyPaymentsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 
@@ -234,6 +235,16 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <React.Suspense fallback={<PageLoader />}>
               <MyServicesPage />
+            </React.Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/dashboard/payments',
+        element: (
+          <ProtectedRoute>
+            <React.Suspense fallback={<PageLoader />}>
+              <MyPaymentsPage />
             </React.Suspense>
           </ProtectedRoute>
         ),
