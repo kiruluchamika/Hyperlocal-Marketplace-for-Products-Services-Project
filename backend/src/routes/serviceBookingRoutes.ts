@@ -6,6 +6,7 @@ import { validate } from "../middlewares/validate";
 import {
   createServiceBookingSchema,
   bookingIdParamSchema,
+  bookingDepositConfirmSchema,
   providerDecisionSchema,
   slotsQuerySchema,
   providerBookingsQuerySchema,
@@ -346,6 +347,27 @@ router.post(
       });
 
       res.json({ success: true, data: pi });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+router.post(
+  "/:id/deposit/confirm",
+  auth,
+  requireRole(["user"]),
+  validate(bookingIdParamSchema, "params"),
+  validate(bookingDepositConfirmSchema),
+  async (req: any, res, next) => {
+    try {
+      const booking = await paymentService.confirmBookingDepositPayment({
+        bookingId: req.params.id,
+        buyerId: req.user.id,
+        paymentIntentId: req.body.paymentIntentId,
+      });
+
+      res.json({ success: true, data: booking });
     } catch (e) {
       next(e);
     }

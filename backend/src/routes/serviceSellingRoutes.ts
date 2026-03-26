@@ -70,7 +70,7 @@ router.get("/", validate(listServiceSellingQuerySchema, "query"), async (req, re
  *       401:
  *         description: Authentication required
  */
-router.get("/me", auth, requireRole(["user"]), async (req: any, res, next) => {
+router.get("/me", auth, async (req: any, res, next) => {
   try {
     const result = await svc.listMyServiceSelling(req.user.id);
     res.json({ success: true, data: result });

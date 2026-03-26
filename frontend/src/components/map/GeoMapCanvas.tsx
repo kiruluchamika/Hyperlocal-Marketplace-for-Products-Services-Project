@@ -63,6 +63,7 @@ interface GeoMapCanvasProps {
   selectedItemId?: string;
   onCenterChange: (center: [number, number]) => void;
   onSelectItem?: (item: GeoNearbyItem) => void;
+  heightClassName?: string;
 }
 
 const CenterSync: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -92,6 +93,7 @@ const GeoMapCanvas: React.FC<GeoMapCanvasProps> = ({
   selectedItemId,
   onCenterChange,
   onSelectItem,
+  heightClassName = 'h-[460px]',
 }) => {
   const renderedItems = useMemo(
     () =>
@@ -105,7 +107,7 @@ const GeoMapCanvas: React.FC<GeoMapCanvasProps> = ({
   );
 
   return (
-    <div className="relative z-0 h-[460px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-card">
+    <div className={`relative z-0 w-full overflow-hidden rounded-2xl border border-slate-200 shadow-card ${heightClassName}`}>
       <MapContainer center={center} zoom={13} className="h-full w-full">
         <CenterSync center={center} />
         <ClickToRecenter onCenterChange={onCenterChange} />
