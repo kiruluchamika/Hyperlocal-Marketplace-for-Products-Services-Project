@@ -19,6 +19,7 @@ import {
   FiPlus,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { useUIStore } from '@/store/uiStore';
 import { Avatar } from '@/components/ui';
 
@@ -31,13 +32,17 @@ const activeUnderline = 'after:absolute after:left-4 after:right-4 after:-bottom
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
+  const { notifications, unreadCount, isLoading: isNotificationsLoading, fetchNotifications, fetchUnreadCount } =
+    useNotificationStore();
   const { isMobileMenuOpen, toggleMobileMenu, closeMobileMenu, searchQuery, setSearchQuery } =
     useUIStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const isUser = isAuthenticated && user?.role === 'user';
@@ -56,6 +61,10 @@ const Navbar: React.FC = () => {
 
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
         setIsAddMenuOpen(false);
+      }
+
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setIsNotificationsOpen(false);
       }
     };
 
@@ -81,6 +90,23 @@ const Navbar: React.FC = () => {
   const isAddActive =
     location.pathname.startsWith('/dashboard/listings/new') ||
     location.pathname.startsWith('/dashboard/services/new');
+
+  const handleNotificationsToggle = async () => {
+    const nextOpen = !isNotificationsOpen;
+    setIsNotificationsOpen(nextOpen);
+
+    if (nextOpen) {
+      await Promise.all([
+        fetchNotifications({ page: 1, limit: 5, unreadOnly: false }),
+        fetchUnreadCount(),
+      ]);
+    }
+  };
+
+  const handleViewAllNotifications = () => {
+    setIsNotificationsOpen(false);
+    navigate('/dashboard/notifications');
+  };
 
   return (
     <nav
@@ -157,13 +183,59 @@ const Navbar: React.FC = () => {
 
             {isAuthenticated && user ? (
               <>
-                <Link
-                  to="/dashboard/notifications"
-                  className="relative rounded-xl p-2 text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-                >
-                  <FiBell className="h-5 w-5" />
-                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
-                </Link>
+                <div className="relative" ref={notificationsRef}>
+                  <button
+                    type="button"
+                    onClick={handleNotificationsToggle}
+                    className="relative rounded-xl p-2 text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <FiBell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <AnimatePresence>
+                    {isNotificationsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur-xl"
+                      >
+                        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                          <p className="text-sm font-semibold text-slate-800">Notifications</p>
+                          <button
+                            onClick={handleViewAllNotifications}
+                            className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                          >
+                            View all
+                          </button>
+                        </div>
+
+                        <div className="max-h-80 overflow-y-auto">
+                          {isNotificationsLoading ? (
+                            <div className="px-4 py-6 text-center text-sm text-slate-500">Loading...</div>
+                          ) : notifications.length === 0 ? (
+                            <div className="px-4 py-6 text-center text-sm text-slate-500">No notifications yet.</div>
+                          ) : (
+                            <ul className="divide-y divide-slate-100">
+                              {notifications.slice(0, 5).map((item) => (
+                                <li key={item._id} className={`px-4 py-3 ${item.isRead ? 'bg-white' : 'bg-indigo-50/30'}`}>
+                                  <p className="truncate text-sm font-medium text-slate-800">{item.title}</p>
+                                  <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.message}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 <div className="relative ml-2" ref={profileRef}>
                   <button
