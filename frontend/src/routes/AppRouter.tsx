@@ -249,6 +249,11 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <React.Suspense fallback={<PageLoader />}>
               <MyPaymentsPage />
+            </React.Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/dashboard/service-requests',
         element: (
           <ProtectedRoute requiredRole="user">
@@ -315,5 +320,4 @@ const router = createBrowserRouter([
 const AppRouter: React.FC = () => {
   return <RouterProvider router={router} />;
 };
-
 export default AppRouter;
