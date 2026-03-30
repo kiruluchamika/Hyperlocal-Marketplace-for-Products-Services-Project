@@ -185,6 +185,26 @@ export const confirmReceived = asyncHandler(
 );
 
 /**
+ * POST /orders/:id/confirm-received-otp
+ * Confirm delivery received with OTP (Buyer only)
+ */
+export const confirmReceivedWithOtp = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { id } = req.params;
+    const buyerId = req.user!.id;
+    const { otp } = req.body;
+
+    const result = await orderService.confirmReceivedWithOtp(id, buyerId, otp);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.order
+    });
+  }
+);
+
+/**
  * POST /orders/:id/confirm-delivery
  * Confirm delivery with OTP (Seller only)
  */
@@ -193,13 +213,13 @@ export const confirmDeliveryWithOtp = asyncHandler(
     const { id } = req.params;
     const sellerId = req.user!.id;
     const { otp } = req.body;
-    
-    const result = await orderService.confirmDeliveryWithOtp(id, sellerId, otp);
-    
+
+    await orderService.confirmDeliveryWithOtp(id, sellerId, otp);
+
+    // Kept for backward compatibility. Service currently throws deprecation error.
     res.status(200).json({
       success: true,
-      message: result.message,
-      data: result.order
+      message: "Seller OTP confirmation processed"
     });
   }
 );
