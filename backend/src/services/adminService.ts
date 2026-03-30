@@ -5,6 +5,9 @@ import ServiceBooking from "../models/ServiceBooking";
 import Order from "../models/Order";
 import Payment from "../models/Payment";
 import Category from "../models/Category";
+import { createUserNotification } from "./notificationService";
+import { getEmail, sendEmail } from "./emailNotifications";
+import { AppError } from "../utils/AppError";
 
 /* ───────── Dashboard Stats ───────── */
 export const getDashboardStats = async () => {
@@ -324,4 +327,66 @@ export const getAllListingsAdmin = async (query: {
     listings,
     pagination: { total, page, totalPages: Math.ceil(total / limit) },
   };
+};
+
+/* ───────── Suspend Listing (admin) ───────── */
+export const suspendListing = async (listingId: string, reason: string) => {
+  const listing = await ProductListing.findById(listingId);
+  if (!listing) throw new AppError("Listing not found", 404);
+
+  listing.status = "SUSPENDED";
+  listing.suspendReason = reason;
+  
+  const deadline = new Date();
+  deadline.setHours(deadline.getHours() + 3);
+  listing.suspendDeadline = deadline;
+
+  await listing.save();
+
+  await createUserNotification(listing.ownerId.toString(), {
+    title: "Listing Suspended",
+    message: `Your listing "${listing.title}" has been suspended. Reason: ${reason}. You have 3 hours to edit and appeal before it is permanently deleted.`,
+    type: "SYSTEM" as any,
+  });
+
+  try {
+    const email = await getEmail(listing.ownerId.toString());
+    await sendEmail(
+      email,
+      "Urgent: Action Required - Listing Suspended",
+      `<p>Your listing <b>${listing.title}</b> has been suspended from Bazaaro.</p>
+       <p><b>Reason:</b> ${reason}</p>
+       <p>You have 3 hours to edit the listing to resolve this issue. If not resolved, it will be automatically deleted on ${deadline.toLocaleString()}.</p>
+       <p>Please log in to your dashboard to appeal.</p>`
+    );
+  } catch (e) {
+    console.error("Failed to send suspension email:", e);
+  }
+
+  return listing;
+};
+
+/* ───────── Approve Listing (admin) ───────── */
+export const approveListing = async (listingId: string) => {
+  const listing = await ProductListing.findById(listingId);
+  if (!listing) throw new AppError("Listing not found", 404);
+
+  listing.status = "ACTIVE";
+  listing.suspendReason = undefined;
+  listing.suspendDeadline = undefined;
+
+  await listing.save();
+
+  await createUserNotification(listing.ownerId.toString(), {
+    title: "Listing Approved",
+    message: `Your listing "${listing.title}" has been reviewed and restored.`,
+    type: "SYSTEM" as any,
+  });
+
+  try {
+    const email = await getEmail(listing.ownerId.toString());
+    await sendEmail(email, "Listing Restored - Bazaaro", `<p>Good news! Your listing <b>${listing.title}</b> has been approved and is back active on the marketplace.</p>`);
+  } catch (e) {}
+
+  return listing;
 };
