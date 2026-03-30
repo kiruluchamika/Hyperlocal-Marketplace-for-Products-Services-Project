@@ -51,9 +51,7 @@ const Footer: React.FC = () => {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-700 via-indigo-600 to-slate-900 shadow-lg shadow-indigo-500/20">
-                <span className="text-white font-bold text-lg">B</span>
-              </div>
+              <img src="/fav.png" alt="Bazaaro Logo" className="h-10 w-10 object-contain drop-shadow-md" />
               <span className="text-xl font-bold text-white">Bazaaro</span>
             </Link>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
