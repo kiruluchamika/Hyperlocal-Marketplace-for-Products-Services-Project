@@ -5,6 +5,7 @@ export type OrderAction =
   | 'CANCEL'
   | 'INITIATE_PAYMENT'
   | 'CONFIRM_RECEIVED'
+  | 'CONFIRM_RECEIVED_WITH_OTP'
   | 'ACCEPT'
   | 'REJECT'
   | 'START'

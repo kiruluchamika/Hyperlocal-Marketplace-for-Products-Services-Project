@@ -175,6 +175,24 @@ export const confirmDeliveryWithOtpSchema = z.object({
 });
 
 /**
+ * Confirm Delivery Received with OTP (Buyer)
+ * POST /orders/:id/confirm-received-otp
+ */
+export const confirmReceivedWithOtpSchema = z.object({
+  params: z.object({
+    id: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format")
+  }),
+  body: z.object({
+    otp: z
+      .string()
+      .length(6, "OTP must be exactly 6 digits")
+      .regex(/^\d{6}$/, "OTP must contain only digits")
+  })
+});
+
+/**
  * Update Delivery Details (Buyer)
  * PUT /orders/:id/delivery-details
  */

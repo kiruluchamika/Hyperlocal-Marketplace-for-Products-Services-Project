@@ -20,6 +20,7 @@ import {
   updateOrderStatusSchema,
   cancelOrderSchema,
   confirmReceivedSchema,
+  confirmReceivedWithOtpSchema,
   confirmDeliveryWithOtpSchema,
   updateDeliveryDetailsSchema,
   deleteOrderSchema
@@ -33,6 +34,7 @@ import {
   startOrder,
   cancelOrder,
   confirmReceived,
+  confirmReceivedWithOtp,
   confirmDeliveryWithOtp,
   updateDeliveryDetails,
   deleteOrder
@@ -96,6 +98,47 @@ router.post(
   validateOrder(createOrderSchema),
   createOrder
 );
+
+/**
+ * @openapi
+ * /orders/{id}/confirm-received-otp:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Confirm receipt with OTP (Buyer only)
+ *     description: Verify buyer OTP sent by email, mark order as COMPLETED, and release payment to seller.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [otp]
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 pattern: '^[0-9]{6}$'
+ *                 description: 6-digit OTP received by buyer email
+ *     responses:
+ *       200:
+ *         description: OTP verified, order completed, payment released
+ *       400:
+ *         description: Invalid OTP, expired OTP, max attempts exceeded, or invalid status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden or not order owner
+ *       404:
+ *         description: Order not found
+ */
 
 /**
  * @openapi
@@ -167,6 +210,14 @@ router.patch(
   requireRole(["user"]),
   validateOrder(confirmReceivedSchema),
   confirmReceived
+);
+
+router.post(
+  "/:id/confirm-received-otp",
+  auth,
+  requireRole(["user"]),
+  validateOrder(confirmReceivedWithOtpSchema),
+  confirmReceivedWithOtp
 );
 
 /**
@@ -350,8 +401,9 @@ router.patch(
  * /orders/{id}/confirm-delivery:
  *   post:
  *     tags: [Orders]
- *     summary: Confirm delivery with OTP (Seller only)
- *     description: Verify 6-digit OTP from buyer and mark order COMPLETED. Releases payment to seller.
+ *     deprecated: true
+ *     summary: Deprecated seller OTP completion endpoint
+ *     description: Deprecated. Seller-side OTP completion is disabled; buyer must use /orders/{id}/confirm-received-otp.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -374,10 +426,8 @@ router.patch(
  *                 pattern: '^[0-9]{6}$'
  *                 description: 6-digit OTP provided by buyer
  *     responses:
- *       200:
- *         description: OTP verified, order completed, payment released
  *       400:
- *         description: Invalid OTP, expired, or too many attempts
+ *         description: Seller OTP completion disabled
  *       401:
  *         description: Unauthorized
  *       403:
