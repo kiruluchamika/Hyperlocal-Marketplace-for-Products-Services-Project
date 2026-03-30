@@ -119,9 +119,7 @@ const Navbar: React.FC = () => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between lg:h-[72px]">
           <Link to="/" className="flex flex-shrink-0 items-center gap-2" onClick={closeMobileMenu}>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-700 via-indigo-600 to-slate-900 shadow-lg shadow-indigo-500/20">
-              <span className="text-lg font-bold text-white">B</span>
-            </div>
+            <img src="/fav.png" alt="Bazaaro Logo" className="h-10 w-10 object-contain drop-shadow-md" />
             <span className="hidden text-xl font-bold gradient-text sm:block">Bazaaro</span>
           </Link>
 
