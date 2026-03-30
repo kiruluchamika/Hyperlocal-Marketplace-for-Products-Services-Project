@@ -3,7 +3,7 @@ import { ICategory } from './category';
 
 export type TransactionMode = 'BUY_NOW' | 'NEGOTIABLE';
 export type Condition = 'NEW' | 'USED_LIKE_NEW' | 'USED_GOOD' | 'USED_FAIR';
-export type ListingStatus = 'ACTIVE' | 'SOLD' | 'HIDDEN' | 'DELETED';
+export type ListingStatus = 'ACTIVE' | 'SOLD' | 'HIDDEN' | 'DELETED' | 'SUSPENDED' | 'UNDER_REVIEW';
 
 export interface GeoLocation {
   city: string;
@@ -35,6 +35,8 @@ export interface IProductListing {
   savedCount: number;
   createdAt: string;
   updatedAt: string;
+  suspendReason?: string;
+  suspendDeadline?: string;
 }
 
 export interface ListingOwnerSummary {
