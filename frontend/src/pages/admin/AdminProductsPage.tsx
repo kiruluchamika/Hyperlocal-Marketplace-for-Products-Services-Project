@@ -5,6 +5,7 @@ import AdminTable from '@/components/admin/AdminTable';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminPagination from '@/components/admin/AdminPagination';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
+import AdminModal from '@/components/admin/AdminModal';
 import type { AdminListing, Pagination } from '@/types/admin';
 import { format } from 'date-fns';
 
@@ -14,6 +15,11 @@ const AdminProductsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  const [suspendModalOpen, setSuspendModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<AdminListing | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchListings = useCallback(async (page = 1) => {
     setLoading(true);
@@ -27,6 +33,34 @@ const AdminProductsPage: React.FC = () => {
       setLoading(false);
     }
   }, [search, statusFilter]);
+
+  const handleSuspend = async () => {
+    if (!selectedListing || !suspendReason.trim()) return;
+    setActionLoading(true);
+    try {
+      await adminApi.suspendListing(selectedListing._id, suspendReason);
+      setSuspendModalOpen(false);
+      setSuspendReason('');
+      setSelectedListing(null);
+      fetchListings(pagination.page);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to suspend listing.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = async (id: string, actionName = 'approve') => {
+    if (!window.confirm(`Are you sure you want to ${actionName} this listing?`)) return;
+    try {
+      await adminApi.approveListing(id);
+      fetchListings(pagination.page);
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to ${actionName} listing.`);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => fetchListings(1), 300);
@@ -98,6 +132,38 @@ const AdminProductsPage: React.FC = () => {
         <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
       ),
     },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: AdminListing) => (
+        <div className="flex gap-2">
+          {row.status === 'ACTIVE' && (
+            <button
+              onClick={() => { setSelectedListing(row); setSuspendModalOpen(true); }}
+              className="rounded-md bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/20"
+            >
+              Suspend
+            </button>
+          )}
+          {row.status === 'UNDER_REVIEW' && (
+            <button
+              onClick={() => handleApprove(row._id)}
+              className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
+            >
+              Approve
+            </button>
+          )}
+          {row.status === 'SUSPENDED' && (
+            <button
+              onClick={() => handleApprove(row._id, 'restore')}
+              className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
+            >
+              Restore
+            </button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -117,6 +183,8 @@ const AdminProductsPage: React.FC = () => {
           <option value="ACTIVE">Active</option>
           <option value="SOLD">Sold</option>
           <option value="HIDDEN">Hidden</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="UNDER_REVIEW">Under Review</option>
           <option value="DELETED">Deleted</option>
         </select>
       </div>
@@ -125,6 +193,45 @@ const AdminProductsPage: React.FC = () => {
         <AdminTable columns={columns} data={listings} loading={loading} emptyMessage="No products found" />
         <AdminPagination pagination={pagination} onPageChange={(p) => fetchListings(p)} />
       </div>
+
+      <AdminModal
+        isOpen={suspendModalOpen}
+        onClose={() => { setSuspendModalOpen(false); setSuspendReason(''); setSelectedListing(null); }}
+        title="Suspend Listing"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">
+            You are about to suspend <strong>{selectedListing?.title}</strong>. This will hide the listing from the marketplace. The owner will be notified and given 3 hours to appeal or edit the listing before it is permanently deleted.
+          </p>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-300">
+              Suspension Reason <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              rows={4}
+              placeholder="Provide a detailed reason for suspending this product..."
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+            <button
+              onClick={() => { setSuspendModalOpen(false); setSuspendReason(''); }}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSuspend}
+              disabled={!suspendReason.trim() || actionLoading}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            >
+              {actionLoading ? 'Suspending...' : 'Suspend Listing'}
+            </button>
+          </div>
+        </div>
+      </AdminModal>
     </div>
   );
 };
