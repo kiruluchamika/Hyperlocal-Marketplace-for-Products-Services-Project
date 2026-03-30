@@ -258,7 +258,7 @@ const BrowseListingsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-transparent py-4 sm:py-8 lg:py-10">
-      <div className="mx-auto w-full max-w-[1536px] px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
+      <div className="mx-auto w-full max-w-[1536px] px-6 sm:px-10 lg:px-14 xl:px-20 2xl:px-24">
         <section className={`grid grid-cols-1 items-start gap-6 xl:gap-8 ${isMapOpen ? 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]'}`}>
           <div className="order-1 flex flex-col pt-2 md:pt-4">
             <div className="mb-6 flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
@@ -295,7 +295,7 @@ const BrowseListingsPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {results.map((item) => (
                   <ListingCard
                     key={item._id}
