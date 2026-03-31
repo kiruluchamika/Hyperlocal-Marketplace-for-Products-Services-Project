@@ -62,6 +62,7 @@ type ListingFormState = {
   images: string[];
   tags: string;
   status: ListingStatus;
+  attributes: Record<string, any>;
 };
 
 const defaultForm: ListingFormState = {
@@ -79,6 +80,7 @@ const defaultForm: ListingFormState = {
   images: [],
   tags: '',
   status: 'ACTIVE',
+  attributes: {},
 };
 
 const toFormValues = (listing: IProductListing): ListingFormState => {
@@ -99,10 +101,11 @@ const toFormValues = (listing: IProductListing): ListingFormState => {
     images: listing.images || [],
     tags: listing.tags?.join(', ') || '',
     status: listing.status,
+    attributes: listing.attributes || {},
   };
 };
 
-const validateForm = (form: ListingFormState) => {
+const validateForm = (form: ListingFormState, selectedCategory?: any) => {
   if (form.title.trim().length < 3) return 'Title must have at least 3 characters.';
   if (form.description.trim().length < 10) return 'Description must have at least 10 characters.';
   if (!form.categoryId) return 'Please select a category.';
@@ -119,6 +122,17 @@ const validateForm = (form: ListingFormState) => {
   if (form.images.length === 0) return 'Please add at least one product photo.';
   if (form.images.length > MAX_IMAGES) return `Maximum ${MAX_IMAGES} images are allowed.`;
 
+  if (selectedCategory?.attributes) {
+    for (const attr of selectedCategory.attributes) {
+      if (attr.required) {
+        const val = form.attributes[attr.fieldName];
+        if (val === undefined || val === null || val === '') {
+          return `Please provide a value for ${attr.fieldName}.`;
+        }
+      }
+    }
+  }
+
   return null;
 };
 
@@ -133,6 +147,8 @@ const CreateListingPage: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [loadingInitial, setLoadingInitial] = React.useState(!!editId);
   const [capturedLocationSource, setCapturedLocationSource] = React.useState<'district' | 'live' | ''>('');
+
+  const selectedCategory = React.useMemo(() => productCategories.find(c => c._id === form.categoryId), [productCategories, form.categoryId]);
 
   React.useEffect(() => {
     void fetchCategories();
@@ -244,7 +260,7 @@ const CreateListingPage: React.FC = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    const validationError = validateForm(form);
+    const validationError = validateForm(form, selectedCategory);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -269,11 +285,12 @@ const CreateListingPage: React.FC = () => {
         city: form.city.trim(),
         address: form.address.trim() || undefined,
         coordinates: {
-          lat: Number(form.latitude),
-          lng: Number(form.longitude),
+          type: 'Point' as const,
+          coordinates: [Number(form.longitude), Number(form.latitude)] as [number, number],
         },
       },
       tags,
+      attributes: form.attributes, // Send tracked custom categorization fields
       ...(editId ? { status: form.status } : {}),
     };
 
@@ -371,6 +388,66 @@ const CreateListingPage: React.FC = () => {
             </div>
           </div>
         </section>
+
+        {selectedCategory && selectedCategory.attributes && selectedCategory.attributes.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-lg font-semibold text-slate-800">Category Attributes</h2>
+            <p className="mt-1 text-xs text-slate-500 text-balance mb-4">These extra details help buyers discover your item faster.</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {selectedCategory.attributes.map((attr) => (
+                <div key={attr.fieldName} className={attr.fieldType === 'boolean' ? 'flex items-center mt-6' : ''}>
+                  {attr.fieldType !== 'boolean' && (
+                    <label className="mb-1 block text-xs font-medium text-slate-500">
+                      {attr.fieldName} {attr.required && <span className="text-rose-500">*</span>}
+                    </label>
+                  )}
+                  {attr.fieldType === 'string' && (
+                    <input
+                      className="input-field py-2"
+                      value={form.attributes[attr.fieldName] || ''}
+                      onChange={(e) => setForm(prev => ({ ...prev, attributes: { ...prev.attributes, [attr.fieldName]: e.target.value } }))}
+                      required={attr.required}
+                      placeholder={`Enter ${attr.fieldName.toLowerCase()}`}
+                    />
+                  )}
+                  {attr.fieldType === 'number' && (
+                    <input
+                      type="number"
+                      className="input-field py-2"
+                      value={form.attributes[attr.fieldName] || ''}
+                      onChange={(e) => setForm(prev => ({ ...prev, attributes: { ...prev.attributes, [attr.fieldName]: e.target.value ? Number(e.target.value) : '' } }))}
+                      required={attr.required}
+                    />
+                  )}
+                  {attr.fieldType === 'select' && (
+                    <select
+                      className="input-field py-2"
+                      value={form.attributes[attr.fieldName] || ''}
+                      onChange={(e) => setForm(prev => ({ ...prev, attributes: { ...prev.attributes, [attr.fieldName]: e.target.value } }))}
+                      required={attr.required}
+                    >
+                      <option value="">Select option</option>
+                      {attr.options?.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  )}
+                  {attr.fieldType === 'boolean' && (
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-2 transition-colors cursor-pointer"
+                        checked={!!form.attributes[attr.fieldName]}
+                        onChange={(e) => setForm(prev => ({ ...prev, attributes: { ...prev.attributes, [attr.fieldName]: e.target.checked } }))}
+                      />
+                      {attr.fieldName} {attr.required && <span className="text-rose-500">*</span>}
+                    </label>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="text-lg font-semibold text-slate-800">Pricing & Availability</h2>

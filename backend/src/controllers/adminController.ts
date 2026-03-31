@@ -78,3 +78,16 @@ export const getAllListings = asyncHandler(async (req: Request, res: Response) =
   });
   res.json(data);
 });
+
+/* PATCH /api/admin/listings/:id/suspend */
+export const suspendListing = asyncHandler(async (req: Request, res: Response) => {
+  const { reason } = req.body;
+  const listing = await adminService.suspendListing(req.params.id, reason);
+  res.json({ message: "Listing suspended successfully", listing });
+});
+
+/* PATCH /api/admin/listings/:id/approve */
+export const approveListing = asyncHandler(async (req: Request, res: Response) => {
+  const listing = await adminService.approveListing(req.params.id);
+  res.json({ message: "Listing approved successfully", listing });
+});

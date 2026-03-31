@@ -23,6 +23,9 @@ export const ordersApi = {
   confirmReceived: (id: string) =>
     apiClient.patch<{ order: IOrder }>(`/orders/${id}/confirm-received`),
 
+  confirmReceivedWithOtp: (id: string, otp: string) =>
+    apiClient.post<{ order: IOrder }>(`/orders/${id}/confirm-received-otp`, { otp }),
+
   updateDeliveryDetails: (id: string, data: { deliveryMethod: string; deliveryAddress?: string }) =>
     apiClient.put<{ order: IOrder }>(`/orders/${id}/delivery-details`, data),
 

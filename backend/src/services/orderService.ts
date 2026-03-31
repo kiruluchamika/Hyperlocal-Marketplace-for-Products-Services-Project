@@ -327,6 +327,14 @@ export class OrderService {
     if (order.status !== OrderStatus.IN_PROGRESS) {
       throw new AppError("Only IN_PROGRESS orders can be confirmed", 400);
     }
+
+    // When OTP delivery is enabled, buyer must confirm with OTP.
+    if (env.ENABLE_OTP_DELIVERY === "true" && order.deliveryOtpExpiresAt) {
+      throw new AppError(
+        "OTP confirmation is required. Use confirm-received-otp endpoint.",
+        400
+      );
+    }
     
     // Update status
     order.status = OrderStatus.COMPLETED;
@@ -340,69 +348,85 @@ export class OrderService {
       message: "Order completed successfully. Payment released to seller."
     };
   }
-  
+
   /**
-   * Confirm Delivery with OTP (Seller)
-   * Verifies OTP and completes order. Releases payment.
+   * Confirm Delivery Received with OTP (Buyer)
+   * Buyer verifies OTP from email and completes order. Releases payment.
    */
-  async confirmDeliveryWithOtp(orderId: string, sellerId: string, otp: string) {
+  async confirmReceivedWithOtp(orderId: string, buyerId: string, otp: string) {
     const order = await Order.findById(orderId).select("+deliveryOtpHash");
-    
+
     if (!order) {
       throw new AppError("Order not found", 404);
     }
-    
-    // Verify seller ownership
-    if (order.sellerId.toString() !== sellerId) {
-      throw new AppError("You are not authorized to complete this order", 403);
+
+    // Verify buyer ownership
+    if (order.buyerId.toString() !== buyerId) {
+      throw new AppError("You are not authorized to confirm this order", 403);
     }
-    
+
     // Verify status
     if (order.status !== OrderStatus.IN_PROGRESS) {
-      throw new AppError("Only IN_PROGRESS orders can be completed", 400);
+      throw new AppError("Only IN_PROGRESS orders can be confirmed", 400);
     }
-    
-    // Verify OTP exists
+
+    // Verify OTP is enabled for this order
     if (!order.deliveryOtpHash) {
-      throw new AppError("OTP delivery confirmation not enabled for this order", 400);
+      throw new AppError("OTP confirmation is not enabled for this order", 400);
     }
-    
+
     // Check expiry
     if (order.deliveryOtpExpiresAt && order.deliveryOtpExpiresAt < new Date()) {
       throw new AppError("OTP has expired", 400);
     }
-    
+
     // Check attempts (max 3)
     if (order.deliveryOtpAttempts && order.deliveryOtpAttempts >= 3) {
       throw new AppError("Maximum OTP attempts exceeded", 400);
     }
-    
+
     // Verify OTP
     const isValid = await bcrypt.compare(otp, order.deliveryOtpHash);
-    
+
     if (!isValid) {
-      // Increment attempts
       order.deliveryOtpAttempts = (order.deliveryOtpAttempts || 0) + 1;
       await order.save();
-      
+
       throw new AppError(
         `Invalid OTP. ${3 - order.deliveryOtpAttempts} attempts remaining.`,
         400
       );
     }
-    
+
     // OTP valid - complete order
     order.status = OrderStatus.COMPLETED;
-    order.deliveryOtpHash = undefined; // Clear OTP
+    order.deliveryOtpHash = undefined;
+    order.deliveryOtpExpiresAt = undefined;
+    order.deliveryOtpAttempts = 0;
     await order.save();
-    
+
     // Release payment
     await this.paymentService.releasePayment(order._id.toString());
-    
+
     return {
       order,
-      message: "Delivery confirmed. Order completed. Payment released to seller."
+      message: "OTP verified. Order completed successfully. Payment released to seller."
     };
+  }
+  
+  /**
+   * Confirm Delivery with OTP (Seller)
+   * Deprecated: seller completion is disabled in favor of buyer OTP confirmation.
+   */
+  async confirmDeliveryWithOtp(orderId: string, sellerId: string, otp: string) {
+    void orderId;
+    void sellerId;
+    void otp;
+
+    throw new AppError(
+      "Seller OTP completion is disabled. Buyer must confirm via confirm-received-otp.",
+      400
+    );
   }
 
   /**
@@ -583,7 +607,11 @@ export class OrderService {
         actions.push("CANCEL", "INITIATE_PAYMENT");
       }
       if (order.status === OrderStatus.IN_PROGRESS) {
-        actions.push("CONFIRM_RECEIVED");
+        if (env.ENABLE_OTP_DELIVERY === "true" && order.deliveryOtpExpiresAt) {
+          actions.push("CONFIRM_RECEIVED_WITH_OTP");
+        } else {
+          actions.push("CONFIRM_RECEIVED");
+        }
       }
     }
     
@@ -595,8 +623,8 @@ export class OrderService {
         actions.push("START");
       }
       if (order.status === OrderStatus.IN_PROGRESS) {
-        if (env.ENABLE_OTP_DELIVERY === "true" && order.deliveryOtpHash) {
-          actions.push("COMPLETE_WITH_OTP");
+        if (env.ENABLE_OTP_DELIVERY === "true" && order.deliveryOtpExpiresAt) {
+          // Buyer should confirm with OTP; seller waits.
         } else {
           actions.push("MARK_COMPLETED");
         }

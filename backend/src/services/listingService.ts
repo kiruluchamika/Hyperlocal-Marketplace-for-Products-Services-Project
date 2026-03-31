@@ -403,6 +403,12 @@ export const updateListing = async (
   if (data.status) listing.status = data.status;
   if (data.tags) listing.tags = data.tags;
   
+  // Auto-transition suspended listings to under review when user edits them
+  if (listing.status === "SUSPENDED" && userRole !== "admin") {
+    listing.status = "UNDER_REVIEW";
+    listing.suspendDeadline = undefined;
+  }
+  
   await listing.save();
   
   return listing;
@@ -465,4 +471,13 @@ export const canModifyListing = async (
  */
 export const hasUserCreatedListings = async (userId: string): Promise<boolean> => {
   return userHasListings(userId);
+};
+
+/**
+ * Get all listings for a specific owner
+ */
+export const getMyListings = async (userId: string) => {
+  return ProductListing.find({ ownerId: new Types.ObjectId(userId), status: { $ne: "DELETED" } })
+    .populate("categoryId", "name type")
+    .sort({ createdAt: -1 });
 };

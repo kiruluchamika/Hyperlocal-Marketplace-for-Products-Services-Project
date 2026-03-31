@@ -18,6 +18,7 @@ const ORDER_ACTIONS: OrderAction[] = [
   'CANCEL',
   'INITIATE_PAYMENT',
   'CONFIRM_RECEIVED',
+  'CONFIRM_RECEIVED_WITH_OTP',
   'ACCEPT',
   'REJECT',
   'START',
@@ -287,6 +288,10 @@ export const orderManagementApi = {
 
   async confirmReceived(id: string): Promise<ManagedOrder> {
     return mutateOrder('patch', `/orders/${id}/confirm-received`);
+  },
+
+  async confirmReceivedWithOtp(id: string, otp: string): Promise<ManagedOrder> {
+    return mutateOrder('post', `/orders/${id}/confirm-received-otp`, { otp });
   },
 
   async updateDeliveryDetails(
