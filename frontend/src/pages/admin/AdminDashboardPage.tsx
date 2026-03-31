@@ -21,6 +21,7 @@ import {
 import { adminApi } from '@/api/admin';
 import AdminStatCard from '@/components/admin/AdminStatCard';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import type { DashboardData, ChartData } from '@/types/admin';
 import { format } from 'date-fns';
 
@@ -48,11 +49,7 @@ const AdminDashboardPage: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-blue-500" />
-      </div>
-    );
+    return <FullPageLoader label="Loading dashboard..." />;
   }
 
   if (!data) return null;

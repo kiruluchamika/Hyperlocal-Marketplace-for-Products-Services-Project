@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FiCheckCircle, FiClock, FiPackage, FiX } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import { listingsApi } from '@/api/listings';
+import GifLoader from '@/components/ui/GifLoader';
 import type { DeliveryMethod, OrderStatus } from '@/types/order';
 import type { PaymentStatus } from '@/types/payment';
 import type { IProductListing } from '@/types/listing';
@@ -1286,7 +1287,7 @@ const MyOrdersPage: React.FC = () => {
 
         {isProductsLoading && (
           <div className="flex items-center justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+            <GifLoader size="md" label="Loading products..." />
           </div>
         )}
 
@@ -1637,7 +1638,7 @@ const MyOrdersPage: React.FC = () => {
           <div className="max-h-[760px] overflow-y-auto p-4 space-y-3">
             {isListLoading && (
               <div className="flex items-center justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                <GifLoader size="md" label="Loading orders..." />
               </div>
             )}
 
@@ -1728,7 +1729,7 @@ const MyOrdersPage: React.FC = () => {
 
           {isDetailsLoading && (
             <div className="flex items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+              <GifLoader size="md" label="Loading order details..." />
             </div>
           )}
 

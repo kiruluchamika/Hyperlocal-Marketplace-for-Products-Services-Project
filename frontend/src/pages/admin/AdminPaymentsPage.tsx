@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import AdminTable from '@/components/admin/AdminTable';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
+import GifLoader from '@/components/ui/GifLoader';
 import type { AdminPayment, AdminBooking } from '@/types/admin';
 import AdminPagination from '@/components/admin/AdminPagination';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
@@ -398,10 +399,7 @@ const AdminPaymentsPage: React.FC = () => {
       {/* Payments Table */}
       {loading ? (
         <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-          </div>
-          <p className="text-slate-400">Loading payments...</p>
+          <GifLoader size="md" label="Loading payments..." className="text-slate-400" />
         </div>
       ) : visiblePayments.length === 0 ? (
         <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">

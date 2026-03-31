@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, createBrowserRouter, RouterProvider, useLocation } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import ProtectedRoute from './ProtectedRoute';
 
 // Lazy load pages
@@ -39,14 +40,7 @@ const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 
 // Loading fallback
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-      <p className="text-slate-400 text-sm">Loading...</p>
-    </div>
-  </div>
-);
+const PageLoader = () => <FullPageLoader label="Loading page..." />;
 
 const ScrollToTopLayout: React.FC = () => {
   const { pathname, search } = useLocation();

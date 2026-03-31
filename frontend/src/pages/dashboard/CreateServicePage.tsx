@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FiCrosshair, FiLink, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import { servicesApi } from '@/api/services';
 import { useCategoryStore } from '@/store/categoryStore';
 import { CategoryAttribute, ICategory, PricingType } from '@/types';
@@ -411,11 +412,7 @@ const CreateServicePage: React.FC = () => {
   };
 
   if (loadingInitial) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <p className="text-sm text-slate-500">Loading service data...</p>
-      </div>
-    );
+    return <FullPageLoader label="Loading service data..." />;
   }
 
   return (

@@ -16,6 +16,7 @@ import {
 import { listingsApi } from '@/api/listings';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import { useAuthStore } from '@/store/authStore';
 import { IProductListing } from '@/types';
 import { formatCondition, formatCurrency, getListingImage, getOwnerContact, getOwnerId } from '@/utils/listings';
@@ -143,13 +144,7 @@ const ListingDetailPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-sm text-slate-500">Loading listing details...</p>
-        </div>
-      </div>
-    );
+    return <FullPageLoader label="Loading listing details..." />;
   }
 
   if (error || !listing) {
