@@ -27,5 +27,7 @@ router.get("/bookings", adminCtrl.getAllBookings);
 
 /* Listings */
 router.get("/listings", adminCtrl.getAllListings);
+router.patch("/listings/:id/suspend", adminCtrl.suspendListing);
+router.patch("/listings/:id/approve", adminCtrl.approveListing);
 
 export default router;

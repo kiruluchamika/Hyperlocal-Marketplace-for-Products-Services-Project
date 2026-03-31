@@ -8,7 +8,7 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.de
 // Create client only if key exists
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-async function getEmail(userId: string): Promise<string> {
+export async function getEmail(userId: string): Promise<string> {
   if (!userId) throw new Error("Missing userId for email lookup");
 
   const user: any = await User.findById(userId).select("email");
@@ -24,7 +24,7 @@ async function getEmail(userId: string): Promise<string> {
   return String(user.email).trim();
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string) {
   // Don’t break booking if env not configured
   if (!resend) {
     console.warn("⚠️ RESEND_API_KEY not set → skipping email send");

@@ -47,7 +47,9 @@ export const getStatusVariant = (status: string): BadgeVariant => {
     CANCELLED: 'danger',
     FAILED: 'danger',
     DELETED: 'danger',
+    SUSPENDED: 'danger',
     REMOVED: 'warning',
+    UNDER_REVIEW: 'warning',
     SOLD: 'purple',
     HIDDEN: 'neutral',
   };

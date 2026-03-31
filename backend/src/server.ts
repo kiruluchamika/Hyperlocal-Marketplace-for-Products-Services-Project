@@ -2,9 +2,14 @@ import "dotenv/config";
 import app from "./app";
 import { connectDb } from "./config/db";
 import { env } from "./config/env";
+import { initModerationCron } from "./services/moderation.cron";
 
 const startServer = async () => {
   await connectDb();
+  
+  // Start background jobs
+  initModerationCron();
+
   const port = Number(env.PORT);
 
   if (!Number.isInteger(port) || port <= 0) {

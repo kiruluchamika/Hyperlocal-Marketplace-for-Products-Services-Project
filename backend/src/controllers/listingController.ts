@@ -107,3 +107,19 @@ export const deleteListingHandler = asyncHandler(async (req: Request, res: Respo
     message: result.message
   });
 });
+
+/**
+ * @route GET /listings/me
+ * @desc Get all listings for the authenticated user
+ * @access Private
+ */
+export const getMyListingsHandler = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const data = await listingService.getMyListings(userId);
+  
+  res.status(200).json({
+    success: true,
+    data,
+    pagination: { total: data.length, page: 1, limit: data.length, totalPages: 1 }
+  });
+});

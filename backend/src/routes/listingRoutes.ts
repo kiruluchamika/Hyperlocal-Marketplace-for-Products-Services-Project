@@ -8,7 +8,8 @@ import {
   deleteListingHandler,
   getListingByIdHandler,
   listListingsHandler,
-  updateListingHandler
+  updateListingHandler,
+  getMyListingsHandler
 } from "../controllers/listingController";
 import {
   createListingSchema,
@@ -168,6 +169,20 @@ router.post("/", auth, validate(createListingSchema), createListingHandler);
  *         description: Listings feed
  */
 router.get("/", validate(listListingsQuerySchema, "query"), listListingsHandler);
+
+/**
+ * @openapi
+ * /listings/me:
+ *   get:
+ *     tags: [Listings]
+ *     summary: Get all listings for the authenticated user (including suspended/review)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User's listings
+ */
+router.get("/me", auth, getMyListingsHandler);
 
 /**
  * @openapi

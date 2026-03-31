@@ -40,4 +40,10 @@ export const adminApi = {
   /* ── Listings ── */
   getListings: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
     apiClient.get<{ listings: AdminListing[]; pagination: Pagination }>('/admin/listings', { params }),
+
+  suspendListing: (id: string, reason: string) =>
+    apiClient.patch<{ message: string; listing: AdminListing }>(`/admin/listings/${id}/suspend`, { reason }),
+
+  approveListing: (id: string) =>
+    apiClient.patch<{ message: string; listing: AdminListing }>(`/admin/listings/${id}/approve`),
 };

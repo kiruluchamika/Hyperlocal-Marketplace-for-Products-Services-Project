@@ -257,22 +257,22 @@ const BrowseListingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent py-10 sm:py-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <section className={`grid grid-cols-1 items-start gap-6 xl:gap-8 ${isMapOpen ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
-          <div className="order-1 rounded-[28px] border border-white/70 bg-white/92 p-5 shadow-card backdrop-blur-xl sm:p-6 lg:flex lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:self-start lg:overflow-hidden">
-            <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="min-h-screen bg-transparent py-4 sm:py-8 lg:py-10">
+      <div className="mx-auto w-full max-w-[1536px] px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
+        <section className={`grid grid-cols-1 items-start gap-6 xl:gap-8 ${isMapOpen ? 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]'}`}>
+          <div className="order-1 flex flex-col pt-2 md:pt-4">
+            <div className="mb-6 flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="space-y-1">
-                <p className="text-xl font-semibold tracking-tight text-slate-900">{pagination.total.toLocaleString()} products</p>
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{pagination.total.toLocaleString()} products</p>
                 <p className="text-sm text-slate-500">Showing {results.length} listing{results.length === 1 ? '' : 's'} that match your current browse settings</p>
               </div>
               <div className="flex items-center gap-3 self-start sm:self-auto">
-                <Badge variant="info" className="!px-3 !py-1 text-xs">Page {pagination.page} of {pagination.totalPages}</Badge>
-                <p className="text-sm text-slate-500">{filters.searchTerm || filters.city || filters.categoryId ? 'Filtered results' : 'All active products'}</p>
+                <Badge variant="info" className="!px-3 !py-1 text-xs font-medium">Page {pagination.page} of {pagination.totalPages}</Badge>
+                <p className="text-sm font-medium text-slate-500">{filters.searchTerm || filters.city || filters.categoryId ? 'Filtered results' : 'All active products'}</p>
               </div>
             </div>
 
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2">
+            <div className="lg:min-h-0 lg:flex-1">
               {loading && (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   {Array.from({ length: 6 }).map((_, index) => (
@@ -295,7 +295,7 @@ const BrowseListingsPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {results.map((item) => (
                   <ListingCard
                     key={item._id}
@@ -319,8 +319,8 @@ const BrowseListingsPage: React.FC = () => {
             </div>
           </div>
 
-          <aside className="order-2 space-y-4 lg:self-start">
-            <div className="space-y-4 lg:sticky lg:top-24">
+          <aside className="order-2 space-y-4 lg:self-start relative z-10 w-full">
+            <div className="space-y-5 lg:sticky lg:top-24">
               <div className="rounded-[24px] border border-white/70 bg-white/90 p-4 shadow-card backdrop-blur-xl">
                 <div className="flex flex-wrap gap-3">
                   <Button type="button" variant="outline" size="sm" leftIcon={<FiSliders size={14} />} onClick={() => setIsBrowseOpen((prev) => !prev)}>
@@ -444,8 +444,8 @@ const ListingCard: React.FC<{
       onMouseEnter={onMouseEnter}
       className={`group flex h-full flex-col overflow-hidden rounded-[24px] border bg-white transition-all duration-300 ${
         isSelected
-          ? 'border-indigo-300 shadow-lg shadow-indigo-100/80'
-          : 'border-slate-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-slate-200/90'
+          ? 'border-indigo-400 shadow-xl shadow-indigo-100/80 ring-4 ring-indigo-50/50'
+          : 'border-slate-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-slate-200/60'
       }`}
     >
       <div className="h-52 w-full overflow-hidden bg-slate-100">
@@ -462,18 +462,24 @@ const ListingCard: React.FC<{
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <h2 className="min-h-[3.5rem] text-lg font-semibold leading-7 text-slate-900">{item.title}</h2>
-        <p className="mt-3 text-xl font-bold tracking-tight text-slate-900">{formatCurrency(item.price, item.currency)}</p>
-        <p className="mt-3 text-sm text-slate-500">{formatCondition(item.condition)}</p>
-        <p className="mt-2 inline-flex items-center gap-2 text-sm text-slate-500">
-          <FiMapPin size={15} className="text-slate-400" />
-          {item.location?.city || 'City not available'}
+        <h2 className="line-clamp-2 min-h-[3rem] text-base font-semibold leading-6 text-slate-900 transition-colors group-hover:text-indigo-700">{item.title}</h2>
+        <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{formatCurrency(item.price, item.currency)}</p>
+        
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            {formatCondition(item.condition)}
+          </span>
+        </div>
+
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500">
+          <FiMapPin size={14} className="text-slate-400" />
+          <span className="truncate">{item.location?.city || 'City not available'}</span>
         </p>
 
         <div className="mt-auto pt-5">
-          <span className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-indigo-200 px-4 py-3 text-sm font-semibold text-indigo-700 transition-colors group-hover:border-indigo-300 group-hover:bg-indigo-50/70">
-            Open details
-            <FiArrowRight size={15} />
+          <span className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-800">
+            View listing
+            <FiArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
           </span>
         </div>
       </div>
