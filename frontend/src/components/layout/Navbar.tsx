@@ -25,7 +25,7 @@ import { Avatar } from '@/components/ui';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `relative rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-    isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/80' : 'text-slate-600 hover:bg-indigo-50/70 hover:text-indigo-700'
+    isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/80' : 'text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700'
   }`;
 
 const activeUnderline = 'after:absolute after:left-4 after:right-4 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-indigo-700';
@@ -40,6 +40,9 @@ const Navbar: React.FC = () => {
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const [isInHomeHeroZone, setIsInHomeHeroZone] = useState(false);
+  const lastScrollY = useRef(0);
   const profileRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -48,10 +51,35 @@ const Navbar: React.FC = () => {
   const isUser = isAuthenticated && user?.role === 'user';
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setIsScrolled(currentScrollY > 20);
+
+      // Strengthen contrast while the navbar overlaps the Home hero section.
+      const isHomeRoute = location.pathname === '/';
+      const heroThreshold = Math.max(window.innerHeight * 0.72, 420);
+      setIsInHomeHeroZone(isHomeRoute && currentScrollY < heroThreshold);
+
+      // Keep nav visible near the top and when moving upward.
+      if (currentScrollY <= 80 || currentScrollY < lastScrollY.current) {
+        setIsNavVisible(true);
+      } else if (currentScrollY > lastScrollY.current) {
+        setIsNavVisible(false);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    lastScrollY.current = window.scrollY;
+    handleScroll();
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    // Ensure nav is visible after route changes.
+    setIsNavVisible(true);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -110,10 +138,12 @@ const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed left-0 right-0 top-0 z-[1200] transition-all duration-300 ${
-        isScrolled
-          ? 'border-b border-indigo-100/80 bg-white/85 shadow-nav backdrop-blur-2xl'
-          : 'border-b border-white/60 bg-white/78 shadow-sm shadow-slate-200/70 backdrop-blur-xl'
+      className={`fixed left-0 right-0 top-0 z-[1200] transform transition-all duration-300 ${isNavVisible ? 'translate-y-0' : '-translate-y-full'} ${
+        isInHomeHeroZone
+          ? 'border-b border-white/70 bg-white/84 shadow-md shadow-slate-900/10 backdrop-blur-2xl'
+          : isScrolled
+          ? 'border-b border-indigo-100/75 bg-white/72 shadow-nav backdrop-blur-2xl'
+          : 'border-b border-white/55 bg-white/64 shadow-sm shadow-slate-200/65 backdrop-blur-xl'
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
