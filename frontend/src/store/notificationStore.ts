@@ -1,5 +1,4 @@
 import { io, Socket } from 'socket.io-client';
-import toast from 'react-hot-toast';
 import { create } from 'zustand';
 import { notificationsApi } from '@/api/notifications';
 import { INotification } from '@/types';
@@ -96,8 +95,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           total: nextTotal,
         };
       });
-
-      toast.success(incoming.title || 'New notification');
     });
   },
 
