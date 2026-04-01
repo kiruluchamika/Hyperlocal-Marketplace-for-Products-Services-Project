@@ -1,6 +1,7 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { Outlet, createBrowserRouter, RouterProvider, useLocation } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import ProtectedRoute from './ProtectedRoute';
 
 // Lazy load pages
@@ -39,279 +40,287 @@ const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 
 // Loading fallback
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-      <p className="text-slate-400 text-sm">Loading...</p>
-    </div>
-  </div>
-);
+const PageLoader = () => <FullPageLoader label="Loading page..." />;
+
+const ScrollToTopLayout: React.FC = () => {
+  const { pathname, search } = useLocation();
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname, search]);
+
+  return <Outlet />;
+};
 
 const router = createBrowserRouter([
   {
-    path: '/admin/login',
-    element: (
-      <React.Suspense fallback={<PageLoader />}>
-        <AdminLoginPage />
-      </React.Suspense>
-    ),
-  },
-  {
-    path: '/admin',
-    element: (
-      <ProtectedRoute requiredRole="admin">
-        <React.Suspense fallback={<PageLoader />}>
-          <AdminLayout />
-        </React.Suspense>
-      </ProtectedRoute>
-    ),
+    element: <ScrollToTopLayout />,
     children: [
       {
-        index: true,
+        path: '/admin/login',
         element: (
           <React.Suspense fallback={<PageLoader />}>
-            <AdminDashboardPage />
+            <AdminLoginPage />
           </React.Suspense>
         ),
       },
       {
-        path: 'users',
+        path: '/admin',
         element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminUsersPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'products',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminProductsPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'services',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminServicesPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'bookings',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminBookingsPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'orders',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminOrdersPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'payments',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminPaymentsPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: 'categories',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <AdminCategoriesPage />
-          </React.Suspense>
-        ),
-      },
-    ],
-  },
-  {
-    element: <MainLayout />,
-    children: [
-      {
-        path: '/',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <HomePage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/login',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <LoginPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/register',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <RegisterPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/listings',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <BrowseListingsPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/listings/:id',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <ListingDetailPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/services',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <BrowseServicesPage />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: '/services/:id',
-        element: (
-          <React.Suspense fallback={<PageLoader />}>
-            <ServiceDetailPage />
-          </React.Suspense>
-        ),
-      },
-      // Dashboard routes (protected)
-      {
-        path: '/dashboard',
-        element: (
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="admin">
             <React.Suspense fallback={<PageLoader />}>
-              <DashboardPage />
+              <AdminLayout />
             </React.Suspense>
           </ProtectedRoute>
         ),
+        children: [
+          {
+            index: true,
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminDashboardPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'users',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminUsersPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'products',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminProductsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'services',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminServicesPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'bookings',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminBookingsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'orders',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminOrdersPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'payments',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminPaymentsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'categories',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminCategoriesPage />
+              </React.Suspense>
+            ),
+          },
+        ],
       },
       {
-        path: '/dashboard/listings',
-        element: (
-          <ProtectedRoute>
-            <React.Suspense fallback={<PageLoader />}>
-              <MyListingsPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/listings/new',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <CreateListingPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/orders',
-        element: (
-          <ProtectedRoute>
-            <React.Suspense fallback={<PageLoader />}>
-              <MyOrdersPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/services',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <MyServicesPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/payments',
-        element: (
-          <ProtectedRoute>
-            <React.Suspense fallback={<PageLoader />}>
-              <MyPaymentsPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/service-requests',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <MyServiceRequestsPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/service-requests/:bookingId/payment',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <ServiceBookingPaymentPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/services/new',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <CreateServicePage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/services/posted',
-        element: (
-          <ProtectedRoute requiredRole="user">
-            <React.Suspense fallback={<PageLoader />}>
-              <MyPostedServicesPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/profile',
-        element: (
-          <ProtectedRoute>
-            <React.Suspense fallback={<PageLoader />}>
-              <ProfilePage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/dashboard/notifications',
-        element: (
-          <ProtectedRoute>
-            <React.Suspense fallback={<PageLoader />}>
-              <NotificationsPage />
-            </React.Suspense>
-          </ProtectedRoute>
-        ),
+        element: <MainLayout />,
+        children: [
+          {
+            path: '/',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <HomePage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/login',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <LoginPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/register',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <RegisterPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/listings',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <BrowseListingsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/listings/:id',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <ListingDetailPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/services',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <BrowseServicesPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/services/:id',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <ServiceDetailPage />
+              </React.Suspense>
+            ),
+          },
+          // Dashboard routes (protected)
+          {
+            path: '/dashboard',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <DashboardPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/listings',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyListingsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/listings/new',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <CreateListingPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/orders',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyOrdersPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/services',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyServicesPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/payments',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyPaymentsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/service-requests',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyServiceRequestsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/service-requests/:bookingId/payment',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <ServiceBookingPaymentPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/services/new',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <CreateServicePage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/services/posted',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <MyPostedServicesPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/profile',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <ProfilePage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/notifications',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <NotificationsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+        ],
       },
     ],
   },

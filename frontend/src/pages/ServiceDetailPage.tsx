@@ -16,6 +16,8 @@ import { bookingsApi, servicesApi } from '@/api/services';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import FullPageLoader from '@/components/ui/FullPageLoader';
+import GifLoader from '@/components/ui/GifLoader';
 import { useAuthStore } from '@/store/authStore';
 import { GeoNearbyItem, IServiceBookingSlot, IServiceSelling } from '@/types';
 
@@ -236,13 +238,7 @@ const ServiceDetailPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-sm text-slate-500">Loading service details...</p>
-        </div>
-      </div>
-    );
+    return <FullPageLoader label="Loading service details..." />;
   }
 
   if (error || !service) {
@@ -374,7 +370,11 @@ const ServiceDetailPage: React.FC = () => {
                 <span className="text-xs font-medium text-slate-500">All confirmed booking times</span>
               </div>
 
-              {slotsLoading && <p className="mt-3 text-sm text-slate-500">Loading confirmed slots...</p>}
+              {slotsLoading && (
+                <div className="mt-3">
+                  <GifLoader size="sm" label="Loading confirmed slots..." />
+                </div>
+              )}
 
               {!slotsLoading && slots.length === 0 && (
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { FiCrosshair, FiSave, FiTrash2, FiUpload } from 'react-icons/fi';
 import { listingsApi } from '@/api/listings';
 import Button from '@/components/ui/Button';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import { useCategoryStore } from '@/store/categoryStore';
 import { Condition, IProductListing, ListingStatus, TransactionMode } from '@/types';
 import { formatCondition } from '@/utils/listings';
@@ -312,11 +313,7 @@ const CreateListingPage: React.FC = () => {
   };
 
   if (loadingInitial) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <p className="text-sm text-slate-500">Loading listing data...</p>
-      </div>
-    );
+    return <FullPageLoader label="Loading listing data..." />;
   }
 
   return (

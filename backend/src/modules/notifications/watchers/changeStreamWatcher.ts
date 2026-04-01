@@ -7,6 +7,7 @@
  * COLLECTIONS WATCHED:
  * - orders: New orders, status changes
  * - payments: New payments, status changes
+ * - servicebookings: New bookings, booking status changes
  * - productlistings: New listings, status changes
  * - servicelistings: New listings, status changes
  * - servicesellings: Status changes
@@ -259,6 +260,125 @@ const watchPayments = () => {
     console.log("✓ Watching payments collection");
   } catch (error) {
     console.warn("Could not watch payments collection:", error);
+  }
+};
+
+/**
+ * Watch Service Bookings Collection
+ * Generates notifications for buyer and provider based on booking lifecycle changes
+ */
+const watchServiceBookings = () => {
+  try {
+    const ServiceBooking = mongoose.model("ServiceBooking");
+    const changeStream = ServiceBooking.watch();
+
+    changeStream.on("change", async (change: any) => {
+      try {
+        if (change.operationType === "insert") {
+          const doc = change.fullDocument;
+          if (!doc || !doc.buyerId || !doc.providerId) return;
+
+          const buyerNotif = await notificationService.createUserNotification(
+            doc.buyerId,
+            {
+              title: "Booking Request Sent",
+              message: "Your service booking request has been submitted and is waiting for provider response.",
+              type: NotificationType.ORDER,
+              entityType: "servicebookings",
+              entityId: doc._id
+            }
+          );
+          emitNotification(buyerNotif);
+
+          const providerNotif = await notificationService.createUserNotification(
+            doc.providerId,
+            {
+              title: "New Booking Request",
+              message: "You have received a new service booking request.",
+              type: NotificationType.ORDER,
+              entityType: "servicebookings",
+              entityId: doc._id
+            }
+          );
+          emitNotification(providerNotif);
+        }
+
+        if (change.operationType === "update") {
+          const docId = change.documentKey._id;
+          const updatedFields = change.updateDescription?.updatedFields || {};
+
+          if (updatedFields.status) {
+            const doc = await ServiceBooking.findById(docId);
+            if (!doc) return;
+
+            const status = updatedFields.status;
+
+            const buyerMessages: { [key: string]: string } = {
+              PROVIDER_ACCEPTED: "Your booking was accepted by the provider.",
+              CONFIRMED: "Your booking is confirmed after successful payment.",
+              REJECTED: "Your booking request was rejected by the provider.",
+              CANCELLED: "Your booking has been cancelled."
+            };
+
+            const providerMessages: { [key: string]: string } = {
+              PROVIDER_ACCEPTED: "You accepted this booking request.",
+              CONFIRMED: "This booking is now confirmed.",
+              REJECTED: "You rejected this booking request.",
+              CANCELLED: "This booking was cancelled by the buyer."
+            };
+
+            if (doc.buyerId && buyerMessages[status]) {
+              const buyerNotif = await notificationService.createUserNotification(
+                doc.buyerId,
+                {
+                  title: `Booking ${status}`,
+                  message: buyerMessages[status],
+                  type: NotificationType.ORDER,
+                  entityType: "servicebookings",
+                  entityId: doc._id
+                }
+              );
+              emitNotification(buyerNotif);
+            }
+
+            if (doc.providerId && providerMessages[status]) {
+              const providerNotif = await notificationService.createUserNotification(
+                doc.providerId,
+                {
+                  title: `Booking ${status}`,
+                  message: providerMessages[status],
+                  type: NotificationType.ORDER,
+                  entityType: "servicebookings",
+                  entityId: doc._id
+                }
+              );
+              emitNotification(providerNotif);
+            }
+
+            if (["REJECTED", "CANCELLED"].includes(status)) {
+              const adminNotif = await notificationService.createAdminBroadcast({
+                title: `Booking ${status}`,
+                message: `Service booking ${doc._id} updated to ${status}.`,
+                type: NotificationType.ORDER,
+                entityType: "servicebookings",
+                entityId: doc._id
+              });
+              emitNotification(adminNotif);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error processing service booking change:", error);
+      }
+    });
+
+    changeStream.on("error", (error) => {
+      console.error("Service booking change stream error:", error);
+    });
+
+    console.log("✓ Watching servicebookings collection");
+  } catch (error) {
+    console.warn("Could not watch servicebookings collection:", error);
   }
 };
 
@@ -621,6 +741,7 @@ export const startNotificationWatcher = (socketIO: SocketIOServer) => {
   // Start watching all collections
   watchOrders();
   watchPayments();
+  watchServiceBookings();
   watchProductListings();
   watchServiceListings();
   watchServiceSellings();
