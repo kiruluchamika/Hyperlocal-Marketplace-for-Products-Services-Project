@@ -398,16 +398,8 @@ const AdminPaymentsPage: React.FC = () => {
 
       {/* Payments Table */}
       {loading ? (
-<<<<<<< feature-frontend-service_management
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          </div>
-          <p className="text-slate-500">Loading payments...</p>
-=======
         <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
           <GifLoader size="md" label="Loading payments..." className="text-slate-400" />
->>>>>>> dev
         </div>
       ) : visiblePayments.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
