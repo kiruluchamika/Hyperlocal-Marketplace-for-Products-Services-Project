@@ -49,15 +49,7 @@ const AdminDashboardPage: React.FC = () => {
   }, []);
 
   if (loading) {
-<<<<<<< feature-frontend-service_management
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-      </div>
-    );
-=======
     return <FullPageLoader label="Loading dashboard..." />;
->>>>>>> dev
   }
 
   if (!data) return null;
