@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import {
   FiArrowLeft,
   FiCalendar,
+  FiEye,
+  FiHeart,
   FiMail,
   FiMapPin,
   FiMessageCircle,
@@ -14,9 +16,39 @@ import {
 import { listingsApi } from '@/api/listings';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import FullPageLoader from '@/components/ui/FullPageLoader';
 import { useAuthStore } from '@/store/authStore';
 import { IProductListing } from '@/types';
 import { formatCondition, formatCurrency, getListingImage, getOwnerContact, getOwnerId } from '@/utils/listings';
+
+const formatAttributeLabel = (key: string) =>
+  key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (char) => char.toUpperCase());
+
+const formatAttributeValue = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return 'Not specified';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
+  }
+
+  if (Array.isArray(value)) {
+    const readableValues = value
+      .map((entry) => (entry === null || entry === undefined ? '' : String(entry).trim()))
+      .filter(Boolean);
+
+    return readableValues.length ? readableValues.join(', ') : 'Not specified';
+  }
+
+  const textValue = String(value).trim();
+  return textValue || 'Not specified';
+};
 
 const ListingDetailPage: React.FC = () => {
   const { id = '' } = useParams();
@@ -59,6 +91,27 @@ const ListingDetailPage: React.FC = () => {
   const isOwner = listing && user ? getOwnerId(listing.ownerId) === user.id : false;
   const images = listing?.images?.length ? listing.images : [listing ? getListingImage(listing) : ''];
   const canBuyNow = !!listing && listing.transactionMode === 'BUY_NOW' && !isOwner;
+  const attributeEntries = React.useMemo(() => {
+    if (!listing?.attributes || typeof listing.attributes !== 'object') {
+      return [];
+    }
+
+    return Object.entries(listing.attributes).filter(([, value]) => {
+      if (value === null || value === undefined) {
+        return false;
+      }
+
+      if (typeof value === 'string') {
+        return value.trim().length > 0;
+      }
+
+      if (Array.isArray(value)) {
+        return value.some((entry) => String(entry ?? '').trim().length > 0);
+      }
+
+      return true;
+    });
+  }, [listing?.attributes]);
 
   const handleBuyNowRedirect = () => {
     if (!listing) {
@@ -91,13 +144,7 @@ const ListingDetailPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-sm text-slate-500">Loading listing details...</p>
-        </div>
-      </div>
-    );
+    return <FullPageLoader label="Loading listing details..." />;
   }
 
   if (error || !listing) {
@@ -172,6 +219,8 @@ const ListingDetailPage: React.FC = () => {
                 <span className="inline-flex items-center gap-1"><FiTag size={14} /> {formatCurrency(listing.price, listing.currency)}</span>
                 <span className="inline-flex items-center gap-1"><FiMapPin size={14} /> {listing.location.city}</span>
                 <span className="inline-flex items-center gap-1"><FiCalendar size={14} /> {new Date(listing.createdAt).toLocaleDateString()}</span>
+                <span className="inline-flex items-center gap-1"><FiEye size={14} /> {listing.viewsCount ?? 0} views</span>
+                <span className="inline-flex items-center gap-1"><FiHeart size={14} /> {listing.savedCount ?? 0} saves</span>
               </div>
 
               <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700">{listing.description}</p>
@@ -184,6 +233,25 @@ const ListingDetailPage: React.FC = () => {
                     </Badge>
                   ))}
                 </div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+              <h2 className="text-lg font-bold text-slate-800">Product Specifications</h2>
+
+              {attributeEntries.length > 0 ? (
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {attributeEntries.map(([key, value]) => (
+                    <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {formatAttributeLabel(key)}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{formatAttributeValue(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">No additional product attributes were provided for this listing.</p>
               )}
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import GifLoader from '@/components/ui/GifLoader';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -144,7 +145,7 @@ const OrderStripeCheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {stripePromise && !clientSecret && (
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+            <GifLoader size="xs" />
             Preparing secure checkout...
           </div>
         )}

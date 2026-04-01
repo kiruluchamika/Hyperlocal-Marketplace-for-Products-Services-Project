@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { bookingsApi } from '@/api/services';
+import GifLoader from '@/components/ui/GifLoader';
 import type { IServiceBooking } from '@/types/service';
 import { orderManagementApi } from './orders/orderManagementApi';
 import type { ManagedOrder, ManagedPayment } from './orders/orderManagementTypes';
@@ -352,7 +353,7 @@ const MyPaymentsPage: React.FC = () => {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+            <GifLoader size="md" label="Loading payments..." />
           </div>
         ) : visibleRecords.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
