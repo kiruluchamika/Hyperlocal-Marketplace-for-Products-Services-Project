@@ -297,7 +297,7 @@ const AdminCategoriesPage: React.FC = () => {
     {
       key: 'name',
       header: 'Name',
-      render: (row: ICategory) => <span className="font-medium text-white">{row.name}</span>,
+      render: (row: ICategory) => <span className="font-medium text-slate-900">{row.name}</span>,
     },
     {
       key: 'type',
@@ -310,7 +310,7 @@ const AdminCategoriesPage: React.FC = () => {
       key: 'attributes',
       header: 'Attributes',
       render: (row: ICategory) => (
-        <span className="text-slate-400">{row.attributes?.length ?? 0} fields</span>
+        <span className="text-slate-500">{row.attributes?.length ?? 0} fields</span>
       ),
     },
     {
@@ -329,13 +329,13 @@ const AdminCategoriesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); openEdit(row); }}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             Edit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
           >
             <FiTrash2 size={14} />
           </button>
@@ -366,7 +366,7 @@ const AdminCategoriesPage: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as CategoryType | '')}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="">All Types</option>
           <option value="PRODUCT">Product</option>
@@ -375,7 +375,7 @@ const AdminCategoriesPage: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -383,7 +383,7 @@ const AdminCategoriesPage: React.FC = () => {
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable columns={columns} data={categories} loading={loading} emptyMessage="No categories found" />
       </div>
 
@@ -396,44 +396,44 @@ const AdminCategoriesPage: React.FC = () => {
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Name</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Name</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
               placeholder="Category name"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Type</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Type</label>
             <select
               value={form.type}
               onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as 'PRODUCT' | 'SERVICE' }))}
               disabled={!!editId}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50 disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50 disabled:opacity-50"
             >
               <option value="PRODUCT">Product</option>
               <option value="SERVICE">Service</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Description</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={3}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
               placeholder="Optional description"
             />
           </div>
-          <div className="space-y-3 rounded-lg border border-slate-800/60 p-3">
+          <div className="space-y-3 rounded-lg border border-slate-200 p-3">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-medium text-slate-400">Attributes</label>
+              <label className="block text-xs font-medium text-slate-700">Attributes</label>
               <button
                 type="button"
                 onClick={addAttribute}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-200 transition-colors hover:border-blue-500/60 hover:text-white"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 transition-colors hover:border-blue-500/60 hover:text-slate-900"
               >
                 <FiPlus size={12} /> Add Field
               </button>
@@ -445,19 +445,19 @@ const AdminCategoriesPage: React.FC = () => {
 
             <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
               {form.attributes.map((attribute, index) => (
-                <div key={`attribute-${index}`} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+                <div key={`attribute-${index}`} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <input
                       type="text"
                       value={attribute.fieldName}
                       onChange={(e) => updateAttribute(index, { fieldName: e.target.value })}
-                      className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
                       placeholder="Field name"
                     />
                     <select
                       value={attribute.fieldType}
                       onChange={(e) => updateAttribute(index, { fieldType: e.target.value as CategoryAttribute['fieldType'] })}
-                      className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500/50"
                     >
                       <option value="string">String</option>
                       <option value="number">Number</option>
@@ -467,13 +467,13 @@ const AdminCategoriesPage: React.FC = () => {
                   </div>
 
                   {attribute.fieldType === 'select' && (
-                    <div className="space-y-2 rounded-lg border border-slate-800/70 bg-slate-950/30 p-2.5">
+                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-slate-400">Options</p>
+                        <p className="text-xs text-slate-700">Options</p>
                         <button
                           type="button"
                           onClick={() => addAttributeOption(index)}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-200 transition-colors hover:border-blue-500/60 hover:text-white"
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 transition-colors hover:border-blue-500/60 hover:text-slate-900"
                         >
                           <FiPlus size={12} /> Add Option
                         </button>
@@ -489,13 +489,13 @@ const AdminCategoriesPage: React.FC = () => {
                             type="text"
                             value={option}
                             onChange={(e) => updateAttributeOption(index, optionIndex, e.target.value)}
-                            className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
                             placeholder={`Option ${optionIndex + 1}`}
                           />
                           <button
                             type="button"
                             onClick={() => removeAttributeOption(index, optionIndex)}
-                            className="rounded-md px-2 py-1 text-xs text-rose-400 transition-colors hover:bg-rose-500/10"
+                            className="rounded-md px-2 py-1 text-xs text-rose-600 transition-colors hover:bg-rose-50"
                           >
                             Remove
                           </button>
@@ -505,19 +505,19 @@ const AdminCategoriesPage: React.FC = () => {
                   )}
 
                   <div className="flex items-center justify-between">
-                    <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-700">
                       <input
                         type="checkbox"
                         checked={attribute.required}
                         onChange={(e) => updateAttribute(index, { required: e.target.checked })}
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/30"
+                        className="h-4 w-4 rounded border-slate-300 bg-white text-blue-600 focus:ring-blue-500/30"
                       />
                       Required field
                     </label>
                     <button
                       type="button"
                       onClick={() => removeAttribute(index)}
-                      className="rounded-md px-2 py-1 text-xs text-rose-400 transition-colors hover:bg-rose-500/10"
+                      className="rounded-md px-2 py-1 text-xs text-rose-600 transition-colors hover:bg-rose-50"
                     >
                       Remove
                     </button>
@@ -533,15 +533,15 @@ const AdminCategoriesPage: React.FC = () => {
                 checked={form.isActive}
                 onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
                 id="isActive"
-                className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/30"
+                className="h-4 w-4 rounded border-slate-300 bg-white text-blue-600 focus:ring-blue-500/30"
               />
-              <label htmlFor="isActive" className="text-sm text-slate-300">Active</label>
+              <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
             </div>
           )}
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-800/60">
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
             <button
               onClick={() => setShowModal(false)}
-              className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             >
               Cancel
             </button>
@@ -559,13 +559,13 @@ const AdminCategoriesPage: React.FC = () => {
       {/* Delete Confirmation Modal */}
       <AdminModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Category" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-slate-300">
-            Delete <span className="font-semibold text-white">{deleteTarget?.name}</span>? This will set the category as inactive (soft delete), and you can still view it using the status filter.
+          <p className="text-sm text-slate-600">
+            Delete <span className="font-semibold text-slate-900">{deleteTarget?.name}</span>? This will set the category as inactive (soft delete), and you can still view it using the status filter.
           </p>
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setDeleteTarget(null)}
-              className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             >
               Cancel
             </button>

@@ -95,10 +95,10 @@ const AdminServicesPage: React.FC = () => {
     const deleted = services.filter((item) => item.status === 'DELETED').length;
 
     return [
-      { label: 'Total Services', value: services.length, tone: 'text-white' },
-      { label: 'Active Ads', value: active, tone: 'text-emerald-400' },
-      { label: 'Removed Ads', value: removed, tone: 'text-amber-400' },
-      { label: 'Deleted Ads', value: deleted, tone: 'text-rose-400' },
+      { label: 'Total Services', value: services.length, tone: 'text-slate-900' },
+      { label: 'Active Ads', value: active, tone: 'text-emerald-600' },
+      { label: 'Removed Ads', value: removed, tone: 'text-amber-600' },
+      { label: 'Deleted Ads', value: deleted, tone: 'text-rose-600' },
     ];
   }, [services]);
 
@@ -139,13 +139,13 @@ const AdminServicesPage: React.FC = () => {
           {row.images?.[0] ? (
             <img src={row.images[0]} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
           ) : (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-500">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
               <FiEye size={16} />
             </div>
           )}
           <div className="min-w-0">
-            <p className="max-w-[240px] truncate font-medium text-white">{row.title}</p>
-            <p className="truncate text-xs text-slate-500">
+            <p className="max-w-[240px] truncate font-medium text-slate-900">{row.title}</p>
+            <p className="truncate text-xs text-slate-600">
               {getCategoryName(row)} • {row.pricingType}
             </p>
           </div>
@@ -159,11 +159,11 @@ const AdminServicesPage: React.FC = () => {
         const seller = getSeller(row);
         return seller ? (
           <div>
-            <p className="text-sm text-white">{seller.name || 'Unknown user'}</p>
-            <p className="text-xs text-slate-500">{seller.email || getSellerId(row)}</p>
+            <p className="text-sm text-slate-900">{seller.name || 'Unknown user'}</p>
+            <p className="text-xs text-slate-600">{seller.email || getSellerId(row)}</p>
           </div>
         ) : (
-          <span className="text-slate-400">{getSellerId(row)}</span>
+          <span className="text-slate-500">{getSellerId(row)}</span>
         );
       },
     },
@@ -172,8 +172,8 @@ const AdminServicesPage: React.FC = () => {
       header: 'Pricing',
       render: (row: AdminServiceRow) => (
         <div>
-          <p className="font-medium text-white">LKR {row.price?.toLocaleString()}</p>
-          <p className="text-xs uppercase tracking-wide text-slate-500">{row.pricingType}</p>
+          <p className="font-medium text-slate-900">LKR {row.price?.toLocaleString()}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-600">{row.pricingType}</p>
         </div>
       ),
     },
@@ -181,7 +181,7 @@ const AdminServicesPage: React.FC = () => {
       key: 'location',
       header: 'Location',
       render: (row: AdminServiceRow) => (
-        <span className="text-sm text-slate-300">{row.location?.city || row.locationText || 'Not set'}</span>
+        <span className="text-sm text-slate-600">{row.location?.city || row.locationText || 'Not set'}</span>
       ),
     },
     {
@@ -193,7 +193,7 @@ const AdminServicesPage: React.FC = () => {
       key: 'createdAt',
       header: 'Created',
       render: (row: AdminServiceRow) => (
-        <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
+        <span className="text-xs text-slate-500">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
       ),
     },
     {
@@ -204,7 +204,7 @@ const AdminServicesPage: React.FC = () => {
           <button
             type="button"
             onClick={() => openDetails(row)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             View Details
           </button>
@@ -231,8 +231,8 @@ const AdminServicesPage: React.FC = () => {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {serviceStats.map((stat) => (
-          <div key={stat.label} className="rounded-2xl border border-slate-800/60 bg-slate-900/50 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{stat.label}</p>
+          <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-600">{stat.label}</p>
             <p className={`mt-3 text-3xl font-bold ${stat.tone}`}>{stat.value}</p>
           </div>
         ))}
@@ -245,7 +245,7 @@ const AdminServicesPage: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="">All Status</option>
           <option value="ACTIVE">Active</option>
@@ -254,7 +254,7 @@ const AdminServicesPage: React.FC = () => {
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable columns={columns} data={services} loading={loading} emptyMessage="No service ads found" />
       </div>
 
@@ -265,7 +265,7 @@ const AdminServicesPage: React.FC = () => {
           setModerateReason('');
         }}
         title="Service Ad Details"
-        size="xl"
+        size="lg"
       >
         {selectedService && (
           <div className="space-y-6">
@@ -278,7 +278,7 @@ const AdminServicesPage: React.FC = () => {
                     className="h-52 w-full rounded-2xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-slate-800 text-slate-500">
+                  <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                     No image
                   </div>
                 )}
@@ -287,16 +287,16 @@ const AdminServicesPage: React.FC = () => {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <AdminBadge variant={getStatusVariant(selectedService.status)}>{selectedService.status}</AdminBadge>
-                  <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700">
                     {getCategoryName(selectedService)}
                   </span>
-                  <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700">
                     {selectedService.pricingType}
                   </span>
                 </div>
 
-                <h2 className="mt-3 text-2xl font-semibold text-white">{selectedService.title}</h2>
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-300">
+                <h2 className="mt-3 text-2xl font-semibold text-slate-900">{selectedService.title}</h2>
+                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
                   {selectedService.description}
                 </p>
 
@@ -326,12 +326,12 @@ const AdminServicesPage: React.FC = () => {
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <section className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Owner Details</h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-300">
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Owner Details</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-600">
                   <div>
                     <p className="text-xs text-slate-500">Name</p>
-                    <p className="mt-1 text-white">{getSeller(selectedService)?.name || 'Unknown user'}</p>
+                    <p className="mt-1 text-slate-900">{getSeller(selectedService)?.name || 'Unknown user'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">User ID</p>
@@ -351,9 +351,9 @@ const AdminServicesPage: React.FC = () => {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Moderation State</h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-300">
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Moderation State</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-600">
                   <div>
                     <p className="text-xs text-slate-500">Current status</p>
                     <div className="mt-1">
@@ -364,7 +364,7 @@ const AdminServicesPage: React.FC = () => {
                   {selectedService.removedReason && (
                     <div>
                       <p className="text-xs text-slate-500">Removal reason</p>
-                      <p className="mt-1 text-amber-300">{selectedService.removedReason}</p>
+                      <p className="mt-1 text-amber-700">{selectedService.removedReason}</p>
                     </div>
                   )}
 
@@ -382,7 +382,7 @@ const AdminServicesPage: React.FC = () => {
                     </div>
                   )}
 
-                  <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs leading-5 text-slate-400">
+                  <p className="rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-500">
                     Admin supervises service ads and booking records, but does not accept bookings, pay deposits, or
                     manually complete the normal booking lifecycle.
                   </p>
@@ -390,16 +390,16 @@ const AdminServicesPage: React.FC = () => {
               </section>
             </div>
 
-            <section className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Category Attributes</h3>
+            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Category Attributes</h3>
               {Object.keys(selectedService.attributeValues || {}).length === 0 ? (
                 <p className="mt-4 text-sm text-slate-500">No category-specific attributes were provided for this service ad.</p>
               ) : (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {Object.entries(selectedService.attributeValues || {}).map(([key, value]) => (
-                    <div key={key} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                    <div key={key} className="rounded-xl border border-slate-200 bg-white p-3">
                       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{key}</p>
-                      <p className="mt-2 text-sm text-white">{formatAttributeValue(value)}</p>
+                      <p className="mt-2 text-sm text-slate-900">{formatAttributeValue(value)}</p>
                     </div>
                   ))}
                 </div>
@@ -407,20 +407,20 @@ const AdminServicesPage: React.FC = () => {
             </section>
 
             {selectedService.status === 'ACTIVE' && (
-              <section className="rounded-2xl border border-rose-900/40 bg-rose-950/20 p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-300">Moderate This Ad</h3>
-                <p className="mt-2 text-sm text-slate-300">
+              <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700">Moderate This Ad</h3>
+                <p className="mt-2 text-sm text-slate-700">
                   Remove this service ad from the public feed if it violates platform rules. The record will remain
                   available for admin review.
                 </p>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-xs font-medium text-slate-400">Removal reason</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">Removal reason</label>
                   <textarea
                     value={moderateReason}
                     onChange={(e) => setModerateReason(e.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-slate-700/50 bg-slate-900/70 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-rose-500/50"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-rose-500/50"
                     placeholder="Explain why this service ad is being removed..."
                   />
                 </div>
@@ -432,7 +432,7 @@ const AdminServicesPage: React.FC = () => {
                       setSelectedService(null);
                       setModerateReason('');
                     }}
-                    className="rounded-lg px-4 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    className="rounded-lg px-4 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
                   >
                     Cancel
                   </button>
@@ -440,7 +440,7 @@ const AdminServicesPage: React.FC = () => {
                     type="button"
                     onClick={handleModerate}
                     disabled={!moderateReason.trim() || submittingModeration}
-                    className="rounded-lg bg-rose-600/15 px-4 py-2 text-sm font-medium text-rose-300 transition-colors hover:bg-rose-600/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-rose-100 px-4 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {submittingModeration ? 'Removing...' : 'Remove Service Ad'}
                   </button>
@@ -455,12 +455,12 @@ const AdminServicesPage: React.FC = () => {
 };
 
 const InfoItem: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-  <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+  <div className="rounded-xl border border-slate-200 bg-white p-3">
     <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
       <span className="text-slate-400">{icon}</span>
       {label}
     </p>
-    <p className="mt-2 text-sm text-white">{value}</p>
+    <p className="mt-2 text-sm text-slate-900">{value}</p>
   </div>
 );
 

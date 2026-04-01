@@ -41,16 +41,16 @@ const AdminTopBar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-800/60 bg-slate-950/80 px-6 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-6 backdrop-blur-xl">
       <div>
-        <h2 className="text-sm font-medium text-slate-400">Admin Panel</h2>
+        <h2 className="text-sm font-medium text-slate-500">Admin Panel</h2>
       </div>
       <div className="flex items-center gap-4">
         <div className="relative" ref={notificationsRef}>
           <button
             type="button"
             onClick={handleNotificationsToggle}
-            className="relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <FiBell size={18} />
             {unreadCount > 0 && (
@@ -67,10 +67,10 @@ const AdminTopBar: React.FC = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-xl"
+                className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
               >
-                <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-                  <p className="text-sm font-semibold text-white">Notifications</p>
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">Notifications</p>
                   <button
                     onClick={handleViewAllNotifications}
                     className="text-xs font-medium text-blue-400 hover:text-blue-300"
@@ -81,15 +81,15 @@ const AdminTopBar: React.FC = () => {
 
                 <div className="max-h-80 overflow-y-auto">
                   {isLoading ? (
-                    <div className="px-4 py-6 text-center text-sm text-slate-400">Loading...</div>
+                    <div className="px-4 py-6 text-center text-sm text-slate-500">Loading...</div>
                   ) : notifications.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-sm text-slate-400">No notifications yet.</div>
+                    <div className="px-4 py-6 text-center text-sm text-slate-500">No notifications yet.</div>
                   ) : (
-                    <ul className="divide-y divide-slate-800">
+                    <ul className="divide-y divide-slate-100">
                       {notifications.slice(0, 5).map((item) => (
-                        <li key={item._id} className={`px-4 py-3 ${item.isRead ? 'bg-slate-900' : 'bg-slate-800/70'}`}>
-                          <p className="truncate text-sm font-medium text-white">{item.title}</p>
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-300">{item.message}</p>
+                        <li key={item._id} className={`px-4 py-3 ${item.isRead ? 'bg-white' : 'bg-slate-50'}`}>
+                          <p className="truncate text-sm font-medium text-slate-900">{item.title}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{item.message}</p>
                         </li>
                       ))}
                     </ul>
@@ -108,7 +108,7 @@ const AdminTopBar: React.FC = () => {
             )}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-white">{user?.name ?? 'Admin'}</p>
+            <p className="text-sm font-medium text-slate-900">{user?.name ?? 'Admin'}</p>
             <p className="text-xs text-slate-500">{user?.email}</p>
           </div>
         </div>

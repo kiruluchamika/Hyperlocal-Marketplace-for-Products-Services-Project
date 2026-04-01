@@ -76,11 +76,11 @@ const AdminProductsPage: React.FC = () => {
           {row.images?.[0] ? (
             <img src={row.images[0]} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
           ) : (
-            <div className="h-10 w-10 rounded-lg bg-slate-800 shrink-0" />
+            <div className="h-10 w-10 rounded-lg bg-slate-100 shrink-0" />
           )}
           <div className="min-w-0">
-            <p className="truncate font-medium text-white max-w-[200px]">{row.title}</p>
-            <p className="text-xs text-slate-500">{row.categoryId?.name ?? 'No category'}</p>
+            <p className="truncate font-medium text-slate-900 max-w-[200px]">{row.title}</p>
+            <p className="text-xs text-slate-600">{row.categoryId?.name ?? 'No category'}</p>
           </div>
         </div>
       ),
@@ -90,8 +90,8 @@ const AdminProductsPage: React.FC = () => {
       header: 'Owner',
       render: (row: AdminListing) => (
         <div>
-          <p className="text-sm text-white">{row.ownerId?.name}</p>
-          <p className="text-xs text-slate-500">{row.ownerId?.email}</p>
+          <p className="text-sm text-slate-900">{row.ownerId?.name}</p>
+          <p className="text-xs text-slate-600">{row.ownerId?.email}</p>
         </div>
       ),
     },
@@ -99,7 +99,7 @@ const AdminProductsPage: React.FC = () => {
       key: 'price',
       header: 'Price',
       render: (row: AdminListing) => (
-        <span className="font-medium text-white">
+        <span className="font-medium text-slate-900">
           {row.currency ?? 'LKR'} {row.price?.toLocaleString()}
         </span>
       ),
@@ -108,7 +108,7 @@ const AdminProductsPage: React.FC = () => {
       key: 'condition',
       header: 'Condition',
       render: (row: AdminListing) => (
-        <span className="text-slate-400 text-xs">{row.condition?.replace(/_/g, ' ')}</span>
+        <span className="text-slate-500 text-xs">{row.condition?.replace(/_/g, ' ')}</span>
       ),
     },
     {
@@ -122,14 +122,14 @@ const AdminProductsPage: React.FC = () => {
       key: 'views',
       header: 'Views',
       render: (row: AdminListing) => (
-        <span className="text-slate-400">{row.viewsCount ?? 0}</span>
+        <span className="text-slate-500">{row.viewsCount ?? 0}</span>
       ),
     },
     {
       key: 'createdAt',
       header: 'Listed',
       render: (row: AdminListing) => (
-        <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
+        <span className="text-xs text-slate-500">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
       ),
     },
     {
@@ -177,7 +177,7 @@ const AdminProductsPage: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="">All Status</option>
           <option value="ACTIVE">Active</option>
@@ -189,7 +189,7 @@ const AdminProductsPage: React.FC = () => {
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable columns={columns} data={listings} loading={loading} emptyMessage="No products found" />
         <AdminPagination pagination={pagination} onPageChange={(p) => fetchListings(p)} />
       </div>
@@ -200,25 +200,25 @@ const AdminProductsPage: React.FC = () => {
         title="Suspend Listing"
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-600">
             You are about to suspend <strong>{selectedListing?.title}</strong>. This will hide the listing from the marketplace. The owner will be notified and given 3 hours to appeal or edit the listing before it is permanently deleted.
           </p>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
               Suspension Reason <span className="text-red-400">*</span>
             </label>
             <textarea
               value={suspendReason}
               onChange={(e) => setSuspendReason(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               rows={4}
               placeholder="Provide a detailed reason for suspending this product..."
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
             <button
               onClick={() => { setSuspendModalOpen(false); setSuspendReason(''); }}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
             >
               Cancel
             </button>

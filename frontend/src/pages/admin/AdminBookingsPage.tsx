@@ -36,8 +36,8 @@ const AdminBookingsPage: React.FC = () => {
       header: 'Service',
       render: (row: AdminBooking) => (
         <div>
-          <p className="font-medium text-white">{row.serviceId?.title ?? '—'}</p>
-          <p className="text-xs text-slate-500">LKR {row.serviceId?.price?.toLocaleString()}</p>
+          <p className="font-medium text-slate-900">{row.serviceId?.title ?? '—'}</p>
+          <p className="text-xs text-slate-600">LKR {row.serviceId?.price?.toLocaleString()}</p>
         </div>
       ),
     },
@@ -46,8 +46,8 @@ const AdminBookingsPage: React.FC = () => {
       header: 'Customer',
       render: (row: AdminBooking) => (
         <div>
-          <p className="text-sm text-white">{row.buyerId?.name}</p>
-          <p className="text-xs text-slate-500">{row.buyerId?.email}</p>
+          <p className="text-sm text-slate-900">{row.buyerId?.name}</p>
+          <p className="text-xs text-slate-600">{row.buyerId?.email}</p>
         </div>
       ),
     },
@@ -56,8 +56,8 @@ const AdminBookingsPage: React.FC = () => {
       header: 'Provider',
       render: (row: AdminBooking) => (
         <div>
-          <p className="text-sm text-white">{row.providerId?.name}</p>
-          <p className="text-xs text-slate-500">{row.providerId?.email}</p>
+          <p className="text-sm text-slate-900">{row.providerId?.name}</p>
+          <p className="text-xs text-slate-600">{row.providerId?.email}</p>
         </div>
       ),
     },
@@ -66,8 +66,8 @@ const AdminBookingsPage: React.FC = () => {
       header: 'Schedule',
       render: (row: AdminBooking) => (
         <div>
-          <p className="text-sm text-white">{format(new Date(row.startAt), 'MMM d, yyyy')}</p>
-          <p className="text-xs text-slate-500">{row.durationMinutes} min</p>
+          <p className="text-sm text-slate-900">{format(new Date(row.startAt), 'MMM d, yyyy')}</p>
+          <p className="text-xs text-slate-600">{row.durationMinutes} min</p>
         </div>
       ),
     },
@@ -82,7 +82,7 @@ const AdminBookingsPage: React.FC = () => {
       key: 'createdAt',
       header: 'Created',
       render: (row: AdminBooking) => (
-        <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
+        <span className="text-xs text-slate-500">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
       ),
     },
   ];
@@ -95,7 +95,7 @@ const AdminBookingsPage: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="">All Status</option>
           <option value="PENDING">Pending</option>
@@ -106,7 +106,7 @@ const AdminBookingsPage: React.FC = () => {
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable columns={columns} data={bookings} loading={loading} emptyMessage="No bookings found" />
         <AdminPagination pagination={pagination} onPageChange={(p) => fetchBookings(p)} />
       </div>

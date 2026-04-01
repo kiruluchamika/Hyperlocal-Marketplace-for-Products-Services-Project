@@ -58,6 +58,9 @@ const getStatusBadge = (status: BookingStatus) => {
 };
 
 const getStatusMessage = (booking: IServiceBooking) => {
+  if (booking.isSlotTaken && (booking.status === 'PENDING' || booking.status === 'PROVIDER_ACCEPTED')) {
+    return 'This slot was taken by another user who paid first and the slot is not available anymore.';
+  }
   if (booking.status === 'PENDING') {
     return 'Waiting for provider response';
   }
@@ -287,17 +290,17 @@ const MyServiceRequestsPage: React.FC = () => {
                   </div>
                 )}
 
-                {booking.status === 'PROVIDER_ACCEPTED' && (
+                {booking.isSlotTaken && (booking.status === 'PENDING' || booking.status === 'PROVIDER_ACCEPTED') ? (
                   <div className="mt-4 space-y-3">
                     <div className="flex flex-wrap gap-3">
                       <Button
                         type="button"
                         size="sm"
-                        leftIcon={<FiCreditCard size={14} />}
-                        disabled={!!actingId}
-                        onClick={() => navigate(`/dashboard/service-requests/${booking._id}/payment`)}
+                        variant="primary"
+                        leftIcon={<FiCalendar size={14} />}
+                        onClick={() => navigate(`/services/${typeof booking.serviceId === 'object' ? booking.serviceId._id : booking.serviceId}`)}
                       >
-                        Pay Now
+                        Make Another Request
                       </Button>
                       <Button
                         type="button"
@@ -311,31 +314,63 @@ const MyServiceRequestsPage: React.FC = () => {
                         Cancel Request
                       </Button>
                     </div>
-                    <p className="text-sm text-slate-500">
-                      The provider has accepted this booking. You can pay now to confirm the slot or cancel it before payment.
+                    <p className="text-sm font-medium text-amber-600">
+                      The slot is no longer available.
                     </p>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {booking.status === 'PROVIDER_ACCEPTED' && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap gap-3">
+                          <Button
+                            type="button"
+                            size="sm"
+                            leftIcon={<FiCreditCard size={14} />}
+                            disabled={!!actingId}
+                            onClick={() => navigate(`/dashboard/service-requests/${booking._id}/payment`)}
+                          >
+                            Pay Now
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<FiX size={14} />}
+                            isLoading={actingId === booking._id}
+                            disabled={!!actingId && actingId !== booking._id}
+                            onClick={() => void handleCancelBooking(booking._id)}
+                          >
+                            Cancel Request
+                          </Button>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          The provider has accepted this booking. You can pay now to confirm the slot or cancel it before payment.
+                        </p>
+                      </div>
+                    )}
 
-                {booking.status === 'PENDING' && (
-                  <div className="mt-4 space-y-3">
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        leftIcon={<FiX size={14} />}
-                        isLoading={actingId === booking._id}
-                        disabled={!!actingId && actingId !== booking._id}
-                        onClick={() => void handleCancelBooking(booking._id)}
-                      >
-                        Cancel Request
-                      </Button>
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      Cancel this request any time before the provider accepts it.
-                    </p>
-                  </div>
+                    {booking.status === 'PENDING' && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap gap-3">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<FiX size={14} />}
+                            isLoading={actingId === booking._id}
+                            disabled={!!actingId && actingId !== booking._id}
+                            onClick={() => void handleCancelBooking(booking._id)}
+                          >
+                            Cancel Request
+                          </Button>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          Cancel this request any time before the provider accepts it.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );

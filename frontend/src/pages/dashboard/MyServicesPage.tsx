@@ -114,7 +114,7 @@ const MyServicesPage: React.FC = () => {
   const activeServiceCount = services.filter((service) => service.status === 'ACTIVE').length;
 
   const pendingBookings = React.useMemo(
-    () => visibleBookings.filter((booking) => booking.status === 'PENDING'),
+    () => visibleBookings.filter((booking) => booking.status === 'PENDING' && !booking.isSlotTaken),
     [visibleBookings]
   );
 
@@ -125,7 +125,9 @@ const MyServicesPage: React.FC = () => {
           return false;
         }
 
-        if (booking.status === 'CANCELLED' && dismissedCancelledIds.includes(booking._id)) {
+        const isDismissable = booking.status === 'CANCELLED' || (booking.status === 'PROVIDER_ACCEPTED' && booking.isSlotTaken);
+
+        if (isDismissable && dismissedCancelledIds.includes(booking._id)) {
           return false;
         }
 
@@ -169,7 +171,12 @@ const MyServicesPage: React.FC = () => {
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">My Services</h1>
+          <h1 className="flex flex-wrap items-baseline gap-2 text-3xl font-bold text-slate-800">
+            <span>My Services</span>
+            <span className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-800">
+              (Service Requested For My Ads)
+            </span>
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
             Review the pending booking requests that came in for your posted service ads.
           </p>
@@ -386,14 +393,20 @@ const MyServicesPage: React.FC = () => {
                       <td className="px-5 py-4 text-sm text-slate-700">{service?.locationText || 'Location unavailable'}</td>
                       <td className="px-5 py-4">
                         <div className="space-y-2">
-                          {getStatusBadge(booking.status)}
+                          {(booking.status === 'PROVIDER_ACCEPTED' && booking.isSlotTaken) ? (
+                            <Badge variant="neutral">UNAVAILABLE</Badge>
+                          ) : (
+                            getStatusBadge(booking.status)
+                          )}
                           <p
                             className={`text-xs ${
                               booking.status === 'CONFIRMED'
                                 ? 'text-emerald-700'
                                 : booking.status === 'CANCELLED'
                                   ? 'text-slate-500'
-                                  : 'text-amber-700'
+                                  : (booking.status === 'PROVIDER_ACCEPTED' && booking.isSlotTaken)
+                                    ? 'text-rose-600'
+                                    : 'text-amber-700'
                             }`}
                           >
                             {booking.status === 'CONFIRMED'
@@ -402,17 +415,19 @@ const MyServicesPage: React.FC = () => {
                                 : 'Buyer completed payment and the booking is locked in.'
                               : booking.status === 'CANCELLED'
                                 ? 'Buyer cancelled this request before payment.'
-                                : 'Waiting for the buyer to complete the deposit payment.'}
+                                : (booking.status === 'PROVIDER_ACCEPTED' && booking.isSlotTaken)
+                                  ? 'This slot was taken by another user who paid first.'
+                                  : 'Waiting for the buyer to complete the deposit payment.'}
                           </p>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        {booking.status === 'CANCELLED' ? (
+                        {(booking.status === 'CANCELLED' || (booking.status === 'PROVIDER_ACCEPTED' && booking.isSlotTaken)) ? (
                           <button
                             type="button"
                             onClick={() => handleDismissCancelled(booking._id)}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                            aria-label="Remove cancelled request from table"
+                            aria-label="Remove request from table"
                           >
                             <FiX size={16} />
                           </button>

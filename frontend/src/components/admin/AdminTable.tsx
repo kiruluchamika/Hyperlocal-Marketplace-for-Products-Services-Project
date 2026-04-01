@@ -26,7 +26,11 @@ function AdminTable<T extends { _id: string }>({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
+<<<<<<< feature-frontend-service_management
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
+=======
         <GifLoader size="md" label="Loading data..." />
+>>>>>>> dev
       </div>
     );
   }
@@ -46,30 +50,30 @@ function AdminTable<T extends { _id: string }>({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-700/50">
+          <tr className="border-b border-slate-200">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 ${col.className || ''}`}
+                className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 ${col.className || ''}`}
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/50">
+        <tbody className="divide-y divide-slate-100">
           {data.map((row) => (
             <tr
               key={row._id}
               onClick={() => onRowClick?.(row)}
-              className={`transition-colors duration-150 hover:bg-slate-800/40 ${
+              className={`transition-colors duration-150 hover:bg-slate-50 ${
                 onRowClick ? 'cursor-pointer' : ''
               }`}
             >
               {columns.map((col) => (
                 <td
                   key={col.key}
-                  className={`whitespace-nowrap px-4 py-3.5 text-sm text-slate-300 ${col.className || ''}`}
+                  className={`whitespace-nowrap px-4 py-3.5 text-sm text-slate-600 ${col.className || ''}`}
                 >
                   {col.render
                     ? col.render(row)
