@@ -251,49 +251,49 @@ const AdminPaymentsPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-6"
+          className="rounded-xl border border-slate-200 bg-white p-6"
         >
-          <div className="text-xs uppercase tracking-wide text-slate-400 mb-2">Total Payments</div>
-          <div className="text-2xl font-bold text-white">{stats.totalPayments}</div>
-          <div className="text-sm text-slate-300 mt-1">{formatLKR(stats.totalAmount)}</div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Total Payments</div>
+          <div className="text-2xl font-bold text-slate-900">{stats.totalPayments}</div>
+          <div className="text-sm text-slate-600 mt-1">{formatLKR(stats.totalAmount)}</div>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-6"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-6"
         >
-          <div className="text-xs uppercase tracking-wide text-amber-200 mb-2">Pending Payouts</div>
-          <div className="text-2xl font-bold text-amber-100">{stats.pendingPayouts}</div>
-          <div className="text-sm text-amber-300 font-medium mt-1">{formatLKR(stats.pendingPayoutAmount)}</div>
+          <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Pending Payouts</div>
+          <div className="text-2xl font-bold text-amber-900">{stats.pendingPayouts}</div>
+          <div className="text-sm text-amber-700 font-medium mt-1">{formatLKR(stats.pendingPayoutAmount)}</div>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-6"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-6"
         >
-          <div className="text-xs uppercase tracking-wide text-emerald-200 mb-2">Completed</div>
-          <div className="text-2xl font-bold text-emerald-100">{stats.completedPayments}</div>
-          <div className="text-sm text-emerald-300 font-medium mt-1">Released and settled</div>
+          <div className="text-xs uppercase tracking-wide text-emerald-700 mb-2">Completed</div>
+          <div className="text-2xl font-bold text-emerald-900">{stats.completedPayments}</div>
+          <div className="text-sm text-emerald-700 font-medium mt-1">Released and settled</div>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-6"
         >
-          <div className="text-xs uppercase tracking-wide text-rose-200 mb-2">Failed/Refunded</div>
-          <div className="text-2xl font-bold text-rose-100">{stats.failedPayments}</div>
-          <div className="text-sm text-rose-300 font-medium mt-1">Transactions</div>
+          <div className="text-xs uppercase tracking-wide text-rose-700 mb-2">Failed/Refunded</div>
+          <div className="text-2xl font-bold text-rose-900">{stats.failedPayments}</div>
+          <div className="text-sm text-rose-700 font-medium mt-1">Transactions</div>
         </motion.div>
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-6 space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
         {/* Search */}
         <div className="relative">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
@@ -305,8 +305,8 @@ const AdminPaymentsPage: React.FC = () => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 pl-10 pr-4 py-2.5
-                       text-sm text-slate-200 outline-none transition-all placeholder:text-slate-500
+            className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2.5
+                       text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400
                        focus:border-blue-500/50"
           />
         </div>
@@ -319,8 +319,8 @@ const AdminPaymentsPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5
-                       text-sm text-slate-200 outline-none focus:border-blue-500/50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                       text-sm text-slate-900 outline-none focus:border-blue-500/50"
           >
             {statusOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -336,8 +336,8 @@ const AdminPaymentsPage: React.FC = () => {
               setStatusFilter('');
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5
-                       text-sm text-slate-200 outline-none focus:border-blue-500/50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                       text-sm text-slate-900 outline-none focus:border-blue-500/50"
           >
             <option value="ALL">All Sources</option>
             <option value="PRODUCT">Product Payments</option>
@@ -351,8 +351,8 @@ const AdminPaymentsPage: React.FC = () => {
               setFromDate(e.target.value);
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5
-                       text-sm text-slate-200 outline-none focus:border-blue-500/50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                       text-sm text-slate-900 outline-none focus:border-blue-500/50"
           />
 
           <input
@@ -362,8 +362,8 @@ const AdminPaymentsPage: React.FC = () => {
               setToDate(e.target.value);
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5
-                       text-sm text-slate-200 outline-none focus:border-blue-500/50"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5
+                       text-sm text-slate-900 outline-none focus:border-blue-500/50"
           />
 
           <div></div>
@@ -371,22 +371,22 @@ const AdminPaymentsPage: React.FC = () => {
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2">
-          <div className="text-sm text-slate-400">
+          <div className="text-sm text-slate-500">
             {visiblePayments.length} payment{visiblePayments.length !== 1 ? 's' : ''} found
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={loadPayments}
-              className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-sm font-medium
-                         text-slate-200 transition-colors hover:bg-slate-700/60 flex items-center gap-2"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium
+                         text-slate-700 transition-colors hover:bg-slate-50 flex items-center gap-2"
             >
               <FiRefreshCw className="h-4 w-4" />
               Refresh
             </button>
             <button
               onClick={handleExportCSV}
-              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium
-                         text-emerald-300 transition-colors hover:bg-emerald-500/20 flex items-center gap-2"
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium
+                         text-emerald-700 transition-colors hover:bg-emerald-100 flex items-center gap-2"
             >
               <FiDownload className="h-4 w-4" />
               Export CSV
@@ -397,15 +397,15 @@ const AdminPaymentsPage: React.FC = () => {
 
       {/* Payments Table */}
       {loading ? (
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
           </div>
-          <p className="text-slate-400">Loading payments...</p>
+          <p className="text-slate-500">Loading payments...</p>
         </div>
       ) : visiblePayments.length === 0 ? (
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
-          <p className="text-slate-400">No payments found</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+          <p className="text-slate-500">No payments found</p>
         </div>
       ) : (
         <>
@@ -423,8 +423,8 @@ const AdminPaymentsPage: React.FC = () => {
                 header: 'Order',
                 render: (row: UnifiedPaymentRow) => (
                   <div>
-                    <p className="font-medium text-white truncate max-w-[200px]">{row.title || 'N/A'}</p>
-                    <p className="text-xs text-slate-500">{row.providerPaymentId}</p>
+                    <p className="font-medium text-slate-900 truncate max-w-[200px]">{row.title || 'N/A'}</p>
+                    <p className="text-xs text-slate-600">{row.providerPaymentId}</p>
                   </div>
                 ),
               },
@@ -433,8 +433,8 @@ const AdminPaymentsPage: React.FC = () => {
                 header: 'Buyer',
                 render: (row: UnifiedPaymentRow) => (
                   <div>
-                    <p className="text-sm text-white">{row.buyerName || 'N/A'}</p>
-                    <p className="text-xs text-slate-500">{row.buyerEmail}</p>
+                    <p className="text-sm text-slate-900">{row.buyerName || 'N/A'}</p>
+                    <p className="text-xs text-slate-600">{row.buyerEmail}</p>
                   </div>
                 ),
               },
@@ -443,8 +443,8 @@ const AdminPaymentsPage: React.FC = () => {
                 header: 'Seller',
                 render: (row: UnifiedPaymentRow) => (
                   <div>
-                    <p className="text-sm text-white">{row.sellerName || 'N/A'}</p>
-                    <p className="text-xs text-slate-500">{row.sellerEmail}</p>
+                    <p className="text-sm text-slate-900">{row.sellerName || 'N/A'}</p>
+                    <p className="text-xs text-slate-600">{row.sellerEmail}</p>
                   </div>
                 ),
               },
@@ -452,7 +452,7 @@ const AdminPaymentsPage: React.FC = () => {
                 key: 'amount',
                 header: 'Amount',
                 render: (row: UnifiedPaymentRow) => (
-                  <span className="font-medium text-white">{formatLKR(row.amount || 0)}</span>
+                  <span className="font-medium text-slate-900">{formatLKR(row.amount || 0)}</span>
                 ),
               },
               {
@@ -466,7 +466,7 @@ const AdminPaymentsPage: React.FC = () => {
                 key: 'createdAt',
                 header: 'Date',
                 render: (row: UnifiedPaymentRow) => (
-                  <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
+                  <span className="text-xs text-slate-500">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
                 ),
               },
               {
@@ -479,7 +479,7 @@ const AdminPaymentsPage: React.FC = () => {
                       event.stopPropagation();
                       setSelectedPayment(row);
                     }}
-                    className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-300 hover:bg-blue-500/20"
+                    className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
                   >
                     Details
                   </button>

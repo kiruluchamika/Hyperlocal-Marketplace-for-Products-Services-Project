@@ -244,6 +244,31 @@ const ServiceBookingPaymentPage: React.FC = () => {
 
   if (!booking) return null;
 
+  if (booking.isSlotTaken) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-amber-200 bg-white p-8 shadow-card">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <FiCalendar size={22} />
+          </div>
+          <h1 className="mt-4 text-3xl font-bold text-slate-800">Booking Slot Unavailable</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            This slot was taken by another user who paid first and the slot is not available anymore. Please make another request.
+          </p>
+          <div className="mt-6 flex gap-4">
+            <Link to="/dashboard/service-requests" className="btn-secondary inline-flex items-center gap-2">
+              <FiArrowLeft size={16} />
+              Back to My Requests
+            </Link>
+            <Link to={`/services/${typeof booking.serviceId === 'object' ? booking.serviceId._id : booking.serviceId}`} className="btn-primary inline-flex items-center gap-2">
+              Make Another Request
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (booking.status === 'CONFIRMED') {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">

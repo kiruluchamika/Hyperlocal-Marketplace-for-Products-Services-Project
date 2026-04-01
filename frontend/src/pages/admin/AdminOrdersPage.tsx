@@ -116,7 +116,7 @@ const AdminOrdersPage: React.FC = () => {
 
   const exportVisibleOrders = () => {
     const rows = visibleOrders.map((order) => {
-      const safeTitle = (order.titleSnapshot || '').replaceAll(',', ' ');
+      const safeTitle = (order.titleSnapshot || '').replace(/,/g, ' ');
       return [
         order._id,
         safeTitle,
@@ -147,8 +147,8 @@ const AdminOrdersPage: React.FC = () => {
       header: 'Product',
       render: (row: AdminOrder) => (
         <div className="min-w-0">
-          <p className="truncate font-medium text-white max-w-[200px]">{row.titleSnapshot}</p>
-          <p className="text-xs text-slate-500">Qty: {row.quantity}</p>
+          <p className="truncate font-medium text-slate-900 max-w-[200px]">{row.titleSnapshot}</p>
+          <p className="text-xs text-slate-600">Qty: {row.quantity}</p>
         </div>
       ),
     },
@@ -157,8 +157,8 @@ const AdminOrdersPage: React.FC = () => {
       header: 'Buyer',
       render: (row: AdminOrder) => (
         <div>
-          <p className="text-sm text-white">{row.buyerId?.name}</p>
-          <p className="text-xs text-slate-500">{row.buyerId?.email}</p>
+          <p className="text-sm text-slate-900">{row.buyerId?.name}</p>
+          <p className="text-xs text-slate-600">{row.buyerId?.email}</p>
         </div>
       ),
     },
@@ -167,8 +167,8 @@ const AdminOrdersPage: React.FC = () => {
       header: 'Seller',
       render: (row: AdminOrder) => (
         <div>
-          <p className="text-sm text-white">{row.sellerId?.name}</p>
-          <p className="text-xs text-slate-500">{row.sellerId?.email}</p>
+          <p className="text-sm text-slate-900">{row.sellerId?.name}</p>
+          <p className="text-xs text-slate-600">{row.sellerId?.email}</p>
         </div>
       ),
     },
@@ -176,14 +176,14 @@ const AdminOrdersPage: React.FC = () => {
       key: 'total',
       header: 'Total',
       render: (row: AdminOrder) => (
-        <span className="font-medium text-white">Rs. {row.totalAmount?.toLocaleString()}</span>
+        <span className="font-medium text-slate-900">Rs. {row.totalAmount?.toLocaleString()}</span>
       ),
     },
     {
       key: 'delivery',
       header: 'Delivery',
       render: (row: AdminOrder) => (
-        <span className="text-xs text-slate-400">{row.deliveryMethod}</span>
+        <span className="text-xs text-slate-500">{row.deliveryMethod}</span>
       ),
     },
     {
@@ -197,7 +197,7 @@ const AdminOrdersPage: React.FC = () => {
       key: 'createdAt',
       header: 'Date',
       render: (row: AdminOrder) => (
-        <span className="text-xs text-slate-400">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
+        <span className="text-xs text-slate-500">{format(new Date(row.createdAt), 'MMM d, yyyy')}</span>
       ),
     },
     {
@@ -210,7 +210,7 @@ const AdminOrdersPage: React.FC = () => {
             event.stopPropagation();
             setSelectedOrder(row as ExtendedAdminOrder);
           }}
-          className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-300 hover:bg-blue-500/20"
+          className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
         >
           Details
         </button>
@@ -228,14 +228,14 @@ const AdminOrdersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => fetchOrders(pagination.page)}
-              className="rounded-lg border border-slate-600/60 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700/60"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Refresh
             </button>
             <button
               type="button"
               onClick={exportVisibleOrders}
-              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/20"
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
             >
               Export CSV
             </button>
@@ -244,21 +244,21 @@ const AdminOrdersPage: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
-          <p className="mt-1 text-xl font-semibold text-white">{orderStats.total}</p>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-slate-600">Total</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">{orderStats.total}</p>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-amber-300">Pending</p>
-          <p className="mt-1 text-xl font-semibold text-amber-200">{orderStats.pending}</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-amber-700">Pending</p>
+          <p className="mt-1 text-xl font-semibold text-amber-900">{orderStats.pending}</p>
         </div>
-        <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-indigo-300">In Progress</p>
-          <p className="mt-1 text-xl font-semibold text-indigo-200">{orderStats.inProgress}</p>
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-indigo-700">In Progress</p>
+          <p className="mt-1 text-xl font-semibold text-indigo-900">{orderStats.inProgress}</p>
         </div>
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-emerald-300">Completed</p>
-          <p className="mt-1 text-xl font-semibold text-emerald-200">{orderStats.completed}</p>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-emerald-700">Completed</p>
+          <p className="mt-1 text-xl font-semibold text-emerald-900">{orderStats.completed}</p>
         </div>
       </div>
 
@@ -267,13 +267,13 @@ const AdminOrdersPage: React.FC = () => {
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder="Search by order ID, title, buyer or seller"
-          className="w-full lg:max-w-md rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="w-full lg:max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         />
 
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           {ORDER_STATUS_OPTIONS.map((option) => (
             <option key={option.label} value={option.value}>
@@ -286,7 +286,7 @@ const AdminOrdersPage: React.FC = () => {
           type="date"
           value={fromDate}
           onChange={(event) => setFromDate(event.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
           aria-label="From date"
         />
 
@@ -294,7 +294,7 @@ const AdminOrdersPage: React.FC = () => {
           type="date"
           value={toDate}
           onChange={(event) => setToDate(event.target.value)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
           aria-label="To date"
         />
 
@@ -306,13 +306,13 @@ const AdminOrdersPage: React.FC = () => {
             setFromDate('');
             setToDate('');
           }}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-700/60"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
         >
           Clear
         </button>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable
           columns={columns}
           data={visibleOrders}
@@ -324,44 +324,44 @@ const AdminOrdersPage: React.FC = () => {
       </div>
 
       {selectedOrder && (
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5 space-y-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-semibold text-white">Order Details</h3>
-              <p className="mt-1 text-xs text-slate-500">#{selectedOrder._id}</p>
+              <h3 className="text-lg font-semibold text-slate-900">Order Details</h3>
+              <p className="mt-1 text-xs text-slate-600">#{selectedOrder._id}</p>
             </div>
             <AdminBadge variant={getStatusVariant(selectedOrder.status)}>{selectedOrder.status}</AdminBadge>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Title</p>
-              <p className="mt-1 font-medium text-slate-100">{selectedOrder.titleSnapshot}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Title</p>
+              <p className="mt-1 font-medium text-slate-900">{selectedOrder.titleSnapshot}</p>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Amount</p>
-              <p className="mt-1 font-medium text-slate-100">Rs. {selectedOrder.totalAmount?.toLocaleString()}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Amount</p>
+              <p className="mt-1 font-medium text-slate-900">Rs. {selectedOrder.totalAmount?.toLocaleString()}</p>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Quantity</p>
-              <p className="mt-1 font-medium text-slate-100">{selectedOrder.quantity}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Quantity</p>
+              <p className="mt-1 font-medium text-slate-900">{selectedOrder.quantity}</p>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Delivery</p>
-              <p className="mt-1 font-medium text-slate-100">{selectedOrder.deliveryMethod}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Delivery</p>
+              <p className="mt-1 font-medium text-slate-900">{selectedOrder.deliveryMethod}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Buyer</p>
-              <p className="mt-1 font-medium text-slate-100">{selectedOrder.buyerId?.name || 'N/A'}</p>
-              <p className="text-slate-400">{selectedOrder.buyerId?.email || 'N/A'}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Buyer</p>
+              <p className="mt-1 font-medium text-slate-900">{selectedOrder.buyerId?.name || 'N/A'}</p>
+              <p className="text-slate-600">{selectedOrder.buyerId?.email || 'N/A'}</p>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Seller</p>
-              <p className="mt-1 font-medium text-slate-100">{selectedOrder.sellerId?.name || 'N/A'}</p>
-              <p className="text-slate-400">{selectedOrder.sellerId?.email || 'N/A'}</p>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">Seller</p>
+              <p className="mt-1 font-medium text-slate-900">{selectedOrder.sellerId?.name || 'N/A'}</p>
+              <p className="text-slate-600">{selectedOrder.sellerId?.email || 'N/A'}</p>
             </div>
           </div>
 

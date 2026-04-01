@@ -3,7 +3,10 @@ import ServiceSelling from "../models/ServiceSelling";
 import ServiceBooking from "../models/ServiceBooking";
 import { AppError } from "../utils/AppError";
 
+import { NotificationType } from "../models/Notification";
+import { createUserNotification } from "./notificationService";
 import {
+  notifyBookingUnavailable,
   notifyBookingCreated,
   notifyBookingDecision,
   notifyBookingConfirmed,
@@ -11,6 +14,36 @@ import {
 
 function addMinutes(date: Date, mins: number) {
   return new Date(date.getTime() + mins * 60 * 1000);
+}
+
+export async function populateIsSlotTaken(bookings: any[]) {
+  if (!bookings || !bookings.length) return bookings;
+
+  const candidates = bookings.filter((b) => ["PENDING", "PROVIDER_ACCEPTED"].includes(b.status));
+  if (!candidates.length) return bookings;
+
+  const serviceIds = [...new Set(candidates.map((b) => String(b.serviceId?._id || b.serviceId)))];
+
+  const confirmed = await ServiceBooking.find({
+    serviceId: { $in: serviceIds },
+    status: "CONFIRMED",
+    endAt: { $gte: new Date() },
+  }).select("serviceId startAt endAt");
+
+  for (const booking of bookings) {
+    if (!["PENDING", "PROVIDER_ACCEPTED"].includes(booking.status)) continue;
+
+    const sId = String(booking.serviceId?._id || booking.serviceId);
+    const hasOverlap = confirmed.some(
+      (c) => String(c.serviceId) === sId && overlaps(booking.startAt, booking.endAt, c.startAt, c.endAt)
+    );
+
+    if (hasOverlap) {
+      booking.isSlotTaken = true;
+    }
+  }
+
+  return bookings;
 }
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -52,7 +85,7 @@ export async function createBooking(buyerId: string, body: any) {
 export async function listMyBookings(buyerId: string, status?: string) {
   const query: any = { buyerId: new mongoose.Types.ObjectId(buyerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query)
+  let bookings = await ServiceBooking.find(query)
     .populate({
       path: "serviceId",
       select: "title locationText location price pricingType images status isActive sellerId",
@@ -61,13 +94,17 @@ export async function listMyBookings(buyerId: string, status?: string) {
       path: "providerId",
       select: "name email profileImage",
     })
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
+
+  bookings = await populateIsSlotTaken(bookings);
+  return bookings;
 }
 
 export async function listProviderBookings(providerId: string, status?: string) {
   const query: any = { providerId: new mongoose.Types.ObjectId(providerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query)
+  let bookings = await ServiceBooking.find(query)
     .populate({
       path: "serviceId",
       select: "title locationText location price pricingType images status isActive sellerId",
@@ -76,7 +113,11 @@ export async function listProviderBookings(providerId: string, status?: string) 
       path: "buyerId",
       select: "name email profileImage",
     })
-    .sort({ startAt: 1 });
+    .sort({ startAt: 1 })
+    .lean();
+
+  bookings = await populateIsSlotTaken(bookings);
+  return bookings;
 }
 
 export async function cancelBooking(id: string, buyerId: string) {
@@ -134,18 +175,23 @@ export async function providerDecision(
 }
 
 export async function getConfirmedSlots(query: any) {
-  const q: any = {
-    serviceId: new mongoose.Types.ObjectId(query.serviceId),
-    status: "CONFIRMED",
-  };
+  const conditions: any[] = [
+    { serviceId: new mongoose.Types.ObjectId(query.serviceId) },
+    { status: "CONFIRMED" },
+  ];
 
-  if (query.from || query.to) {
-    q.startAt = {};
-    if (query.from) q.startAt.$gte = new Date(query.from);
-    if (query.to) q.startAt.$lte = new Date(query.to);
+  // Include overlapping slots so currently active confirmed bookings are visible too.
+  const now = new Date();
+  const fromDate = query.from ? new Date(query.from) : now;
+  conditions.push({ endAt: { $gte: fromDate > now ? fromDate : now } });
+
+  if (query.to) {
+    conditions.push({ startAt: { $lte: new Date(query.to) } });
   }
 
-  return ServiceBooking.find(q).select("startAt endAt -_id");
+  return ServiceBooking.find({ $and: conditions })
+    .sort({ startAt: 1 })
+    .select("startAt endAt -_id");
 }
 
 export async function calculateDepositForBooking(bookingId: string, buyerId: string) {
@@ -211,6 +257,35 @@ export async function confirmBookingFromStripeSuccess(params: {
   };
 
   await booking.save();
+
+  // Find clashing pending/accepted bookings
+  const clashingBookings = await ServiceBooking.find({
+    serviceId: booking.serviceId,
+    _id: { $ne: booking._id },
+    status: { $in: ["PENDING", "PROVIDER_ACCEPTED"] }
+  }).select("_id buyerId providerId startAt endAt");
+
+  const actualClashes = clashingBookings.filter(b => 
+    overlaps(booking.startAt, booking.endAt, b.startAt, b.endAt)
+  );
+
+  for (const clash of actualClashes) {
+    void notifyBookingUnavailable({
+      bookingId: String(clash._id),
+      buyerId: String(clash.buyerId),
+      providerId: String(clash.providerId),
+      startAt: clash.startAt,
+      endAt: clash.endAt,
+    }).catch(() => {});
+
+    void createUserNotification(clash.buyerId, {
+      title: "Booking Slot Taken",
+      message: `The slot you requested for booking #${String(clash._id).slice(-6)} has been taken by another user who paid first. Please make another request.`,
+      type: NotificationType.ORDER,
+      entityType: "ServiceBooking",
+      entityId: String(clash._id)
+    }).catch(() => {});
+  }
 
   // ✅ Email both: booking confirmed (non-blocking)
   void notifyBookingConfirmed({

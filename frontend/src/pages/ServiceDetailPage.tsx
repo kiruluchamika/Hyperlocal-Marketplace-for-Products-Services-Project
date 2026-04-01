@@ -151,14 +151,12 @@ const ServiceDetailPage: React.FC = () => {
 
     const fetchSlots = async () => {
       setSlotsLoading(true);
-      const now = new Date();
 
       try {
         const { data } = await bookingsApi.getSlots({
           serviceId: id,
-          from: now.toISOString(),
         });
-        setSlots((data.data || []).filter((slot) => new Date(slot.endAt).getTime() > now.getTime()));
+        setSlots(data.data || []);
       } catch {
         setSlots([]);
       } finally {
@@ -372,15 +370,15 @@ const ServiceDetailPage: React.FC = () => {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-800">Upcoming Confirmed Slots</h2>
-                <span className="text-xs font-medium text-slate-500">Future bookings only</span>
+                <h2 className="text-lg font-bold text-slate-800">Confirmed Booked Slots</h2>
+                <span className="text-xs font-medium text-slate-500">All confirmed booking times</span>
               </div>
 
               {slotsLoading && <p className="mt-3 text-sm text-slate-500">Loading confirmed slots...</p>}
 
               {!slotsLoading && slots.length === 0 && (
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                  <span className="inline-flex items-center gap-2 font-semibold"><FiCheckCircle size={14} /> No upcoming confirmed bookings right now.</span>
+                  <span className="inline-flex items-center gap-2 font-semibold"><FiCheckCircle size={14} /> No confirmed bookings right now.</span>
                 </div>
               )}
 

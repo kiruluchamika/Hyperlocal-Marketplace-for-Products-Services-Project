@@ -61,4 +61,5 @@ export interface IServiceBooking {
   deposit?: BookingDeposit;
   createdAt: string;
   updatedAt: string;
+  isSlotTaken?: boolean;
 }

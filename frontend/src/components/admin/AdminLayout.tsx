@@ -5,7 +5,7 @@ import AdminTopBar from './AdminTopBar';
 
 const AdminLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
+    <div className="min-h-screen bg-slate-50 text-slate-800">
       <AdminSidebar />
       {/* Main content - offset by collapsed sidebar width (68px) */}
       <div className="ml-[68px] flex min-h-screen flex-col">

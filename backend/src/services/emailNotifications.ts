@@ -105,3 +105,25 @@ export async function notifyBookingConfirmed(data: {
     sendEmail(providerEmail, "Booking Confirmed", html),
   ]);
 }
+
+export async function notifyBookingUnavailable(data: {
+  bookingId: string;
+  buyerId: string;
+  providerId: string;
+  startAt: Date;
+  endAt: Date;
+}) {
+  const buyerEmail = await getEmail(data.buyerId);
+  const providerEmail = await getEmail(data.providerId);
+
+  const html = `<p><b>Booking Request Unavailable</b></p>
+                <p>We are writing to inform you that the requested slot for Booking #${data.bookingId} has been confirmed by another user and is no longer available.</p>
+                <p><b>Start:</b> ${new Date(data.startAt).toISOString()}</p>
+                <p><b>End:</b> ${new Date(data.endAt).toISOString()}</p>
+                <p>Please log in to your dashboard to make another request.</p>`;
+
+  await Promise.all([
+    sendEmail(buyerEmail, "Booking Request Unavailable - Slot Taken", html),
+    sendEmail(providerEmail, "Booking Request Unavailable - Slot Taken", html),
+  ]);
+}

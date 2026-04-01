@@ -27,7 +27,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: authStorage.getToken(),
   isAuthenticated: !!authStorage.getToken(),
-  isLoading: false,
+  isLoading: true,
 
   persistSession: (token: string, user: IUser) => {
     authStorage.persistSession(token, user);
@@ -35,16 +35,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initialize: () => {
+    set({ isLoading: true });
     const { token, user: userStr } = authStorage.migrateLegacySession();
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true });
+        set({ user, token, isAuthenticated: true, isLoading: false });
       } catch {
         authStorage.clearSession();
-        set({ user: null, token: null, isAuthenticated: false });
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
       }
+      return;
     }
+
+    // Keep auth/session state consistent to avoid route flicker on refresh.
+    authStorage.clearSession();
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
   },
 
   login: async (payload) => {
@@ -113,7 +119,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     authStorage.clearSession();
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     toast.success('Logged out successfully');
   },
 

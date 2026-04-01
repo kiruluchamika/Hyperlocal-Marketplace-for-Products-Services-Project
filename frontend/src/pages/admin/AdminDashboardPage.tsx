@@ -50,7 +50,7 @@ const AdminDashboardPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-blue-500" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
       </div>
     );
   }
@@ -63,8 +63,8 @@ const AdminDashboardPage: React.FC = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
+        <p className="mt-1 text-sm text-slate-600">
           Welcome back! Here&apos;s what&apos;s happening with your marketplace.
         </p>
       </div>
@@ -81,8 +81,8 @@ const AdminDashboardPage: React.FC = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">Revenue Trend</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Revenue Trend</h3>
           <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={charts?.revenueByMonth ?? []}>
               <defs>
@@ -91,22 +91,22 @@ const AdminDashboardPage: React.FC = () => {
                   <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
               <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#revGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">Monthly Orders</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Monthly Orders</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={charts?.ordersByMonth ?? []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
               <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -115,8 +115,8 @@ const AdminDashboardPage: React.FC = () => {
 
       {/* User Growth + Order Status */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">User Growth</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">User Growth</h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={userGrowth}>
               <defs>
@@ -125,16 +125,16 @@ const AdminDashboardPage: React.FC = () => {
                   <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#e2e8f0' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
               <Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={2} fill="url(#userGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">Order Status</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Order Status</h3>
           <div className="space-y-3">
             {Object.entries(ordersByStatus).map(([status, count]) => {
               const total = stats.totalOrders || 1;
@@ -143,9 +143,9 @@ const AdminDashboardPage: React.FC = () => {
                 <div key={status}>
                   <div className="flex items-center justify-between text-sm">
                     <AdminBadge variant={getStatusVariant(status)}>{status}</AdminBadge>
-                    <span className="text-slate-400">{count} ({pct}%)</span>
+                    <span className="text-slate-500">{count} ({pct}%)</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-slate-800">
+                  <div className="mt-1.5 h-1.5 rounded-full bg-slate-100">
                     <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
@@ -157,34 +157,34 @@ const AdminDashboardPage: React.FC = () => {
 
       {/* Recent Users & Orders */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">Recent Users</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Recent Users</h3>
           <div className="space-y-3">
             {recentUsers.map((u) => (
-              <div key={u._id} className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-800/40">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 text-sm font-medium shrink-0">
+              <div key={u._id} className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-sm font-medium shrink-0">
                   {u.profileImage ? <img src={u.profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /> : u.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{u.name}</p>
-                  <p className="truncate text-xs text-slate-500">{u.email}</p>
+                  <p className="truncate text-sm font-medium text-slate-900">{u.name}</p>
+                  <p className="truncate text-xs text-slate-600">{u.email}</p>
                 </div>
                 <span className="text-xs text-slate-500">{format(new Date(u.createdAt), 'MMM d')}</span>
               </div>
             ))}
           </div>
         </div>
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-300">Recent Orders</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Recent Orders</h3>
           <div className="space-y-3">
             {recentOrders.map((o) => (
-              <div key={o._id} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-slate-800/40">
+              <div key={o._id} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-slate-50">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{o.titleSnapshot}</p>
-                  <p className="text-xs text-slate-500">{o.buyerId?.name} → {o.sellerId?.name}</p>
+                  <p className="truncate text-sm font-medium text-slate-900">{o.titleSnapshot}</p>
+                  <p className="text-xs text-slate-600">{o.buyerId?.name} → {o.sellerId?.name}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="text-sm font-medium text-white">Rs. {o.totalAmount?.toLocaleString()}</span>
+                  <span className="text-sm font-medium text-slate-900">Rs. {o.totalAmount?.toLocaleString()}</span>
                   <AdminBadge variant={getStatusVariant(o.status)}>{o.status}</AdminBadge>
                 </div>
               </div>

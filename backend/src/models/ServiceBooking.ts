@@ -29,6 +29,8 @@ export interface IServiceBooking extends Document {
 
   createdAt: Date;
   updatedAt: Date;
+
+  isSlotTaken?: boolean;
 }
 
 const serviceBookingSchema = new Schema<IServiceBooking>(

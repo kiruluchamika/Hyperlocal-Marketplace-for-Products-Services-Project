@@ -35,15 +35,14 @@ const AdminStatCard: React.FC<AdminStatCardProps> = ({
 }) => {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20 ${colorMap[color]}`}
-      style={{ background: 'rgba(15, 23, 42, 0.6)' }}
+      className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-slate-200/50 ${colorMap[color]}`}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
             {title}
           </p>
-          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className="text-2xl font-bold text-slate-900">{value}</p>
           {trend && (
             <p
               className={`text-xs font-medium ${
@@ -51,7 +50,7 @@ const AdminStatCard: React.FC<AdminStatCardProps> = ({
               }`}
             >
               {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}%{' '}
-              <span className="text-slate-500">{trend.label}</span>
+              <span className="text-slate-400">{trend.label}</span>
             </p>
           )}
         </div>

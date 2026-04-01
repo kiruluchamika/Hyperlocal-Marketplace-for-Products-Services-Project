@@ -38,14 +38,14 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, title, childre
       />
       {/* Modal */}
       <div
-        className={`relative mx-4 w-full ${sizeMap[size]} rounded-xl border border-slate-700/50 bg-slate-900 shadow-2xl shadow-black/40 transition-all`}
+        className={`relative mx-4 w-full ${sizeMap[size]} rounded-xl border border-slate-200 bg-white shadow-xl transition-all`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-700/50 px-6 py-4">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <FiX size={18} />
           </button>
