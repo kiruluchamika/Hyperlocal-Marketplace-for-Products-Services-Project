@@ -20,6 +20,12 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().min(1, "STRIPE_SECRET_KEY is required"),
   STRIPE_PUBLISHABLE_KEY: z.string().min(1, "STRIPE_PUBLISHABLE_KEY is required"),
   STRIPE_WEBHOOK_SECRET: z.string().min(1, "STRIPE_WEBHOOK_SECRET is required"),
+  STRIPE_CONNECT_ENABLED: z.string().default("false").transform((v) => v === "true"),
+  STRIPE_CONNECT_RETURN_URL: z.string().url().default("http://localhost:5173/dashboard/payouts/connect-callback"),
+  STRIPE_CONNECT_REFRESH_URL: z.string().url().default("http://localhost:5173/dashboard/payouts/connect-refresh"),
+  STRIPE_PAYMENT_CURRENCY: z.enum(["USD", "LKR"]).default("USD"),
+  STRIPE_TRANSFER_FEE_PERCENT: z.coerce.number().min(0).max(100).default(5),
+  STRIPE_BALANCE_TO_LKR_RATE: z.coerce.number().positive().default(300),
   
   // Order & Payment Settings
   ENABLE_OTP_DELIVERY: z.string().default("true"),

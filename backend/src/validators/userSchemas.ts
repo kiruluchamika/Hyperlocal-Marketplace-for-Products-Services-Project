@@ -60,3 +60,8 @@ export const changePasswordSchema = z
     message: "New password must be different from current password",
     path: ["newPassword"]
   });
+
+export const stripeConnectOnboardingSchema = z.object({
+  returnUrl: z.string().url().optional(),
+  refreshUrl: z.string().url().optional()
+});

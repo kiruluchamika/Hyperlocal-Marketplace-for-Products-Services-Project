@@ -38,6 +38,8 @@ const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServi
 const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
+const StripeConnectCallbackPage = React.lazy(() => import('@/pages/dashboard/StripeConnectCallbackPage'));
+const StripeConnectRefreshPage = React.lazy(() => import('@/pages/dashboard/StripeConnectRefreshPage'));
 
 // Loading fallback
 const PageLoader = () => <FullPageLoader label="Loading page..." />;
@@ -316,6 +318,26 @@ const router = createBrowserRouter([
               <ProtectedRoute>
                 <React.Suspense fallback={<PageLoader />}>
                   <NotificationsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/payouts/connect-callback',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <StripeConnectCallbackPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/payouts/connect-refresh',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <StripeConnectRefreshPage />
                 </React.Suspense>
               </ProtectedRoute>
             ),

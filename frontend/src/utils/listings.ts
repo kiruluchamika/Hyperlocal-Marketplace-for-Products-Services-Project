@@ -7,6 +7,15 @@ const conditionLabelMap: Record<Condition, string> = {
   USED_FAIR: 'Used - Fair',
 };
 
+const usdToLkrRate = Number(import.meta.env.VITE_USD_TO_LKR_RATE || 300);
+
+const formatAsLkr = (amount: number) =>
+  new Intl.NumberFormat('en-LK', {
+    style: 'currency',
+    currency: 'LKR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+
 export const formatCondition = (condition?: string) => {
   if (!condition) {
     return 'Not specified';
@@ -24,10 +33,16 @@ export const formatCondition = (condition?: string) => {
 };
 
 export const formatCurrency = (amount: number, currency = 'LKR') => {
+  const normalizedCurrency = String(currency || 'LKR').toUpperCase();
+
+  if (normalizedCurrency === 'USD') {
+    return formatAsLkr(amount * usdToLkrRate);
+  }
+
   try {
     return new Intl.NumberFormat('en-LK', {
       style: 'currency',
-      currency,
+      currency: normalizedCurrency,
       maximumFractionDigits: 0,
     }).format(amount);
   } catch {

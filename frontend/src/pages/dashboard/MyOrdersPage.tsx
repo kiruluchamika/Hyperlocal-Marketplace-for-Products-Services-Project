@@ -8,6 +8,7 @@ import GifLoader from '@/components/ui/GifLoader';
 import type { DeliveryMethod, OrderStatus } from '@/types/order';
 import type { PaymentStatus } from '@/types/payment';
 import type { IProductListing } from '@/types/listing';
+import { formatCurrency } from '@/utils/listings';
 import { orderManagementApi } from './orders/orderManagementApi';
 import OrderStripeCheckoutModal from './orders/OrderStripeCheckoutModal';
 import type {
@@ -140,9 +141,6 @@ const formatDateTime = (value: string) => {
   if (Number.isNaN(date.getTime())) return 'N/A';
   return date.toLocaleString();
 };
-
-const formatCurrency = (amount: number, currency = 'LKR') =>
-  `${currency.toUpperCase()} ${amount.toLocaleString()}`;
 
 const isBuyerSide = (order: ManagedOrder, currentUserId: string) =>
   order.buyerId === currentUserId;
@@ -1054,14 +1052,20 @@ const MyOrdersPage: React.FC = () => {
     }
   };
 
-  const handleCheckoutSuccess = async () => {
+  const handleCheckoutSuccess = async (paymentIntentId?: string) => {
     if (!checkoutState.orderId) return;
+
+    try {
+      await orderManagementApi.confirmPayment(checkoutState.orderId, paymentIntentId);
+    } catch {
+      // Fallback to polling/webhook path if confirm endpoint fails.
+    }
 
     await pollPaymentStatus(checkoutState.orderId);
     await refreshOrders(checkoutState.orderId);
     await loadOrderDetails(checkoutState.orderId);
 
-    toast.success('Payment submitted. Waiting for Stripe webhook confirmation.');
+    toast.success('Payment confirmed and moved to HELD.');
   };
 
   const visibleActions = (activeOrder?.actionsAllowed ?? []).filter(
