@@ -19,6 +19,18 @@ export const initiatePaymentSchema = z.object({
 });
 
 /**
+ * Confirm Payment Request
+ * POST /payments/confirm
+ */
+export const confirmPaymentSchema = z.object({
+  orderId: z
+    .string()
+    .min(1, "Order ID is required")
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid order ID format"),
+  paymentIntentId: z.string().min(1).optional(),
+});
+
+/**
  * Stripe Webhook Event
  * POST /payments/webhook/stripe
  * 

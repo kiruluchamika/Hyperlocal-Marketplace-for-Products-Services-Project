@@ -4,6 +4,7 @@ import app from "./app";
 import { connectDb } from "./config/db";
 import { env } from "./config/env";
 import { initModerationCron } from "./services/moderation.cron";
+import { initStripePayoutsCron } from "./services/stripePayouts.cron";
 import { setupNotificationSocket } from "./modules/notifications/socket/notificationSocket";
 import { startNotificationWatcher } from "./modules/notifications/watchers/changeStreamWatcher";
 
@@ -12,6 +13,7 @@ const startServer = async () => {
   
   // Start background jobs
   initModerationCron();
+  initStripePayoutsCron();
 
   const port = Number(env.PORT);
 

@@ -40,6 +40,14 @@ export interface BookingDeposit {
   amount: number;
   currency: string;
   stripePaymentIntentId?: string;
+  stripeTransferId?: string;
+  payoutStatus?: 'TRANSFER_CREATED' | 'TRANSFER_FAILED' | 'SKIPPED_NOT_ELIGIBLE';
+  payoutGrossAmount?: number;
+  payoutFeePercent?: number;
+  payoutFeeAmount?: number;
+  payoutNetAmount?: number;
+  payoutError?: string;
+  payoutAttemptedAt?: string;
   paidAt?: string;
 }
 

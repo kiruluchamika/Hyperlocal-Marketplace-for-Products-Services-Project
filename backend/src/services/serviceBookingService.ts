@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import ServiceSelling from "../models/ServiceSelling";
 import ServiceBooking from "../models/ServiceBooking";
 import { AppError } from "../utils/AppError";
+import { env } from "../config/env";
+import { StripeConnectService } from "./stripeConnectService";
 
 import { NotificationType } from "../models/Notification";
 import { createUserNotification } from "./notificationService";
@@ -15,6 +17,17 @@ import {
 function addMinutes(date: Date, mins: number) {
   return new Date(date.getTime() + mins * 60 * 1000);
 }
+
+const stripeConnectService = new StripeConnectService();
+const stripePaymentCurrency = env.STRIPE_PAYMENT_CURRENCY.toLowerCase();
+
+const convertLkrToStripeAmount = (amountLkr: number) => {
+  if (stripePaymentCurrency === "usd") {
+    return Math.round((amountLkr / env.STRIPE_BALANCE_TO_LKR_RATE) * 100) / 100;
+  }
+
+  return amountLkr;
+};
 
 export async function populateIsSlotTaken(bookings: any[]) {
   if (!bookings || !bookings.length) return bookings;
@@ -212,12 +225,15 @@ export async function calculateDepositForBooking(bookingId: string, buyerId: str
   const depositAmount =
     service.pricingType === "HOURLY" ? service.price : Math.round(service.price * 0.2);
 
+  const stripeAmount = convertLkrToStripeAmount(Number(depositAmount || 0));
+
   return {
-    amount: depositAmount,
-    currency: "lkr",
+    amount: stripeAmount,
+    currency: stripePaymentCurrency,
     metadata: {
       paymentPurpose: "BOOKING_DEPOSIT",
       bookingId: String(booking._id),
+      displayAmountLkr: String(depositAmount),
     },
   };
 }
@@ -257,6 +273,67 @@ export async function confirmBookingFromStripeSuccess(params: {
   };
 
   await booking.save();
+
+  if (!booking.deposit?.stripeTransferId) {
+    const grossAmount = Number(booking.deposit?.amount || 0);
+    const feePercent = env.STRIPE_TRANSFER_FEE_PERCENT;
+    const feeAmount = Math.round(grossAmount * (feePercent / 100) * 100) / 100;
+    const netAmount = Math.max(0, grossAmount - feeAmount);
+
+    booking.deposit = {
+      amount: booking.deposit.amount,
+      currency: booking.deposit.currency,
+      stripePaymentIntentId: booking.deposit.stripePaymentIntentId,
+      paidAt: booking.deposit.paidAt,
+      payoutGrossAmount: grossAmount,
+      payoutFeePercent: feePercent,
+      payoutFeeAmount: feeAmount,
+      payoutNetAmount: netAmount,
+      payoutAttemptedAt: new Date(),
+    };
+
+    const eligible = await stripeConnectService.isUserEligibleForPayout(String(booking.providerId));
+    const sourceTransaction = await stripeConnectService.resolveLatestChargeId(params.paymentIntentId);
+
+    if (eligible && netAmount > 0) {
+      try {
+        const transfer = await stripeConnectService.createTransferToUser({
+          userId: String(booking.providerId),
+          amount: netAmount,
+          currency: params.currency,
+          description: `Service booking ${booking._id.toString()} payout`,
+          transferGroup: `BOOKING_${booking._id.toString()}`,
+          metadata: {
+            bookingId: booking._id.toString(),
+            providerId: String(booking.providerId),
+            paymentIntentId: params.paymentIntentId,
+          },
+          idempotencyKey: `booking-payout-${booking._id.toString()}`,
+          sourceTransaction,
+        });
+
+        booking.deposit = {
+          ...booking.deposit,
+          stripeTransferId: transfer.id,
+          payoutStatus: "TRANSFER_CREATED",
+          payoutError: undefined,
+        };
+      } catch (error: any) {
+        booking.deposit = {
+          ...booking.deposit,
+          payoutStatus: "TRANSFER_FAILED",
+          payoutError: error?.message || "Unknown transfer error",
+        };
+      }
+    } else {
+      booking.deposit = {
+        ...booking.deposit,
+        payoutStatus: "SKIPPED_NOT_ELIGIBLE",
+      };
+    }
+
+    await booking.save();
+  }
 
   // Find clashing pending/accepted bookings
   const clashingBookings = await ServiceBooking.find({

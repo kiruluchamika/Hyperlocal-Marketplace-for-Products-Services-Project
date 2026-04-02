@@ -8,12 +8,17 @@ import {
   FiUser,
   FiPlus,
   FiClock,
-  FiActivity
+  FiActivity,
+  FiCreditCard,
+  FiExternalLink,
+  FiRefreshCw,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import { listingsApi } from '@/api/listings';
 import { ordersApi } from '@/api/orders';
 import { servicesApi, bookingsApi } from '@/api/services';
+import { usersApi, type StripeConnectBalance, type StripeConnectStatus } from '@/api/users';
+import toast from 'react-hot-toast';
 
 interface DashboardStats {
   activeListings: number;
@@ -32,6 +37,10 @@ const DashboardPage: React.FC = () => {
     totalBookings: 0,
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [connectStatus, setConnectStatus] = useState<StripeConnectStatus | null>(null);
+  const [connectBalance, setConnectBalance] = useState<StripeConnectBalance | null>(null);
+  const [isLoadingConnect, setIsLoadingConnect] = useState(true);
+  const [isCreatingConnectLink, setIsCreatingConnectLink] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -77,6 +86,117 @@ const DashboardPage: React.FC = () => {
 
     void fetchStats();
   }, []);
+
+  useEffect(() => {
+    const fetchConnectStatus = async () => {
+      setIsLoadingConnect(true);
+      try {
+        const [statusResponse, balanceResponse] = await Promise.all([
+          usersApi.getStripeConnectStatus(),
+          usersApi.getStripeConnectBalance(),
+        ]);
+
+        setConnectStatus(statusResponse.data.data);
+        setConnectBalance(balanceResponse.data.data);
+      } catch {
+        setConnectStatus(null);
+        setConnectBalance(null);
+      } finally {
+        setIsLoadingConnect(false);
+      }
+    };
+
+    void fetchConnectStatus();
+  }, []);
+
+  useEffect(() => {
+    const refreshConnect = () => {
+      void (async () => {
+        setIsLoadingConnect(true);
+        try {
+          const [statusResponse, balanceResponse] = await Promise.all([
+            usersApi.getStripeConnectStatus(),
+            usersApi.getStripeConnectBalance(),
+          ]);
+
+          setConnectStatus(statusResponse.data.data);
+          setConnectBalance(balanceResponse.data.data);
+        } catch {
+          setConnectStatus(null);
+          setConnectBalance(null);
+        } finally {
+          setIsLoadingConnect(false);
+        }
+      })();
+    };
+
+    window.addEventListener('focus', refreshConnect);
+    document.addEventListener('visibilitychange', refreshConnect);
+
+    return () => {
+      window.removeEventListener('focus', refreshConnect);
+      document.removeEventListener('visibilitychange', refreshConnect);
+    };
+  }, []);
+
+  const refreshConnectStatus = async () => {
+    setIsLoadingConnect(true);
+    try {
+      const [statusResponse, balanceResponse] = await Promise.all([
+        usersApi.getStripeConnectStatus(),
+        usersApi.getStripeConnectBalance(),
+      ]);
+
+      setConnectStatus(statusResponse.data.data);
+      setConnectBalance(balanceResponse.data.data);
+      toast.success('Payout account status refreshed');
+    } catch {
+      toast.error('Unable to refresh payout account status');
+    } finally {
+      setIsLoadingConnect(false);
+    }
+  };
+
+  const startConnectOnboarding = async () => {
+    setIsCreatingConnectLink(true);
+    try {
+      const response = await usersApi.createStripeConnectOnboarding({
+        returnUrl: `${window.location.origin}/dashboard/payouts/connect-callback`,
+        refreshUrl: `${window.location.origin}/dashboard/payouts/connect-refresh`,
+      });
+
+      const onboardingUrl = response.data.data.onboardingUrl;
+      if (!onboardingUrl) {
+        throw new Error('No onboarding URL was returned');
+      }
+
+      window.location.href = onboardingUrl;
+    } catch (error) {
+      console.error('Stripe onboarding failed', error);
+    } finally {
+      setIsCreatingConnectLink(false);
+    }
+  };
+
+  const statusLabel = connectStatus?.status || 'NOT_STARTED';
+  const availableTotal = (connectBalance?.available || []).reduce((sum, item) => sum + item.amount, 0);
+  const pendingTotal = (connectBalance?.pending || []).reduce((sum, item) => sum + item.amount, 0);
+  const primaryCurrency = connectBalance?.available?.[0]?.currency || connectBalance?.pending?.[0]?.currency || 'LKR';
+
+  const formatBalance = (value: number) =>
+    `${primaryCurrency.toUpperCase()} ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const isConnectReady =
+    connectStatus?.status === 'COMPLETED' &&
+    connectStatus?.chargesEnabled &&
+    connectStatus?.payoutsEnabled;
+
+  const connectStatusPillClass = isConnectReady
+    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    : statusLabel === 'IN_PROGRESS'
+      ? 'bg-amber-100 text-amber-800 border-amber-200'
+      : statusLabel === 'VERIFICATION_FAILED'
+        ? 'bg-rose-100 text-rose-800 border-rose-200'
+        : 'bg-slate-100 text-slate-700 border-slate-200';
 
   const actionCards = [
     { title: 'My Listings', description: 'Manage your products for sale.', icon: FiPackage, to: '/dashboard/listings', color: 'bg-indigo-50 text-indigo-600' },
@@ -124,6 +244,87 @@ const DashboardPage: React.FC = () => {
           <StatCard title="Product Orders" value={stats.totalOrders} icon={FiShoppingBag} loading={isLoadingStats} color="text-emerald-600" />
           <StatCard title="Service Bookings" value={stats.totalBookings} icon={FiClock} loading={isLoadingStats} color="text-amber-600" />
         </div>
+      </div>
+
+      <div className="mb-12 rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <FiCreditCard className="text-indigo-600" /> Payout Account
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Connect your Stripe payout account to receive product and service earnings automatically.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void refreshConnectStatus()}
+              disabled={isLoadingConnect}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <FiRefreshCw /> Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => void startConnectOnboarding()}
+              disabled={isCreatingConnectLink}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <FiExternalLink /> {isCreatingConnectLink ? 'Opening...' : 'Connect Stripe'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Onboarding Status</div>
+            <div className="mt-2">
+              {isLoadingConnect ? (
+                <div className="h-6 w-28 animate-pulse rounded-full bg-slate-200" />
+              ) : (
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${connectStatusPillClass}`}>
+                  {statusLabel}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Charges Enabled</div>
+            <div className="mt-2 text-sm font-semibold text-slate-800">
+              {isLoadingConnect ? 'Loading...' : connectStatus?.chargesEnabled ? 'Yes' : 'No'}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Payouts Enabled</div>
+            <div className="mt-2 text-sm font-semibold text-slate-800">
+              {isLoadingConnect ? 'Loading...' : connectStatus?.payoutsEnabled ? 'Yes' : 'No'}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Available Balance</div>
+            <div className="mt-2 text-sm font-semibold text-slate-800">
+              {isLoadingConnect ? 'Loading...' : formatBalance(availableTotal)}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Pending Balance</div>
+            <div className="mt-2 text-sm font-semibold text-slate-800">
+              {isLoadingConnect ? 'Loading...' : formatBalance(pendingTotal)}
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-4 text-xs text-slate-500">
+          {isConnectReady
+            ? 'Payout account is ready. New released earnings can transfer automatically.'
+            : 'Payout account is not fully ready yet. Earnings can complete in app but transfer may be marked as skipped/failed until onboarding is complete.'}
+        </p>
       </div>
 
       <div>

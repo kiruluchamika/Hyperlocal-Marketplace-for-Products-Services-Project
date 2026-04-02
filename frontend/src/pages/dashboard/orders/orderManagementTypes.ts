@@ -57,6 +57,14 @@ export interface ManagedPayment {
   currency: string;
   status: PaymentStatus;
   providerPaymentId?: string;
+  payoutStatus?: 'TRANSFER_CREATED' | 'TRANSFER_FAILED' | 'SKIPPED_NOT_ELIGIBLE';
+  stripeTransferId?: string;
+  payoutError?: string;
+  payoutAttemptedAt?: string;
+  payoutGrossAmount?: number;
+  payoutFeePercent?: number;
+  payoutFeeAmount?: number;
+  payoutNetAmount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

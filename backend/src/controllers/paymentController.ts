@@ -31,6 +31,25 @@ export const initiatePayment = asyncHandler(
 );
 
 /**
+ * POST /payments/confirm
+ * Confirm payment after client-side Stripe success
+ */
+export const confirmPayment = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { orderId, paymentIntentId } = req.body;
+    const buyerId = req.user!.id;
+
+    const payment = await paymentService.confirmPayment(orderId, buyerId, paymentIntentId);
+
+    res.status(200).json({
+      success: true,
+      message: "Payment confirmed and held",
+      data: payment,
+    });
+  }
+);
+
+/**
  * POST /payments/webhook/stripe
  * Handle Stripe webhook events
  * 
