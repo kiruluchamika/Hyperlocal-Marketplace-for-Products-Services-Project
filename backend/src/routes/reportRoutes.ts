@@ -115,7 +115,7 @@ router.get(
   "/admin/list",
   auth,
   requireRole(["admin"]),
-  validate(listReportsSchema),
+  validate(listReportsSchema, "query"),
   reportController.listReportsForAdmin
 );
 
