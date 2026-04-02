@@ -9,11 +9,13 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiClock,
+  FiFlag,
   FiMapPin,
   FiTag,
 } from 'react-icons/fi';
 import { bookingsApi, servicesApi } from '@/api/services';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
+import ReportModal from '@/components/modals/ReportModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import FullPageLoader from '@/components/ui/FullPageLoader';
@@ -96,6 +98,7 @@ const ServiceDetailPage: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [activeImage, setActiveImage] = React.useState(0);
   const [submitting, setSubmitting] = React.useState(false);
+  const [reportModalOpen, setReportModalOpen] = React.useState(false);
   const [slots, setSlots] = React.useState<IServiceBookingSlot[]>([]);
   const [isMapVisible, setIsMapVisible] = React.useState(false);
   const [bookingForm, setBookingForm] = React.useState({
@@ -265,6 +268,14 @@ const ServiceDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <ReportModal
+          isOpen={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          targetType="SERVICE"
+          targetId={service?._id || id}
+          targetName={service?.title || 'this service'}
+        />
+
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -498,6 +509,18 @@ const ServiceDetailPage: React.FC = () => {
                 ) : (
                   <Button type="button" fullWidth isLoading={submitting} onClick={handleCreateBooking}>
                     Request Booking
+                  </Button>
+                )}
+
+                {!isOwner && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    fullWidth
+                    leftIcon={<FiFlag size={16} />}
+                    onClick={() => setReportModalOpen(true)}
+                  >
+                    Report Service
                   </Button>
                 )}
 
