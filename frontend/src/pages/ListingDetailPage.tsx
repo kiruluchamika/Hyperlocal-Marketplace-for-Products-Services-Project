@@ -19,6 +19,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import FullPageLoader from '@/components/ui/FullPageLoader';
 import ReportModal from '@/components/modals/ReportModal';
+import ImageMagnifier from '@/components/ui/ImageMagnifier';
 import { useAuthStore } from '@/store/authStore';
 import { IProductListing } from '@/types';
 import { formatCondition, formatCurrency, getListingImage, getOwnerContact, getOwnerId } from '@/utils/listings';
@@ -193,11 +194,15 @@ const ListingDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-              <img
-                src={images[activeImage]}
-                alt={listing.title}
-                className="h-[420px] w-full rounded-xl object-cover"
-              />
+              <div className="group relative h-[420px] w-full overflow-hidden rounded-xl bg-slate-50">
+                <ImageMagnifier
+                  src={images[activeImage]}
+                  alt={listing.title}
+                  className="h-full w-full"
+                  magnifierSize={160}
+                  zoom={2.4}
+                />
+              </div>
 
               {images.length > 1 && (
                 <div className="mt-3 grid grid-cols-4 gap-2 md:grid-cols-6">
