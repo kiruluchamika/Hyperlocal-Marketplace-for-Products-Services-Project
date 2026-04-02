@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FiAlertCircle, FiCheck, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { reportsApi } from '@/api/reports';
 import AdminTable from '@/components/admin/AdminTable';
-import AdminBadge from '@/components/admin/AdminBadge';
+import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
 import GifLoader from '@/components/ui/GifLoader';
 import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
 
 interface Report {
   _id: string;
@@ -33,8 +31,8 @@ const AdminReportsPage: React.FC = () => {
       setLoading(true);
       const res = await reportsApi.listReportsForAdmin(filters);
       setReports(res.reports);
-    } catch (err: any) {
-      toast.error('Failed to load reports');
+    } catch {
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -55,8 +53,8 @@ const AdminReportsPage: React.FC = () => {
       setResolveModal(false);
       setSelectedReport(null);
       fetchReports();
-    } catch (err: any) {
-      toast.error('Failed to resolve report');
+    } catch {
+      // Error toast is handled by the shared API client.
     }
   };
 
@@ -123,7 +121,7 @@ const AdminReportsPage: React.FC = () => {
               key: 'status',
               header: 'Status',
               render: (row) => (
-                <AdminBadge status={row.status.toLowerCase()} />
+                <AdminBadge variant={getStatusVariant(row.status)}>{row.status}</AdminBadge>
               ),
             },
             {

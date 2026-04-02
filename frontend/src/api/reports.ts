@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 interface SubmitReportRequest {
   targetType: 'LISTING' | 'SERVICE' | 'USER';
@@ -20,14 +20,14 @@ interface Report {
   updatedAt: string;
 }
 
-const API_BASE = '/api/reports';
+const API_BASE = '/reports';
 
 export const reportsApi = {
   /**
    * Submit a report for a listing, service, or user
    */
   submitReport: async (data: SubmitReportRequest) => {
-    const response = await axios.post(API_BASE, data);
+    const response = await apiClient.post(API_BASE, data);
     return response.data;
   },
 
@@ -35,7 +35,7 @@ export const reportsApi = {
    * Get reports submitted by the current user
    */
   getUserReports: async (page = 1, limit = 20) => {
-    const response = await axios.get(`${API_BASE}/me`, {
+    const response = await apiClient.get(`${API_BASE}/me`, {
       params: { page, limit },
     });
     return response.data;
@@ -53,7 +53,7 @@ export const reportsApi = {
       limit?: number;
     }
   ) => {
-    const response = await axios.get(`${API_BASE}/admin/list`, {
+    const response = await apiClient.get(`${API_BASE}/admin/list`, {
       params: filters,
     });
     return response.data;
@@ -63,7 +63,7 @@ export const reportsApi = {
    * Get details of a single report
    */
   getReportDetails: async (reportId: string) => {
-    const response = await axios.get(`${API_BASE}/${reportId}`);
+    const response = await apiClient.get(`${API_BASE}/${reportId}`);
     return response.data;
   },
 
@@ -78,7 +78,7 @@ export const reportsApi = {
       actionTaken?: 'SUSPENDED' | 'WARNING_SENT' | 'NONE';
     }
   ) => {
-    const response = await axios.patch(`${API_BASE}/${reportId}/resolve`, data);
+    const response = await apiClient.patch(`${API_BASE}/${reportId}/resolve`, data);
     return response.data;
   },
 
@@ -86,7 +86,7 @@ export const reportsApi = {
    * Get reports by target
    */
   getReportsByTarget: async (targetType: string, targetId: string) => {
-    const response = await axios.get(`${API_BASE}/target/query`, {
+    const response = await apiClient.get(`${API_BASE}/target/query`, {
       params: { targetType, targetId },
     });
     return response.data;
