@@ -11,6 +11,7 @@ import {
   FiLayers,
   FiLogOut,
   FiShield,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { to: '/admin/orders',    icon: <FiShoppingCart size={20} />,  label: 'Orders' },
   { to: '/admin/payments',  icon: <FiCreditCard size={20} />,   label: 'Payments' },
   { to: '/admin/categories',icon: <FiLayers size={20} />,       label: 'Categories' },
+  { to: '/admin/contacts',  icon: <FiMessageSquare size={20} />, label: 'Contacts' },
 ];
 
 const AdminSidebar: React.FC = () => {
