@@ -294,7 +294,8 @@ const Navbar: React.FC = () => {
                         <div className="py-1">
                           <DropdownLink to="/dashboard" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="My Product Listing" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/services" icon={<FiBookOpen />} label="My Services Listings" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/services/posted" icon={<FiBookOpen />} label="My Services Listings" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/services" icon={<FiBell />} label="Incoming Service Requests" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Booking" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="My Payments" onClick={() => setIsProfileOpen(false)} />
