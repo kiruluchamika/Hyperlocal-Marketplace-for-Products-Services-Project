@@ -291,26 +291,43 @@ const Navbar: React.FC = () => {
                           <p className="truncate text-xs text-slate-400">{user.email}</p>
                         </div>
 
-                        <div className="py-1">
+                        <div className="py-1.5">
                           <DropdownLink to="/dashboard" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="My Product Listing" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/services/posted" icon={<FiBookOpen />} label="My Services Listings" onClick={() => setIsProfileOpen(false)} />
+                          
+                          <div className="my-1 border-t border-slate-100" />
+                          <MenuSectionHeading label="My Listings" />
+                          <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="Product Listings" onClick={() => setIsProfileOpen(false)} />
+                          <DropdownLink to="/dashboard/services/posted" icon={<FiBookOpen />} label="Service Listings" onClick={() => setIsProfileOpen(false)} />
+
+                          <div className="my-1 border-t border-slate-100" />
+                          <MenuSectionHeading label="My Services" />
                           <DropdownLink to="/dashboard/services" icon={<FiBell />} label="Incoming Service Requests" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Booking" onClick={() => setIsProfileOpen(false)} />
+
+                          <div className="my-1 border-t border-slate-100" />
+                          <MenuSectionHeading label="My Activity" />
+                          <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Bookings" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="My Payments" onClick={() => setIsProfileOpen(false)} />
+
+                          <div className="my-1 border-t border-slate-100" />
+                          <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="Payments" onClick={() => setIsProfileOpen(false)} />
                           <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
+                          
                           {user.role === 'admin' && (
-                            <DropdownLink to="/admin" icon={<FiSettings />} label="Admin Panel" onClick={() => setIsProfileOpen(false)} />
+                            <>
+                              <div className="my-1 border-t border-slate-100" />
+                              <DropdownLink to="/admin" icon={<FiSettings />} label="Admin Panel" onClick={() => setIsProfileOpen(false)} />
+                            </>
                           )}
                         </div>
 
-                        <div className="border-t border-slate-100 pt-1">
+                        <div className="border-t border-slate-100 py-1">
                           <button
                             onClick={handleLogout}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
+                            className="group flex w-full items-center gap-2.5 px-4 py-2 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
                           >
-                            <FiLogOut className="h-4 w-4" />
+                            <span className="flex h-4 w-4 items-center justify-center transition-colors group-hover:text-red-700">
+                              <FiLogOut />
+                            </span>
                             Sign Out
                           </button>
                         </div>
@@ -383,6 +400,12 @@ const Navbar: React.FC = () => {
   );
 };
 
+const MenuSectionHeading: React.FC<{ label: string }> = ({ label }) => (
+  <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+    {label}
+  </div>
+);
+
 const DropdownLink: React.FC<{
   to: string;
   icon: React.ReactNode;
@@ -392,9 +415,11 @@ const DropdownLink: React.FC<{
   <Link
     to={to}
     onClick={onClick}
-    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+    className="group flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-indigo-600"
   >
-    <span className="h-4 w-4">{icon}</span>
+    <span className="flex h-4 w-4 items-center justify-center text-slate-400 transition-colors group-hover:text-indigo-500">
+      {icon}
+    </span>
     {label}
   </Link>
 );
