@@ -8,6 +8,17 @@ import { servicesApi } from '@/api/services';
 import { useCategoryStore } from '@/store/categoryStore';
 import { CategoryAttribute, ICategory, PricingType } from '@/types';
 
+const MAX_IMAGES = 10;
+const MAX_IMAGE_SIZE_MB = 5;
+
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+
 const SRI_LANKAN_DISTRICTS: { name: string; lat: number; lng: number }[] = [
   { name: 'Ampara', lat: 7.2917, lng: 81.6725 },
   { name: 'Anuradhapura', lat: 8.3114, lng: 80.4037 },
@@ -115,8 +126,9 @@ const validateForm = (form: ServiceFormState, category: ICategory | undefined) =
     return 'Latitude and longitude must both be valid numbers.';
   }
 
-  const invalidImage = form.images.find((image) => !/^https?:\/\/.+/i.test(image));
-  if (invalidImage) return 'Each image must be a valid image URL.';
+  if (form.images.length > MAX_IMAGES) {
+    return `Maximum ${MAX_IMAGES} images are allowed.`;
+  }
 
   if (category) {
     for (const attribute of category.attributes) {
@@ -238,6 +250,7 @@ const CreateServicePage: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [loadingInitial, setLoadingInitial] = React.useState(!!editId);
   const [capturedLocationSource, setCapturedLocationSource] = React.useState<'district' | 'live' | ''>('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     void fetchCategories();
@@ -326,25 +339,41 @@ const CreateServicePage: React.FC = () => {
     );
   };
 
-  const handleAddImageUrl = () => {
-    const imageUrl = form.imageUrlInput.trim();
-    if (!imageUrl) return;
+  const handleSelectImages = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    if (!/^https?:\/\/.+/i.test(imageUrl)) {
-      toast.error('Please enter a valid image URL.');
+    const remainingSlots = MAX_IMAGES - form.images.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can upload up to ${MAX_IMAGES} images only.`);
+      event.target.value = '';
       return;
     }
 
-    if (form.images.includes(imageUrl)) {
-      toast.error('This image URL is already added.');
+    const selectedFiles = files.slice(0, remainingSlots);
+
+    const oversizedFile = selectedFiles.find((file) => file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024);
+    if (oversizedFile) {
+      toast.error(`Each image must be less than ${MAX_IMAGE_SIZE_MB}MB.`);
+      event.target.value = '';
       return;
     }
 
-    setForm((prev) => ({
-      ...prev,
-      images: [...prev.images, imageUrl],
-      imageUrlInput: '',
-    }));
+    try {
+      const encodedImages = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...encodedImages],
+      }));
+
+      if (files.length > selectedFiles.length) {
+        toast('Only the first selected images were added due to the max 10 limit.');
+      }
+    } catch {
+      toast.error('Unable to process selected images. Please try again.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -505,16 +534,26 @@ const CreateServicePage: React.FC = () => {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="text-lg font-semibold text-slate-800">Images</h2>
-          <p className="mt-1 text-sm text-slate-500">Add public image URLs for your service gallery. Buyers will see these on the ad card and booking page.</p>
+          <p className="mt-1 text-sm text-slate-500">Upload images for your service gallery. Buyers will see these on the ad card and booking page.</p>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-slate-500">Image URL</label>
-              <input className="input-field py-2" value={form.imageUrlInput} onChange={(event) => setForm((prev) => ({ ...prev, imageUrlInput: event.target.value }))} placeholder="https://example.com/service-cover.jpg" />
+              <label className="mb-1 block text-xs font-medium text-slate-500">Service Photos (max {MAX_IMAGES})</label>
+              <div className="flex h-[42px] w-full items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 text-sm text-slate-500">
+                {form.images.length} / {MAX_IMAGES} images selected
+              </div>
             </div>
             <div className="flex items-end">
-              <Button type="button" variant="outline" size="md" leftIcon={<FiPlus size={16} />} onClick={handleAddImageUrl}>
-                Add Image
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                ref={fileInputRef}
+                onChange={(event) => void handleSelectImages(event)}
+              />
+              <Button type="button" variant="outline" size="md" leftIcon={<FiPlus size={16} />} onClick={() => fileInputRef.current?.click()}>
+                Select Images
               </Button>
             </div>
           </div>
@@ -524,10 +563,7 @@ const CreateServicePage: React.FC = () => {
               {form.images.map((image, index) => (
                 <div key={`${image}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                   <img src={image} alt={`Service image ${index + 1}`} className="h-44 w-full object-cover" />
-                  <div className="flex items-center justify-between gap-3 p-3">
-                    <a href={image} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:text-primary-800">
-                      <FiLink size={12} /> Preview URL
-                    </a>
+                  <div className="flex items-center justify-end gap-3 p-3">
                     <button type="button" onClick={() => handleRemoveImage(index)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
                       <FiTrash2 size={12} /> Remove
                     </button>

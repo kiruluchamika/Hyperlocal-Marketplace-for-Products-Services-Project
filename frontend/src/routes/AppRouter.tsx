@@ -3,6 +3,8 @@ import { Outlet, createBrowserRouter, RouterProvider, useLocation } from 'react-
 import MainLayout from '@/components/layout/MainLayout';
 import FullPageLoader from '@/components/ui/FullPageLoader';
 import ProtectedRoute from './ProtectedRoute';
+import NotFoundPage from '@/pages/NotFoundPage';
+import ServerErrorPage from '@/pages/ServerErrorPage';
 
 // Lazy load pages
 const HomePage = React.lazy(() => import('@/pages/HomePage'));
@@ -58,6 +60,7 @@ const ScrollToTopLayout: React.FC = () => {
 const router = createBrowserRouter([
   {
     element: <ScrollToTopLayout />,
+    errorElement: <ServerErrorPage />,
     children: [
       {
         path: '/admin/login',
@@ -352,6 +355,10 @@ const router = createBrowserRouter([
             ),
           },
         ],
+      },
+      {
+        path: '*',
+        element: <NotFoundPage />,
       },
     ],
   },
