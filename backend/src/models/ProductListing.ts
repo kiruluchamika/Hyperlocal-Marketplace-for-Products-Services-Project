@@ -33,6 +33,7 @@ export interface IProductListing extends Document {
   viewsCount: number;
   viewedByUserIds: Types.ObjectId[];
   savedCount: number;
+  isWishlisted?: boolean;
   createdAt: Date;
   updatedAt: Date;
   suspendReason?: string;

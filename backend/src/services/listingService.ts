@@ -10,6 +10,7 @@
 
 import ProductListing from "../models/ProductListing";
 import Category from "../models/Category";
+import User from "../models/User";
 import { AppError } from "../utils/AppError";
 import { Types } from "mongoose";
 import { hasCreatedListings as userHasListings } from "./userService";
@@ -76,6 +77,62 @@ type NormalizedLocation = {
   city: string;
   address?: string;
   coordinates: NormalizedCoordinates;
+};
+
+const populateListingReferences = <T extends { populate: any }>(query: T) =>
+  query
+    .populate("categoryId", "name type")
+    .populate("ownerId", "name email phone");
+
+const serializeListing = (listing: any, isWishlisted = false) => {
+  const sanitizedListing = listing.toObject();
+  delete (sanitizedListing as { viewedByUserIds?: Types.ObjectId[] }).viewedByUserIds;
+
+  return {
+    ...sanitizedListing,
+    isWishlisted,
+  };
+};
+
+const getWishlistOwner = async (userId: string) => {
+  const user = await User.findById(userId).select("+wishlist");
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  return user;
+};
+
+const hasListingInWishlist = (wishlist: Types.ObjectId[], listingId: string) =>
+  wishlist.some((savedId) => savedId.toString() === listingId);
+
+const getListingWithVisibility = async (
+  listingId: string,
+  requesterId?: string,
+  requesterRole?: string
+) => {
+  const listing = await populateListingReferences(
+    ProductListing.findById(listingId).select("+viewedByUserIds")
+  );
+
+  if (!listing) {
+    throw new AppError("Listing not found", 404);
+  }
+
+  const ownerId =
+    typeof listing.ownerId === "string"
+      ? listing.ownerId
+      : (listing.ownerId as { _id?: Types.ObjectId })._id?.toString() || "";
+  const isOwner = requesterId && ownerId === requesterId;
+  const isAdmin = requesterRole === "admin";
+  const isActive = listing.status === "ACTIVE";
+
+  if (!isActive && !isOwner && !isAdmin) {
+    throw new AppError("Listing not found", 404);
+  }
+
+  return listing;
 };
 
 /**
@@ -323,26 +380,13 @@ export const getListingById = async (
   requesterId?: string,
   requesterRole?: string
 ) => {
-  const listing = await ProductListing.findById(listingId)
-    .select("+viewedByUserIds")
-    .populate("categoryId", "name type attributes")
-    .populate("ownerId", "name email");
-  
-  if (!listing) {
-    throw new AppError("Listing not found", 404);
-  }
-  
-  // Check visibility
-  const isOwner = requesterId && listing.ownerId._id.toString() === requesterId;
-  const isAdmin = requesterRole === "admin";
-  const isActive = listing.status === "ACTIVE";
-  
-  if (!isActive && !isOwner && !isAdmin) {
-    throw new AppError("Listing not found", 404);
-  }
+  const listing = await getListingWithVisibility(listingId, requesterId, requesterRole);
+  const isWishlisted = requesterId
+    ? await User.exists({ _id: new Types.ObjectId(requesterId), wishlist: listing._id })
+    : null;
 
   if (requesterId) {
-    const hasViewed = listing.viewedByUserIds.some((viewerId) => viewerId.toString() === requesterId);
+    const hasViewed = listing.viewedByUserIds.some((viewerId: Types.ObjectId) => viewerId.toString() === requesterId);
 
     if (!hasViewed) {
       listing.viewedByUserIds.push(new Types.ObjectId(requesterId));
@@ -353,11 +397,8 @@ export const getListingById = async (
     listing.viewsCount += 1;
     await listing.save();
   }
-  
-  const sanitizedListing = listing.toObject();
-  delete (sanitizedListing as { viewedByUserIds?: Types.ObjectId[] }).viewedByUserIds;
 
-  return sanitizedListing;
+  return serializeListing(listing, Boolean(isWishlisted));
 };
 
 /**
@@ -494,7 +535,95 @@ export const hasUserCreatedListings = async (userId: string): Promise<boolean> =
  * Get all listings for a specific owner
  */
 export const getMyListings = async (userId: string) => {
-  return ProductListing.find({ ownerId: new Types.ObjectId(userId), status: { $ne: "DELETED" } })
-    .populate("categoryId", "name type")
-    .sort({ createdAt: -1 });
+  return populateListingReferences(
+    ProductListing.find({ ownerId: new Types.ObjectId(userId), status: { $ne: "DELETED" } }).sort({ createdAt: -1 })
+  );
+};
+
+export const saveListingToWishlist = async (userId: string, listingId: string) => {
+  const [user, listing] = await Promise.all([
+    getWishlistOwner(userId),
+    getListingWithVisibility(listingId, userId, "user"),
+  ]);
+
+  if (listing.status !== "ACTIVE") {
+    throw new AppError("Only active listings can be added to wishlist", 400);
+  }
+
+  const ownerId =
+    typeof listing.ownerId === "string"
+      ? listing.ownerId
+      : (listing.ownerId as { _id?: Types.ObjectId })._id?.toString() || "";
+
+  if (ownerId === userId) {
+    throw new AppError("You cannot save your own listing", 400);
+  }
+
+  if (hasListingInWishlist(user.wishlist, listingId)) {
+    return serializeListing(listing, true);
+  }
+
+  const listingObjectId = new Types.ObjectId(listingId);
+  const updateResult = await User.updateOne(
+    { _id: user._id, wishlist: { $ne: listingObjectId } },
+    { $addToSet: { wishlist: listingObjectId } }
+  );
+
+  if (updateResult.modifiedCount > 0) {
+    listing.savedCount += 1;
+    await listing.save();
+  }
+
+  return serializeListing(listing, true);
+};
+
+export const removeListingFromWishlist = async (userId: string, listingId: string) => {
+  const [user, listing] = await Promise.all([
+    getWishlistOwner(userId),
+    populateListingReferences(ProductListing.findById(listingId)),
+  ]);
+
+  if (!listing) {
+    throw new AppError("Listing not found", 404);
+  }
+
+  if (!hasListingInWishlist(user.wishlist, listingId)) {
+    return serializeListing(listing, false);
+  }
+
+  const listingObjectId = new Types.ObjectId(listingId);
+  const updateResult = await User.updateOne(
+    { _id: user._id, wishlist: listingObjectId },
+    { $pull: { wishlist: listingObjectId } }
+  );
+
+  if (updateResult.modifiedCount > 0) {
+    listing.savedCount = Math.max(0, (listing.savedCount || 0) - 1);
+    await listing.save();
+  }
+
+  return serializeListing(listing, false);
+};
+
+export const getMyWishlist = async (userId: string) => {
+  const user = await getWishlistOwner(userId);
+
+  if (!user.wishlist.length) {
+    return [];
+  }
+
+  const wishlistOrder = user.wishlist.map((savedId) => savedId.toString());
+  const listings = await populateListingReferences(
+    ProductListing.find({
+      _id: { $in: user.wishlist },
+      status: { $ne: "DELETED" },
+    }).sort({ updatedAt: -1 })
+  );
+
+  const orderedListings = listings.sort(
+    (first: any, second: any) =>
+      wishlistOrder.indexOf(first._id.toString()) - wishlistOrder.indexOf(second._id.toString())
+  );
+
+  return orderedListings.map((listing: any) => serializeListing(listing, true));
 };
