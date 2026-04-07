@@ -6,6 +6,7 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCrosshair,
+  FiEye,
   FiImage,
   FiMapPin,
   FiSliders,
@@ -474,6 +475,11 @@ const ListingCard: React.FC<{
         <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500">
           <FiMapPin size={14} className="text-slate-400" />
           <span className="truncate">{item.location?.city || 'City not available'}</span>
+        </p>
+
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
+          <FiEye size={14} className="text-slate-400" />
+          <span>{item.viewsCount ?? 0} views</span>
         </p>
 
         <div className="mt-auto pt-5">

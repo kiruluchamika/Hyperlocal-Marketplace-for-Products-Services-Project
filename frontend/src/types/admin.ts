@@ -26,6 +26,22 @@ export interface DashboardData {
   stats: AdminStats;
   ordersByStatus: Record<string, number>;
   userGrowth: { month: string; count: number }[];
+  performance: {
+    topSellingProduct: {
+      name: string;
+      orderCount: number;
+      revenue: number;
+    } | null;
+    mostActiveUser: {
+      name: string;
+      activityCount: number;
+      activityLabel: string;
+    } | null;
+    topCategory: {
+      name: string;
+      listingCount: number;
+    } | null;
+  };
   recentUsers: {
     _id: string;
     name: string;

@@ -14,6 +14,7 @@ const toCategoryResponse = (category: any) => ({
   name: category.name,
   type: category.type,
   description: category.description,
+  image: category.image,
   attributes: category.attributes,
   isActive: category.isActive,
   createdAt: category.createdAt,

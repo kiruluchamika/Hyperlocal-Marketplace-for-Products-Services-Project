@@ -9,7 +9,9 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiClock,
+  FiEye,
   FiFlag,
+  FiImage,
   FiMapPin,
   FiTag,
 } from 'react-icons/fi';
@@ -43,6 +45,14 @@ const formatTimeInput = (date: Date) => {
 
 const getCategoryName = (service: IServiceSelling) =>
   typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
+
+const DEFAULT_SERVICE_IMAGE = '/images/default-service.svg';
+
+const getServiceDisplayImage = (service: IServiceSelling) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  DEFAULT_SERVICE_IMAGE;
 
 const getMapItems = (service: IServiceSelling): GeoNearbyItem[] => {
   const coords = service.location?.coordinates?.coordinates;
@@ -123,14 +133,10 @@ const ServiceDetailPage: React.FC = () => {
       return;
     }
 
-    if (state?.service) {
-      setService(state.service);
-      setLoading(false);
-      return;
-    }
-
     const fetchService = async () => {
-      setLoading(true);
+      if (!state?.service) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -147,7 +153,7 @@ const ServiceDetailPage: React.FC = () => {
     };
 
     void fetchService();
-  }, [id, isAuthenticated, state?.service]);
+  }, [id, state?.service]);
 
   React.useEffect(() => {
     if (!id) {
@@ -184,7 +190,7 @@ const ServiceDetailPage: React.FC = () => {
   }, [bookingForm.time, minimumTimeForSelectedDate]);
 
   const isOwner = service && user ? (typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id) === user.id : false;
-  const images = service?.images?.length ? service.images : [];
+  const images = service?.images?.length ? service.images : service ? [getServiceDisplayImage(service)] : [];
   const mapItems = service ? getMapItems(service) : [];
   const selectedStartAt = bookingForm.date && bookingForm.time ? new Date(`${bookingForm.date}T${bookingForm.time}`) : null;
   const hasConflict =
@@ -294,13 +300,17 @@ const ServiceDetailPage: React.FC = () => {
                       src={images[activeImage]}
                       alt={service.title}
                       className="h-[220px] w-full rounded-xl object-cover"
+                      onError={(event) => {
+                        event.currentTarget.onerror = null;
+                        event.currentTarget.src = DEFAULT_SERVICE_IMAGE;
+                      }}
                     />
                   ) : (
-                    <div className="flex h-[220px] w-full items-end rounded-xl bg-gradient-to-br from-primary-600 via-indigo-500 to-sky-400 p-6">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{getCategoryName(service)}</p>
-                        <h1 className="mt-2 text-2xl font-bold text-white">{service.title}</h1>
+                    <div className="flex h-[220px] w-full flex-col items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 p-6 text-slate-500">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm">
+                        <FiImage size={24} />
                       </div>
+                      <p className="mt-3 text-sm font-medium">Image not available</p>
                     </div>
                   )}
 
@@ -334,6 +344,7 @@ const ServiceDetailPage: React.FC = () => {
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
                     <span className="inline-flex items-center gap-1"><FiTag size={14} /> LKR {service.price.toLocaleString()}</span>
                     <span className="inline-flex items-center gap-1"><FiMapPin size={14} /> {service.location?.city || service.locationText}</span>
+                    <span className="inline-flex items-center gap-1"><FiEye size={14} /> {service.viewsCount ?? 0} views</span>
                     <span className="inline-flex items-center gap-1"><FiCalendar size={14} /> {new Date(service.createdAt).toLocaleDateString()}</span>
                   </div>
 
@@ -488,11 +499,11 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
 
                 <div className="rounded-xl bg-white/80 p-3 text-sm text-slate-700 ring-1 ring-primary-100">
-                  <p className="font-semibold text-slate-800">Deposit logic</p>
+                  <p className="font-semibold text-slate-800">Deposit Payment</p>
                   <p className="mt-1">
                     {service.pricingType === 'HOURLY'
-                      ? `If accepted, the payment page will show the full hourly price of LKR ${service.price.toLocaleString()} as the deposit.`
-                      : `If accepted, the payment page will show a 20% deposit of LKR ${Math.round(service.price * 0.2).toLocaleString()}.`}
+                      ? `If accepted, you will have to make a deposit payment of LKR ${service.price.toLocaleString()}.`
+                      : `If accepted, you will have to make a deposit payment of LKR ${Math.round(service.price * 0.2).toLocaleString()}.`}
                   </p>
                 </div>
 

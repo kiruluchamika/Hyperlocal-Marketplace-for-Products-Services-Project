@@ -30,6 +30,8 @@ export interface IServiceSelling extends Document {
   location?: ILocation;
 
   images: string[];
+  viewsCount: number;
+  viewedByUserIds: mongoose.Types.ObjectId[];
 
   attributeValues: Record<string, unknown>;
 
@@ -50,7 +52,7 @@ export interface IServiceSelling extends Document {
 const serviceSellingSchema = new Schema<IServiceSelling>(
   {
     title: { type: String, required: true, trim: true, maxlength: 100 },
-    description: { type: String, required: true, trim: true, maxlength: 2000 },
+    description: { type: String, trim: true, maxlength: 2000, default: "" },
 
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
 
@@ -81,6 +83,12 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
     },
 
     images: { type: [String], default: [] },
+    viewsCount: { type: Number, default: 0, min: 0 },
+    viewedByUserIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      select: false,
+    },
 
     attributeValues: { type: Schema.Types.Mixed, default: {} },
 

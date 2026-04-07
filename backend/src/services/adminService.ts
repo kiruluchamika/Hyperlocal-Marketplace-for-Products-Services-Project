@@ -184,6 +184,159 @@ export const getDashboardStats = async () => {
     { $sort: { "_id.year": 1, "_id.month": 1 } },
   ]);
 
+  const topSellingProductAgg = await Order.aggregate([
+    { $match: { isDeleted: false, status: "COMPLETED" } },
+    {
+      $group: {
+        _id: "$listingId",
+        name: { $first: "$titleSnapshot" },
+        orderCount: { $sum: 1 },
+        revenue: { $sum: { $ifNull: ["$totalAmount", 0] } },
+      },
+    },
+    { $sort: { orderCount: -1, revenue: -1, name: 1 } },
+    { $limit: 1 },
+  ]);
+
+  const mostActiveUserByOrdersAgg = await Order.aggregate([
+    { $match: { isDeleted: false } },
+    {
+      $group: {
+        _id: "$buyerId",
+        activityCount: { $sum: 1 },
+      },
+    },
+    { $sort: { activityCount: -1, _id: 1 } },
+    { $limit: 1 },
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    { $unwind: "$user" },
+    {
+      $project: {
+        _id: 0,
+        name: "$user.name",
+        activityCount: 1,
+      },
+    },
+  ]);
+
+  const [productListingActivityAgg, serviceListingActivityAgg, productCategoryAgg, serviceCategoryAgg] =
+    await Promise.all([
+      ProductListing.aggregate([
+        { $match: { status: { $ne: "DELETED" } } },
+        {
+          $group: {
+            _id: "$ownerId",
+            activityCount: { $sum: 1 },
+          },
+        },
+      ]),
+      ServiceSelling.aggregate([
+        { $match: { status: { $ne: "DELETED" } } },
+        {
+          $group: {
+            _id: "$sellerId",
+            activityCount: { $sum: 1 },
+          },
+        },
+      ]),
+      ProductListing.aggregate([
+        { $match: { status: { $ne: "DELETED" } } },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "categoryId",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: "$category" },
+        {
+          $group: {
+            _id: "$category._id",
+            name: { $first: "$category.name" },
+            listingCount: { $sum: 1 },
+          },
+        },
+      ]),
+      ServiceSelling.aggregate([
+        { $match: { status: { $ne: "DELETED" } } },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "categoryId",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: "$category" },
+        {
+          $group: {
+            _id: "$category._id",
+            name: { $first: "$category.name" },
+            listingCount: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+  const topSellingProduct = topSellingProductAgg[0]
+    ? {
+        name: topSellingProductAgg[0].name,
+        orderCount: topSellingProductAgg[0].orderCount,
+        revenue: topSellingProductAgg[0].revenue,
+      }
+    : null;
+
+  const listingActivityByUser = new Map<string, number>();
+  [...productListingActivityAgg, ...serviceListingActivityAgg].forEach((entry) => {
+    const userId = String(entry._id);
+    listingActivityByUser.set(userId, (listingActivityByUser.get(userId) ?? 0) + (entry.activityCount ?? 0));
+  });
+
+  let mostActiveUser = mostActiveUserByOrdersAgg[0]
+    ? {
+        name: mostActiveUserByOrdersAgg[0].name,
+        activityCount: mostActiveUserByOrdersAgg[0].activityCount,
+        activityLabel: "orders",
+      }
+    : null;
+
+  if (!mostActiveUser && listingActivityByUser.size > 0) {
+    const [topUserId, activityCount] = Array.from(listingActivityByUser.entries()).sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })[0];
+
+    const user = await User.findById(topUserId).select("name");
+    if (user?.name) {
+      mostActiveUser = {
+        name: user.name,
+        activityCount,
+        activityLabel: "actions",
+      };
+    }
+  }
+
+  const categoryCounts = new Map<string, { name: string; listingCount: number }>();
+  [...productCategoryAgg, ...serviceCategoryAgg].forEach((entry) => {
+    const categoryId = String(entry._id);
+    const existing = categoryCounts.get(categoryId) ?? { name: entry.name, listingCount: 0 };
+    existing.listingCount += entry.listingCount ?? 0;
+    categoryCounts.set(categoryId, existing);
+  });
+
+  const topCategory = Array.from(categoryCounts.values()).sort((a, b) => {
+    if (b.listingCount !== a.listingCount) return b.listingCount - a.listingCount;
+    return a.name.localeCompare(b.name);
+  })[0] ?? null;
+
   return {
     stats: {
       totalUsers,
@@ -204,6 +357,11 @@ export const getDashboardStats = async () => {
     })),
     recentUsers,
     recentOrders,
+    performance: {
+      topSellingProduct,
+      mostActiveUser,
+      topCategory,
+    },
   };
 };
 

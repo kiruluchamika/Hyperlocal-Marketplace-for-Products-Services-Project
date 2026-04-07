@@ -23,6 +23,7 @@ export const createCategorySchema = z.object({
     errorMap: () => ({ message: "type must be either PRODUCT or SERVICE" })
   }),
   description: z.string().max(500, "description must not exceed 500 characters").trim().optional(),
+  image: z.string().min(5, "image is required"),
   attributes: z.array(attributeSchema).optional().default([]),
   isActive: z.boolean().optional().default(true)
 });
@@ -32,6 +33,7 @@ export const updateCategorySchema = z
     name: z.string().min(3, "name must be at least 3 characters").max(100, "name must not exceed 100 characters").trim().optional(),
     type: z.enum(["PRODUCT", "SERVICE"]).optional(),
     description: z.string().max(500, "description must not exceed 500 characters").trim().optional(),
+    image: z.string().min(5, "image must be a valid image string").optional(),
     attributes: z.array(attributeSchema).optional(),
     isActive: z.boolean().optional()
   })

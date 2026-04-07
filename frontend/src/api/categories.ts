@@ -25,6 +25,7 @@ interface CategoryPayload {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes?: CategoryAttribute[];
   isActive?: boolean;
 }
