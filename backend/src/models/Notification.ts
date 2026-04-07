@@ -34,7 +34,8 @@ export enum NotificationType {
   LISTING = "LISTING",
   USER = "USER",
   CATEGORY = "CATEGORY",
-  SYSTEM = "SYSTEM"
+  SYSTEM = "SYSTEM",
+  REPORT = "REPORT"
 }
 
 export interface INotification extends Document {

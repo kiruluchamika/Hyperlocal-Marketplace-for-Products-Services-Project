@@ -1,9 +1,21 @@
 import { Router } from "express";
-import { changeMyPassword, getMe, getAllUsers, updateMe } from "../controllers/userController";
+import {
+	changeMyPassword,
+	createStripeConnectOnboarding,
+	getAllUsers,
+	getMe,
+	getStripeConnectBalance,
+	getStripeConnectStatus,
+	updateMe,
+} from "../controllers/userController";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
 import { validate } from "../middlewares/validate";
-import { changePasswordSchema, updateProfileSchema } from "../validators/userSchemas";
+import {
+	changePasswordSchema,
+	stripeConnectOnboardingSchema,
+	updateProfileSchema,
+} from "../validators/userSchemas";
 
 const router = Router();
 
@@ -54,6 +66,16 @@ router.patch("/me", auth, validate(updateProfileSchema), updateMe);
  *         description: Unauthorized
  */
 router.patch("/me/password", auth, validate(changePasswordSchema), changeMyPassword);
+
+router.post(
+	"/stripe-connect/onboarding",
+	auth,
+	validate(stripeConnectOnboardingSchema),
+	createStripeConnectOnboarding
+);
+
+router.get("/stripe-connect/status", auth, getStripeConnectStatus);
+router.get("/stripe-connect/balance", auth, getStripeConnectBalance);
 
 /**
  * @openapi

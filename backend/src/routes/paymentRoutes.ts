@@ -12,11 +12,13 @@ import { requireRole } from "../middlewares/requireRole";
 import { validate } from "../middlewares/validate";
 import {
   initiatePaymentSchema,
+  confirmPaymentSchema,
   getPaymentByOrderSchema,
   getPaymentByIdSchema
 } from "../validators/paymentSchemas";
 import {
   initiatePayment,
+  confirmPayment,
   getStripeConfig,
   stripeWebhook,
   getPaymentByOrder,
@@ -85,6 +87,14 @@ router.post(
   requireRole(["user"]),
   validate(initiatePaymentSchema),
   initiatePayment
+);
+
+router.post(
+  "/confirm",
+  auth,
+  requireRole(["user"]),
+  validate(confirmPaymentSchema),
+  confirmPayment
 );
 
 /**

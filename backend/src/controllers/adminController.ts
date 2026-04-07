@@ -91,3 +91,9 @@ export const approveListing = asyncHandler(async (req: Request, res: Response) =
   const listing = await adminService.approveListing(req.params.id);
   res.json({ message: "Listing approved successfully", listing });
 });
+
+/* GET /api/admin/wallet */
+export const getMarketplaceWallet = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await adminService.getMarketplaceWallet();
+  res.json({ success: true, data });
+});

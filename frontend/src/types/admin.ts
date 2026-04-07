@@ -83,6 +83,16 @@ export interface AdminPayment {
   amount: number;
   currency: string;
   status: string;
+  metadata?: {
+    payoutStatus?: string;
+    stripeTransferId?: string;
+    payoutError?: string;
+    payoutAttemptedAt?: string;
+    payoutGrossAmount?: number;
+    payoutFeePercent?: number;
+    payoutFeeAmount?: number;
+    payoutNetAmount?: number;
+  };
   createdAt: string;
 }
 
@@ -95,6 +105,18 @@ export interface AdminBooking {
   endAt: string;
   durationMinutes: number;
   status: string;
+  deposit?: {
+    amount?: number;
+    currency?: string;
+    stripeTransferId?: string;
+    payoutStatus?: string;
+    payoutError?: string;
+    payoutAttemptedAt?: string;
+    payoutGrossAmount?: number;
+    payoutFeePercent?: number;
+    payoutFeeAmount?: number;
+    payoutNetAmount?: number;
+  };
   note?: string;
   createdAt: string;
 }
@@ -117,4 +139,15 @@ export interface Pagination {
   total: number;
   page: number;
   totalPages: number;
+}
+
+export interface WalletBalanceItem {
+  currency: string;
+  amount: number;
+}
+
+export interface AdminMarketplaceWallet {
+  available: WalletBalanceItem[];
+  pending: WalletBalanceItem[];
+  instantAvailable: WalletBalanceItem[];
 }

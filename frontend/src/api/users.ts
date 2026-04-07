@@ -31,6 +31,25 @@ export interface ChangePasswordPayload {
   newPassword: string;
 }
 
+export interface StripeConnectStatus {
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'VERIFICATION_FAILED';
+  accountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  updatedAt?: string;
+}
+
+export interface StripeConnectBalanceItem {
+  currency: string;
+  amount: number;
+}
+
+export interface StripeConnectBalance {
+  accountId: string | null;
+  available: StripeConnectBalanceItem[];
+  pending: StripeConnectBalanceItem[];
+}
+
 export const usersApi = {
   getMe: () =>
     apiClient.get<{ user: IUser }>('/users/me'),
@@ -43,4 +62,16 @@ export const usersApi = {
 
   changePassword: (data: ChangePasswordPayload) =>
     apiClient.patch<{ message: string }>('/users/me/password', data),
+
+  createStripeConnectOnboarding: (payload?: { returnUrl?: string; refreshUrl?: string }) =>
+    apiClient.post<{ success: boolean; data: { onboardingUrl: string; expiresAt: number; accountId: string } }>(
+      '/users/stripe-connect/onboarding',
+      payload || {}
+    ),
+
+  getStripeConnectStatus: () =>
+    apiClient.get<{ success: boolean; data: StripeConnectStatus }>('/users/stripe-connect/status'),
+
+  getStripeConnectBalance: () =>
+    apiClient.get<{ success: boolean; data: StripeConnectBalance }>('/users/stripe-connect/balance'),
 };

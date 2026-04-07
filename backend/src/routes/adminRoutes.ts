@@ -27,6 +27,7 @@ router.get("/orders", adminCtrl.getAllOrders);
 
 /* Payments */
 router.get("/payments", adminCtrl.getAllPayments);
+router.get("/wallet", adminCtrl.getMarketplaceWallet);
 
 /* Bookings */
 router.get("/bookings", adminCtrl.getAllBookings);

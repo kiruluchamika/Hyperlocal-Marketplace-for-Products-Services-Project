@@ -53,6 +53,9 @@ const asString = (value: unknown, fallback = ''): string =>
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
+const asOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
 const normalizeId = (value: unknown): string => {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
@@ -170,6 +173,7 @@ const normalizeOrder = (orderLike: unknown, actionsLike?: unknown): ManagedOrder
 
 const normalizePayment = (paymentLike: unknown): ManagedPayment => {
   const record = asRecord(paymentLike);
+  const metadata = asRecord(record.metadata);
 
   return {
     id: normalizeId(record),
@@ -180,6 +184,14 @@ const normalizePayment = (paymentLike: unknown): ManagedPayment => {
     currency: asString(record.currency, 'LKR'),
     status: parsePaymentStatus(record.status),
     providerPaymentId: asString(record.providerPaymentId) || undefined,
+    payoutStatus: asString(metadata.payoutStatus) as ManagedPayment['payoutStatus'] | undefined,
+    stripeTransferId: asString(metadata.stripeTransferId) || undefined,
+    payoutError: asString(metadata.payoutError) || undefined,
+    payoutAttemptedAt: asString(metadata.payoutAttemptedAt) || undefined,
+    payoutGrossAmount: asOptionalNumber(metadata.payoutGrossAmount),
+    payoutFeePercent: asOptionalNumber(metadata.payoutFeePercent),
+    payoutFeeAmount: asOptionalNumber(metadata.payoutFeeAmount),
+    payoutNetAmount: asOptionalNumber(metadata.payoutNetAmount),
     createdAt: asString(record.createdAt) || undefined,
     updatedAt: asString(record.updatedAt) || undefined,
   };
@@ -334,6 +346,15 @@ export const orderManagementApi = {
       currency: asString(data.currency, 'LKR'),
       status: parsePaymentStatus(data.status),
     };
+  },
+
+  async confirmPayment(orderId: string, paymentIntentId?: string): Promise<ManagedPayment> {
+    const response = await apiClient.post('/payments/confirm', {
+      orderId,
+      paymentIntentId,
+    });
+    const data = pickResponseData(response.data);
+    return normalizePayment(data);
   },
 
   async getPaymentByOrder(orderId: string): Promise<ManagedPayment> {

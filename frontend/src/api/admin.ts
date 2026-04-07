@@ -8,6 +8,7 @@ import type {
   AdminBooking,
   AdminListing,
   Pagination,
+  AdminMarketplaceWallet,
 } from '@/types/admin';
 import type { ContactMessage, ContactMessageStatus } from '@/types/contact';
 
@@ -33,6 +34,9 @@ export const adminApi = {
   /* ── Payments ── */
   getPayments: (params?: { page?: number; limit?: number; status?: string }) =>
     apiClient.get<{ payments: AdminPayment[]; pagination: Pagination }>('/admin/payments', { params }),
+
+  getMarketplaceWallet: () =>
+    apiClient.get<{ success: boolean; data: AdminMarketplaceWallet }>('/admin/wallet'),
 
   /* ── Bookings ── */
   getBookings: (params?: { page?: number; limit?: number; status?: string }) =>

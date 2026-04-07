@@ -25,6 +25,7 @@ const AdminOrdersPage = React.lazy(() => import('@/pages/admin/AdminOrdersPage')
 const AdminPaymentsPage = React.lazy(() => import('@/pages/admin/AdminPaymentsPage'));
 const AdminCategoriesPage = React.lazy(() => import('@/pages/admin/AdminCategoriesPage'));
 const AdminContactsPage = React.lazy(() => import('@/pages/admin/AdminContactsPage'));
+const AdminReportsPage = React.lazy(() => import('@/pages/admin/AdminReportsPage'));
 
 // Dashboard pages
 const DashboardPage = React.lazy(() => import('@/pages/dashboard/DashboardPage'));
@@ -39,6 +40,8 @@ const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServi
 const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
+const StripeConnectCallbackPage = React.lazy(() => import('@/pages/dashboard/StripeConnectCallbackPage'));
+const StripeConnectRefreshPage = React.lazy(() => import('@/pages/dashboard/StripeConnectRefreshPage'));
 
 // Loading fallback
 const PageLoader = () => <FullPageLoader label="Loading page..." />;
@@ -144,6 +147,22 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={<PageLoader />}>
                 <AdminContactsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'reports',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminReportsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'notifications',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <NotificationsPage />
               </React.Suspense>
             ),
           },
@@ -329,6 +348,26 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
+          {
+            path: '/dashboard/payouts/connect-callback',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <StripeConnectCallbackPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/payouts/connect-refresh',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <StripeConnectRefreshPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
         ],
       },
     ],
@@ -338,4 +377,5 @@ const router = createBrowserRouter([
 const AppRouter: React.FC = () => {
   return <RouterProvider router={router} />;
 };
+
 export default AppRouter;

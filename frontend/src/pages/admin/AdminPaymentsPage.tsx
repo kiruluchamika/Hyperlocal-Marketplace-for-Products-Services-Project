@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { FiSearch, FiDownload, FiRefreshCw, FiX } from 'react-icons/fi';
 import { format } from 'date-fns';
@@ -7,7 +7,7 @@ import { adminApi } from '@/api/admin';
 import AdminTable from '@/components/admin/AdminTable';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
 import GifLoader from '@/components/ui/GifLoader';
-import type { AdminPayment, AdminBooking } from '@/types/admin';
+import type { AdminPayment, AdminBooking, AdminMarketplaceWallet } from '@/types/admin';
 import AdminPagination from '@/components/admin/AdminPagination';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 
@@ -35,6 +35,14 @@ type UnifiedPaymentRow = {
   currency: string;
   status: string;
   createdAt: string;
+  payoutStatus?: string;
+  payoutTransferId?: string;
+  payoutError?: string;
+  payoutAttemptedAt?: string;
+  payoutGrossAmount?: number;
+  payoutFeePercent?: number;
+  payoutFeeAmount?: number;
+  payoutNetAmount?: number;
   rawPayment?: AdminPayment;
   rawBooking?: AdminBooking;
 };
@@ -66,6 +74,7 @@ const ALL_STATUS_OPTIONS = [
 const AdminPaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [wallet, setWallet] = useState<AdminMarketplaceWallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -84,26 +93,83 @@ const AdminPaymentsPage: React.FC = () => {
       maximumFractionDigits: 2,
     }).format(amount);
 
-  const loadPayments = async () => {
+  const extractPaymentMetadata = (payment: AdminPayment | undefined) => {
+    const metadata = (payment as unknown as { metadata?: Record<string, unknown> } | undefined)?.metadata || {};
+    return {
+      payoutStatus: typeof metadata.payoutStatus === 'string' ? metadata.payoutStatus : undefined,
+      payoutTransferId:
+        typeof metadata.stripeTransferId === 'string'
+          ? metadata.stripeTransferId
+          : typeof metadata.payoutTransferId === 'string'
+            ? metadata.payoutTransferId
+            : undefined,
+      payoutError: typeof metadata.payoutError === 'string' ? metadata.payoutError : undefined,
+      payoutAttemptedAt: typeof metadata.payoutAttemptedAt === 'string' ? metadata.payoutAttemptedAt : undefined,
+      payoutGrossAmount: typeof metadata.payoutGrossAmount === 'number' ? metadata.payoutGrossAmount : undefined,
+      payoutFeePercent: typeof metadata.payoutFeePercent === 'number' ? metadata.payoutFeePercent : undefined,
+      payoutFeeAmount: typeof metadata.payoutFeeAmount === 'number' ? metadata.payoutFeeAmount : undefined,
+      payoutNetAmount: typeof metadata.payoutNetAmount === 'number' ? metadata.payoutNetAmount : undefined,
+    };
+  };
+
+  const extractBookingPayout = (booking: AdminBooking | undefined) => {
+    const deposit = (booking as unknown as {
+      deposit?: {
+        payoutStatus?: string;
+        stripeTransferId?: string;
+        payoutError?: string;
+        payoutAttemptedAt?: string;
+      };
+    } | undefined)?.deposit;
+
+    return {
+      payoutStatus: deposit?.payoutStatus,
+      payoutTransferId: deposit?.stripeTransferId || (deposit as any)?.payoutTransferId,
+      payoutError: deposit?.payoutError,
+      payoutAttemptedAt: deposit?.payoutAttemptedAt,
+      payoutGrossAmount: deposit?.payoutGrossAmount,
+      payoutFeePercent: deposit?.payoutFeePercent,
+      payoutFeeAmount: deposit?.payoutFeeAmount,
+      payoutNetAmount: deposit?.payoutNetAmount,
+    };
+  };
+
+  const loadPayments = useCallback(async () => {
     try {
       setLoading(true);
-      const [paymentResponse, bookingResponse] = await Promise.all([
+      const [paymentResponse, bookingResponse, walletResponse] = await Promise.all([
         adminApi.getPayments({ page: 1, limit: 1000 }),
         adminApi.getBookings({ page: 1, limit: 1000 }),
+        adminApi.getMarketplaceWallet(),
       ]);
       setPayments(paymentResponse.data?.payments || []);
       setBookings(bookingResponse.data?.bookings || []);
+      setWallet(walletResponse.data?.data || null);
     } catch (error) {
       toast.error('Failed to load payments');
       console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadPayments();
-  }, []);
+    void loadPayments();
+  }, [loadPayments]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      void loadPayments();
+    };
+
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnFocus);
+
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
+    };
+  }, [loadPayments]);
 
   const unifiedRows = useMemo<UnifiedPaymentRow[]>(() => {
     const productRows: UnifiedPaymentRow[] = payments.map((payment) => ({
@@ -119,6 +185,7 @@ const AdminPaymentsPage: React.FC = () => {
       currency: 'LKR',
       status: payment.status || 'UNKNOWN',
       createdAt: payment.createdAt,
+      ...extractPaymentMetadata(payment),
       rawPayment: payment,
     }));
 
@@ -135,6 +202,7 @@ const AdminPaymentsPage: React.FC = () => {
       currency: 'LKR',
       status: booking.status || 'UNKNOWN',
       createdAt: booking.createdAt,
+      ...extractBookingPayout(booking),
       rawBooking: booking,
     }));
 
@@ -200,6 +268,12 @@ const AdminPaymentsPage: React.FC = () => {
       failedPayments: visiblePayments.filter((p) => ['FAILED', 'REFUNDED', 'REJECTED', 'CANCELLED'].includes(p.status)).length,
     };
   }, [visiblePayments]);
+
+  const formatWalletAmounts = (items: { currency: string; amount: number }[] | undefined) => {
+    if (!items || !items.length) return '0.00';
+    const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+    return `LKR ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const paginatedPayments = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -290,6 +364,40 @@ const AdminPaymentsPage: React.FC = () => {
           <div className="text-xs uppercase tracking-wide text-rose-700 mb-2">Failed/Refunded</div>
           <div className="text-2xl font-bold text-rose-900">{stats.failedPayments}</div>
           <div className="text-sm text-rose-700 font-medium mt-1">Transactions</div>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-cyan-200 bg-cyan-50 p-6"
+        >
+          <div className="text-xs uppercase tracking-wide text-cyan-700 mb-2">Marketplace Wallet Available</div>
+          <div className="text-lg font-bold text-cyan-900">{formatWalletAmounts(wallet?.available)}</div>
+          <div className="mt-1 text-xs text-cyan-700/80">Estimated LKR value from Stripe balance.</div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="rounded-xl border border-violet-200 bg-violet-50 p-6"
+        >
+          <div className="text-xs uppercase tracking-wide text-violet-700 mb-2">Marketplace Wallet Pending</div>
+          <div className="text-lg font-bold text-violet-900">{formatWalletAmounts(wallet?.pending)}</div>
+          <div className="mt-1 text-xs text-violet-700/80">Estimated LKR value from Stripe balance.</div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-xl border border-sky-200 bg-sky-50 p-6"
+        >
+          <div className="text-xs uppercase tracking-wide text-sky-700 mb-2">Instant Available</div>
+          <div className="text-lg font-bold text-sky-900">{formatWalletAmounts(wallet?.instantAvailable)}</div>
+          <div className="mt-1 text-xs text-sky-700/80">Funds eligible for instant payout in Stripe.</div>
         </motion.div>
       </div>
 
@@ -590,6 +698,53 @@ const AdminPaymentsPage: React.FC = () => {
                     <p className="text-xs text-slate-500 mb-1">Created At</p>
                     <p className="text-sm font-medium text-slate-900">
                       {format(new Date(selectedPayment.createdAt), 'PPP p')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 mb-3">Payout Transfer Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Payout Status</p>
+                    <p className="text-sm font-medium text-slate-900">{selectedPayment.payoutStatus || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Transfer ID</p>
+                    <p className="text-sm font-medium text-slate-900 break-all">
+                      {selectedPayment.payoutTransferId || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Attempted At</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {selectedPayment.payoutAttemptedAt ? format(new Date(selectedPayment.payoutAttemptedAt), 'PPP p') : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Error</p>
+                    <p className="text-sm font-medium text-slate-900 break-words">
+                      {selectedPayment.payoutError || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Gross</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {typeof selectedPayment.payoutGrossAmount === 'number' ? formatLKR(selectedPayment.payoutGrossAmount) : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Fee</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {typeof selectedPayment.payoutFeeAmount === 'number' ? formatLKR(selectedPayment.payoutFeeAmount) : 'N/A'}
+                      {typeof selectedPayment.payoutFeePercent === 'number' ? ` (${selectedPayment.payoutFeePercent}%)` : ''}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Net Transfer</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {typeof selectedPayment.payoutNetAmount === 'number' ? formatLKR(selectedPayment.payoutNetAmount) : 'N/A'}
                     </p>
                   </div>
                 </div>
