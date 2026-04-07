@@ -10,11 +10,12 @@ import { IServiceSelling } from '@/types';
 import { formatCurrency } from '@/utils/listings';
 
 const getServiceImage = (service: IServiceSelling) => {
-  if (Array.isArray(service.images) && service.images.length > 0 && service.images[0]) {
-    return service.images[0];
-  }
-
-  return 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80';
+  return (
+    service.displayImage ||
+    (Array.isArray(service.images) && service.images.length > 0 ? service.images[0] : undefined) ||
+    (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+    '/images/default-service.svg'
+  );
 };
 
 const getCategoryName = (category: IServiceSelling['categoryId']) => {
@@ -105,7 +106,15 @@ const MyPostedServicesPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {services.map((service) => (
             <div key={service._id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-              <img src={getServiceImage(service)} alt={service.title} className="h-48 w-full object-cover" />
+              <img
+                src={getServiceImage(service)}
+                alt={service.title}
+                className="h-48 w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = '/images/default-service.svg';
+                }}
+              />
 
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3">

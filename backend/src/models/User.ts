@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 type Role = "admin" | "user";
 type KycStatus = "UNSUBMITTED" | "PENDING" | "VERIFIED" | "REJECTED";
@@ -60,6 +60,7 @@ export interface IUser extends Document {
   preferences: IUserPreferences;
   sellerProfile?: ISellerProfile;
   stripeConnect?: IStripeConnect;
+  wishlist: Types.ObjectId[];
   isActive: boolean;
   suspendedAt?: Date;
   createdAt: Date;
@@ -142,6 +143,11 @@ const userSchema = new Schema<IUser>(
     preferences: { type: preferencesSchema, default: () => ({}) },
     sellerProfile: { type: sellerProfileSchema, default: () => ({}) },
     stripeConnect: { type: stripeConnectSchema, default: () => ({}) },
+    wishlist: {
+      type: [{ type: Schema.Types.ObjectId, ref: "ProductListing" }],
+      default: [],
+      select: false,
+    },
     isActive: { type: Boolean, default: true },
     suspendedAt: { type: Date }
   },

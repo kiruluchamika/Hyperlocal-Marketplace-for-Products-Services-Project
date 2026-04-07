@@ -3,6 +3,8 @@ import { Outlet, createBrowserRouter, RouterProvider, useLocation } from 'react-
 import MainLayout from '@/components/layout/MainLayout';
 import FullPageLoader from '@/components/ui/FullPageLoader';
 import ProtectedRoute from './ProtectedRoute';
+import NotFoundPage from '@/pages/NotFoundPage';
+import ServerErrorPage from '@/pages/ServerErrorPage';
 
 // Lazy load pages
 const HomePage = React.lazy(() => import('@/pages/HomePage'));
@@ -12,6 +14,10 @@ const BrowseListingsPage = React.lazy(() => import('@/pages/BrowseListingsPage')
 const BrowseServicesPage = React.lazy(() => import('@/pages/BrowseServicesPage'));
 const ListingDetailPage = React.lazy(() => import('@/pages/ListingDetailPage'));
 const ServiceDetailPage = React.lazy(() => import('@/pages/ServiceDetailPage'));
+const SafetyTipsPage = React.lazy(() => import('@/pages/SafetyTipsPage'));
+const TermsOfServicePage = React.lazy(() => import('@/pages/TermsOfServicePage'));
+const PrivacyPolicyPage = React.lazy(() => import('@/pages/PrivacyPolicyPage'));
+const CommunityGuidelinesPage = React.lazy(() => import('@/pages/CommunityGuidelinesPage'));
 const AdminLoginPage = React.lazy(() => import('@/pages/admin/AdminLoginPage'));
 
 // Admin pages
@@ -24,6 +30,7 @@ const AdminBookingsPage = React.lazy(() => import('@/pages/admin/AdminBookingsPa
 const AdminOrdersPage = React.lazy(() => import('@/pages/admin/AdminOrdersPage'));
 const AdminPaymentsPage = React.lazy(() => import('@/pages/admin/AdminPaymentsPage'));
 const AdminCategoriesPage = React.lazy(() => import('@/pages/admin/AdminCategoriesPage'));
+const AdminContactsPage = React.lazy(() => import('@/pages/admin/AdminContactsPage'));
 const AdminReportsPage = React.lazy(() => import('@/pages/admin/AdminReportsPage'));
 const AdminReviewsPage = React.lazy(() => import('@/pages/admin/AdminReviewsPage'));
 
@@ -32,12 +39,14 @@ const DashboardPage = React.lazy(() => import('@/pages/dashboard/DashboardPage')
 const MyListingsPage = React.lazy(() => import('@/pages/dashboard/MyListingsPage'));
 const CreateListingPage = React.lazy(() => import('@/pages/dashboard/CreateListingPage'));
 const MyOrdersPage = React.lazy(() => import('@/pages/dashboard/MyOrdersPage'));
+const WishlistPage = React.lazy(() => import('@/pages/dashboard/WishlistPage'));
 const MyServicesPage = React.lazy(() => import('@/pages/dashboard/MyServicesPage'));
 const MyPaymentsPage = React.lazy(() => import('@/pages/dashboard/MyPaymentsPage'));
 const MyServiceRequestsPage = React.lazy(() => import('@/pages/dashboard/MyServiceRequestsPage'));
 const ServiceBookingPaymentPage = React.lazy(() => import('@/pages/dashboard/ServiceBookingPaymentPage'));
 const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServicePage'));
 const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
+const InsightsPage = React.lazy(() => import('@/pages/dashboard/InsightsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 const StripeConnectCallbackPage = React.lazy(() => import('@/pages/dashboard/StripeConnectCallbackPage'));
@@ -59,6 +68,7 @@ const ScrollToTopLayout: React.FC = () => {
 const router = createBrowserRouter([
   {
     element: <ScrollToTopLayout />,
+    errorElement: <ServerErrorPage />,
     children: [
       {
         path: '/admin/login',
@@ -143,6 +153,14 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: 'contacts',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminContactsPage />
+              </React.Suspense>
+            ),
+          },
+          {
             path: 'reports',
             element: (
               <React.Suspense fallback={<PageLoader />}>
@@ -155,6 +173,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={<PageLoader />}>
                 <AdminReviewsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'notifications',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <NotificationsPage />
               </React.Suspense>
             ),
           },
@@ -219,6 +245,38 @@ const router = createBrowserRouter([
               </React.Suspense>
             ),
           },
+          {
+            path: '/safety-tips',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <SafetyTipsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/terms-of-service',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <TermsOfServicePage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/privacy-policy',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <PrivacyPolicyPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/community-guidelines',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <CommunityGuidelinesPage />
+              </React.Suspense>
+            ),
+          },
           // Dashboard routes (protected)
           {
             path: '/dashboard',
@@ -261,6 +319,16 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: '/dashboard/wishlist',
+            element: (
+              <ProtectedRoute>
+                <React.Suspense fallback={<PageLoader />}>
+                  <WishlistPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
             path: '/dashboard/services',
             element: (
               <ProtectedRoute requiredRole="user">
@@ -276,6 +344,16 @@ const router = createBrowserRouter([
               <ProtectedRoute>
                 <React.Suspense fallback={<PageLoader />}>
                   <MyPaymentsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/insights',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <InsightsPage />
                 </React.Suspense>
               </ProtectedRoute>
             ),
@@ -362,6 +440,10 @@ const router = createBrowserRouter([
           },
         ],
       },
+      {
+        path: '*',
+        element: <NotFoundPage />,
+      },
     ],
   },
 ]);
@@ -369,4 +451,5 @@ const router = createBrowserRouter([
 const AppRouter: React.FC = () => {
   return <RouterProvider router={router} />;
 };
+
 export default AppRouter;

@@ -11,10 +11,10 @@ import serviceBookingRoutes from "./serviceBookingRoutes";
 import otpRoutes from "./otpRoutes";
 import geoRoutes from "./geoRoutes";
 import adminRoutes from "./adminRoutes";
+import contactRoutes from "./contactRoutes";
 import reportRoutes from "./reportRoutes";
 import reviewRoutes from "./reviewRoutes";
 import websiteReviewRoutes from "./websiteReviewRoutes";
-
 import bookingTestRoutes from "./bookingTestRoutes";
 
 const router = Router();
@@ -31,11 +31,10 @@ router.use("/servicebookings", serviceBookingRoutes);
 router.use("/otp", otpRoutes);
 router.use("/geo-search", geoRoutes);
 router.use("/admin", adminRoutes);
+router.use("/contact", contactRoutes);
 router.use("/reports", reportRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/website-reviews", websiteReviewRoutes);
-
 router.use("/servicebookings-test", bookingTestRoutes);
-
 
 export default router;

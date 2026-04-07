@@ -38,12 +38,17 @@ function App() {
           duration: 4000,
           style: {
             borderRadius: '12px',
-            background: '#1e293b',
-            color: '#fff',
+            background: '#ffffff',
+            color: '#1e293b',
             fontSize: '14px',
+            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+            border: '1px solid #f1f5f9',
           },
           success: {
-            iconTheme: { primary: '#7c3aed', secondary: '#fff' },
+            iconTheme: { primary: '#10b981', secondary: '#fff' },
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: '#fff' },
           },
         }}
       />

@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   FiGrid,
+  FiHome,
   FiUsers,
   FiPackage,
   FiBriefcase,
@@ -9,8 +10,9 @@ import {
   FiCreditCard,
   FiCalendar,
   FiLayers,
+  FiExternalLink,
   FiLogOut,
-  FiShield,
+  FiMessageSquare,
   FiAlertCircle,
   FiStar,
 } from 'react-icons/fi';
@@ -23,16 +25,17 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/admin',           icon: <FiGrid size={20} />,         label: 'Dashboard' },
-  { to: '/admin/users',     icon: <FiUsers size={20} />,        label: 'Users' },
-  { to: '/admin/products',  icon: <FiPackage size={20} />,      label: 'Products' },
-  { to: '/admin/services',  icon: <FiBriefcase size={20} />,    label: 'Services' },
-  { to: '/admin/bookings',  icon: <FiCalendar size={20} />,     label: 'Bookings' },
-  { to: '/admin/orders',    icon: <FiShoppingCart size={20} />,  label: 'Orders' },
-  { to: '/admin/payments',  icon: <FiCreditCard size={20} />,   label: 'Payments' },
-  { to: '/admin/categories',icon: <FiLayers size={20} />,       label: 'Categories' },
-  { to: '/admin/reports',   icon: <FiAlertCircle size={20} />,  label: 'Reports' },
-  { to: '/admin/reviews',   icon: <FiStar size={20} />,         label: 'Reviews' },
+  { to: '/admin',            icon: <FiGrid size={20} />,          label: 'Dashboard' },
+  { to: '/admin/users',      icon: <FiUsers size={20} />,         label: 'Users' },
+  { to: '/admin/products',   icon: <FiPackage size={20} />,       label: 'Products' },
+  { to: '/admin/services',   icon: <FiBriefcase size={20} />,     label: 'Services' },
+  { to: '/admin/bookings',   icon: <FiCalendar size={20} />,      label: 'Bookings' },
+  { to: '/admin/orders',     icon: <FiShoppingCart size={20} />,  label: 'Orders' },
+  { to: '/admin/payments',   icon: <FiCreditCard size={20} />,    label: 'Payments' },
+  { to: '/admin/categories', icon: <FiLayers size={20} />,        label: 'Categories' },
+  { to: '/admin/contacts',   icon: <FiMessageSquare size={20} />, label: 'Contacts' },
+  { to: '/admin/reports',    icon: <FiAlertCircle size={20} />,   label: 'Reports' },
+  { to: '/admin/reviews',    icon: <FiStar size={20} />,          label: 'Reviews' },
 ];
 
 const AdminSidebar: React.FC = () => {
@@ -44,18 +47,27 @@ const AdminSidebar: React.FC = () => {
     navigate('/admin/login');
   };
 
+  const handleOpenUserView = () => {
+    navigate('/');
+  };
+
+  const handleOpenMarketplace = () => {
+    navigate('/listings');
+  };
+
   return (
     <aside
       className="group/sidebar fixed left-0 top-0 z-40 flex h-screen w-[68px] flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-in-out hover:w-[240px]"
     >
       {/* Logo area */}
       <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
-          <FiShield size={18} />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-indigo-100">
+          <img src="/fav.png" alt="Bazzoro" className="h-full w-full object-contain" />
         </div>
-        <span className="whitespace-nowrap text-lg font-bold text-slate-900 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-          Bazaaro
-        </span>
+        <div className="opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
+          <p className="whitespace-nowrap text-base font-bold text-slate-900">Bazzoro</p>
+          <p className="whitespace-nowrap text-[11px] font-medium text-slate-400">Admin Panel</p>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -81,13 +93,41 @@ const AdminSidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Logout */}
+      {/* Footer actions */}
       <div className="border-t border-slate-200 px-3 py-3">
+        <button
+          onClick={handleOpenUserView}
+          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
+          title="Open user-side home for monitoring"
+        >
+          <span className="shrink-0">
+            <FiHome size={20} />
+          </span>
+          <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
+            User View
+          </span>
+        </button>
+
+        <button
+          onClick={handleOpenMarketplace}
+          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
+          title="Open marketplace listing feed"
+        >
+          <span className="shrink-0">
+            <FiExternalLink size={20} />
+          </span>
+          <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
+            Monitor Marketplace
+          </span>
+        </button>
+
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600"
         >
-          <span className="shrink-0"><FiLogOut size={20} /></span>
+          <span className="shrink-0">
+            <FiLogOut size={20} />
+          </span>
           <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
             Logout
           </span>

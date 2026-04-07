@@ -13,6 +13,7 @@ export interface ICategory {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes: CategoryAttribute[];
   isActive: boolean;
   createdAt: string;

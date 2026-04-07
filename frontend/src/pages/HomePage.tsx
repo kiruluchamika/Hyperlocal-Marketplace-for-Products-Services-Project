@@ -29,6 +29,9 @@ import ReviewModal from '@/components/reviews/ReviewModal';
 import StarRating from '@/components/reviews/StarRating';
 import Button from '@/components/ui/Button';
 import { Card, Badge } from '@/components/ui';
+import { listingsApi } from '@/api/listings';
+import { servicesApi } from '@/api/services';
+import type { IProductListing, IServiceSelling } from '@/types';
 import heroImageOne from '@/assets/hero/1.jpg';
 import heroImageTwo from '@/assets/hero/2.jpg';
 import heroImageThree from '@/assets/hero/3.jpeg';
@@ -84,6 +87,34 @@ const heroSlides = [
   },
 ];
 
+const formatCurrency = (value: number, currency = 'LKR') => {
+  try {
+    return new Intl.NumberFormat('en-LK', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toLocaleString()}`;
+  }
+};
+
+const formatViews = (viewsCount: number) => {
+  if (!Number.isFinite(viewsCount) || viewsCount < 0) return '0';
+  if (viewsCount >= 1000) return `${(viewsCount / 1000).toFixed(1)}K`;
+  return String(viewsCount);
+};
+
+const getConditionLabel = (condition: IProductListing['condition']) => {
+  if (condition === 'NEW') return 'NEW';
+  return 'USED';
+};
+
+const getServicePriceLabel = (service: IServiceSelling) => {
+  const base = formatCurrency(service.price);
+  return service.pricingType === 'HOURLY' ? `${base}/hr` : base;
+};
+
 const HomePage: React.FC = () => {
   const { categories, productCategories, serviceCategories, fetchCategories } = useCategoryStore();
   const { searchQuery, setSearchQuery } = useUIStore();
@@ -91,6 +122,8 @@ const HomePage: React.FC = () => {
   const { isAuthenticated, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+
+  // feature-review state
   const [websiteReviews, setWebsiteReviews] = useState<IWebsiteReview[]>([]);
   const [websiteSort, setWebsiteSort] = useState<ReviewSort>('latest');
   const [websiteSummary, setWebsiteSummary] = useState<IReviewSummary>({
@@ -103,6 +136,14 @@ const HomePage: React.FC = () => {
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
   const [votedReviewIds, setVotedReviewIds] = useState<Record<string, boolean>>({});
 
+  // dev state
+  const [trendingListings, setTrendingListings] = useState<IProductListing[]>([]);
+  const [premiumServices, setPremiumServices] = useState<IServiceSelling[]>([]);
+  const [isListingsLoading, setIsListingsLoading] = useState(true);
+  const [isServicesLoading, setIsServicesLoading] = useState(true);
+  const [listingsError, setListingsError] = useState<string | null>(null);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+
   useEffect(() => {
     if (categories.length === 0) fetchCategories();
   }, [categories.length, fetchCategories]);
@@ -110,7 +151,7 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveHeroIndex((prev) => (prev + 1) % heroSlides.length);
-    }, 6000); // slightly longer for reading
+    }, 6000);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -143,6 +184,41 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     void loadWebsiteReviews();
   }, [loadWebsiteReviews]);
+
+  useEffect(() => {
+    const fetchTrendingListings = async () => {
+      setIsListingsLoading(true);
+      setListingsError(null);
+
+      try {
+        const { data } = await listingsApi.getAll({ page: 1, limit: 4 });
+        setTrendingListings(data.data || []);
+      } catch {
+        setListingsError('Unable to load listings right now.');
+      } finally {
+        setIsListingsLoading(false);
+      }
+    };
+
+    const fetchPremiumServices = async () => {
+      setIsServicesLoading(true);
+      setServicesError(null);
+
+      try {
+        const { data } = await servicesApi.getAll({ page: 1, limit: 3 });
+        const activeServices = (data.data || []).filter(
+          (service) => service.status === 'ACTIVE' && service.isActive !== false
+        );
+        setPremiumServices(activeServices.slice(0, 3));
+      } catch {
+        setServicesError('Unable to load services right now.');
+      } finally {
+        setIsServicesLoading(false);
+      }
+    };
+
+    void Promise.all([fetchTrendingListings(), fetchPremiumServices()]);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,7 +313,6 @@ const HomePage: React.FC = () => {
             variants={staggerContainer}
             className="max-w-3xl"
           >
-            {/* Dynamic Badge */}
             <motion.div variants={fadeUp} className="mb-4 inline-block">
                <motion.div 
                  className="relative group cursor-default"
@@ -253,7 +328,6 @@ const HomePage: React.FC = () => {
                </motion.div>
             </motion.div>
 
-            {/* Glowing Text */}
             <motion.h1
                key={`title-${activeHeroIndex}`}
                initial={{ opacity: 0, y: 20 }}
@@ -275,7 +349,6 @@ const HomePage: React.FC = () => {
               {heroSlides[activeHeroIndex].subtitle}
             </motion.p>
 
-            {/* Glassmorphism Search Bar */}
             <motion.form
               variants={fadeUp}
               onSubmit={handleSearch}
@@ -301,7 +374,6 @@ const HomePage: React.FC = () => {
               </button>
             </motion.form>
 
-            {/* Pagination Dots */}
             <motion.div variants={fadeUp} className="mt-6 sm:mt-8 flex items-center gap-3">
               {heroSlides.map((_, index) => (
                 <button
@@ -315,7 +387,6 @@ const HomePage: React.FC = () => {
               ))}
             </motion.div>
 
-            {/* Stats */}
             <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-6 sm:gap-10">
               <StatItem value="10K+" label="Active Listings" delay={0.1} />
               <div className="h-10 w-px bg-white/20 hidden sm:block"></div>
@@ -344,7 +415,6 @@ const HomePage: React.FC = () => {
               Explore by <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-indigo-500">Category</span>
             </motion.h2>
 
-            {/* Modern Pill Tabs */}
             <motion.div variants={fadeUp} className="flex p-1.5 bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100">
               <button
                 onClick={() => setActiveTab('products')}
@@ -369,9 +439,8 @@ const HomePage: React.FC = () => {
             </motion.div>
           </motion.div>
 
-          {/* Category Grid */}
           <motion.div
-            key={activeTab} // re-animate when tab changes
+            key={activeTab}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
@@ -394,7 +463,6 @@ const HomePage: React.FC = () => {
                 </motion.div>
               ))
             ) : (
-              // Placeholder skeleton-like appearance
               placeholderCategories.map((cat, index) => (
                 <motion.div key={cat} variants={scaleIn} whileHover={{ y: -8 }}>
                   <div className="h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 text-center border border-slate-100 shadow-sm transition-all duration-300 group">
@@ -412,7 +480,6 @@ const HomePage: React.FC = () => {
 
       {/* ===== HOW IT WORKS - BENTO GRID ===== */}
       <section className="py-24 bg-white relative overflow-hidden">
-        {/* Subtle background pattern */}
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -437,7 +504,6 @@ const HomePage: React.FC = () => {
             {howItWorksSteps.map((step, i) => (
               <motion.div key={i} variants={fadeUp} className={`relative z-10 ${i === 1 ? 'lg:translate-y-8' : ''}`}>
                 <div className="h-full bg-white rounded-3xl p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.1)] transition-all duration-500 overflow-hidden group">
-                   {/* Background Gradient Blob on Hover */}
                    <div className={`absolute -top-24 -right-24 w-48 h-48 ${step.colorCode} rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-0`}></div>
                    
                    <div className="relative z-10">
@@ -486,16 +552,39 @@ const HomePage: React.FC = () => {
             variants={staggerContainer}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
           >
-            {mockListings.map((listing, i) => (
-              <motion.div key={i} variants={fadeUp} whileHover={{ y: -10 }}>
+            {isListingsLoading && (
+              <div className="col-span-full text-center py-10 text-slate-500 font-medium">Loading listings...</div>
+            )}
+
+            {!isListingsLoading && listingsError && (
+              <div className="col-span-full text-center py-10 text-rose-500 font-semibold">{listingsError}</div>
+            )}
+
+            {!isListingsLoading && !listingsError && trendingListings.length === 0 && (
+              <div className="col-span-full text-center py-10 text-slate-500 font-medium">No listings available yet.</div>
+            )}
+
+            {!isListingsLoading && !listingsError && trendingListings.map((listing) => (
+              <motion.div key={listing._id} variants={fadeUp} whileHover={{ y: -10 }}>
                 <Card className="h-full bg-white rounded-3xl overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-300 group">
                   <div className="relative">
-                    <div className={`h-56 ${listing.bgColor} flex items-center justify-center transition-colors duration-500`}>
-                      <motion.div whileHover={{ scale: 1.1 }}>{listing.icon}</motion.div>
+                    <div className="h-56 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center transition-colors duration-500">
+                      {listing.images?.[0] ? (
+                        <img
+                          src={listing.images[0]}
+                          alt={listing.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <motion.div whileHover={{ scale: 1.1 }}>
+                          <FiPackage className="h-20 w-20 text-slate-300 drop-shadow-xl" />
+                        </motion.div>
+                      )}
                     </div>
                     <div className="absolute top-4 left-4">
                       <div className={`px-3 py-1 text-xs font-bold rounded-full backdrop-blur-md text-white shadow-sm ${listing.condition === 'NEW' ? 'bg-emerald-500/90' : 'bg-slate-800/90'}`}>
-                        {listing.condition}
+                        {getConditionLabel(listing.condition)}
                       </div>
                     </div>
                     <button className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white shadow-sm transition-all active:scale-90">
@@ -505,7 +594,7 @@ const HomePage: React.FC = () => {
                   <div className="p-6">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">
                       <FiMapPin className="h-3.5 w-3.5 text-primary-500" />
-                      {listing.location}
+                      {listing.location?.city || 'Sri Lanka'}
                     </div>
                     <h3 className="text-lg font-bold text-slate-800 mb-4 line-clamp-2 leading-tight group-hover:text-primary-600 transition-colors">
                       {listing.title}
@@ -513,10 +602,10 @@ const HomePage: React.FC = () => {
                     <div className="flex items-end justify-between mt-auto">
                       <div>
                         <p className="text-xs text-slate-400 mb-1 font-medium">Asking Price</p>
-                        <span className="text-xl font-black text-slate-900">{listing.price}</span>
+                        <span className="text-xl font-black text-slate-900">{formatCurrency(listing.price, listing.currency)}</span>
                       </div>
                       <div className="px-3 py-1.5 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                        <FiEye className="h-3 w-3" /> {listing.views}
+                        <FiEye className="h-3 w-3" /> {formatViews(listing.viewsCount)}
                       </div>
                     </div>
                   </div>
@@ -556,12 +645,43 @@ const HomePage: React.FC = () => {
             variants={staggerContainer}
             className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
-            {mockServices.map((service, i) => (
-              <motion.div key={i} variants={fadeUp} whileHover={{ y: -6 }}>
+            {isServicesLoading && (
+              <div className="col-span-full text-center py-10 text-slate-500 font-medium">Loading services...</div>
+            )}
+
+            {!isServicesLoading && servicesError && (
+              <div className="col-span-full text-center py-10 text-rose-500 font-semibold">{servicesError}</div>
+            )}
+
+            {!isServicesLoading && !servicesError && premiumServices.length === 0 && (
+              <div className="col-span-full text-center py-10 text-slate-500 font-medium">No services available yet.</div>
+            )}
+
+            {!isServicesLoading && !servicesError && premiumServices.map((service) => (
+              <motion.div key={service._id} variants={fadeUp} whileHover={{ y: -6 }}>
                 <div className="h-full bg-white rounded-3xl p-8 border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.08)] hover:border-emerald-100 transition-all duration-300 group">
+                  <div className="mb-6 h-40 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center">
+                    {service.images?.[0] ? (
+                      <img
+                        src={service.images[0]}
+                        alt={service.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : service.pricingType === 'HOURLY' ? (
+                      <FiZap className="h-12 w-12 text-amber-500" />
+                    ) : (
+                      <FiTool className="h-12 w-12 text-indigo-500" />
+                    )}
+                  </div>
+
                   <div className="flex items-start justify-between mb-6">
-                    <div className={`w-16 h-16 rounded-2xl ${service.iconBg} flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm`}>
-                      {service.icon}
+                    <div className={`w-16 h-16 rounded-2xl ${service.pricingType === 'HOURLY' ? 'bg-amber-100' : 'bg-indigo-100'} flex items-center justify-center flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-sm`}>
+                      {service.pricingType === 'HOURLY' ? (
+                        <FiZap className="h-8 w-8 text-amber-600" />
+                      ) : (
+                        <FiTool className="h-8 w-8 text-indigo-600" />
+                      )}
                     </div>
                     <div className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${service.pricingType === 'HOURLY' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
                       {service.pricingType}
@@ -571,12 +691,12 @@ const HomePage: React.FC = () => {
                     {service.title}
                   </h3>
                   <p className="text-slate-500 mb-8 leading-relaxed font-medium">
-                    {service.description}
+                    {service.location?.city || service.locationText}
                   </p>
                   <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
                     <div>
                       <p className="text-xs text-slate-400 font-bold mb-1 uppercase tracking-wider">Starting at</p>
-                      <span className="text-2xl font-black text-slate-900">{service.price}</span>
+                      <span className="text-2xl font-black text-slate-900">{getServicePriceLabel(service)}</span>
                     </div>
                     <button className="w-12 h-12 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-colors">
                       <FiArrowRight className="h-5 w-5" />
@@ -727,7 +847,6 @@ const HomePage: React.FC = () => {
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-slate-900 z-0">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
-          {/* Abstract background blobs for premium feel */}
           <motion.div variants={floatAnim} initial="hidden" animate="visible" className="absolute -top-[30%] -right-[10%] w-[700px] h-[700px] bg-primary-600/40 rounded-full blur-[120px]" />
           <motion.div variants={floatAnim} initial="hidden" animate="visible" style={{ animationDelay: '2s' }} className="absolute -bottom-[30%] -left-[10%] w-[600px] h-[600px] bg-indigo-600/40 rounded-full blur-[120px]" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-950/80"></div>
@@ -838,72 +957,6 @@ const howItWorksSteps = [
     description: 'Transact with total confidence using our escrow-protected payment gateway.',
     colorCode: 'bg-rose-500/10',
     textGradient: 'from-slate-200 to-slate-50'
-  },
-];
-
-const mockListings = [
-  {
-    title: 'MacBook Pro M3 Max - 36GB RAM / 1TB',
-    price: 'LKR 1,150,000',
-    location: 'Colombo 03',
-    condition: 'NEW',
-    views: '3.4K',
-    bgColor: 'bg-gradient-to-br from-slate-100 to-slate-200',
-    icon: <FiPackage className="h-20 w-20 text-slate-300 drop-shadow-xl" />,
-  },
-  {
-    title: 'Sony Alpha a7 IV Mirrorless Camera',
-    price: 'LKR 820,000',
-    location: 'Kandy',
-    condition: 'USED',
-    views: '1.2K',
-    bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100',
-    icon: <FiPackage className="h-20 w-20 text-indigo-300 drop-shadow-xl" />,
-  },
-  {
-    title: 'Modern Minimalist L-Shape Sofa',
-    price: 'LKR 245,000',
-    location: 'Mount Lavinia',
-    condition: 'NEW',
-    views: '890',
-    bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100',
-    icon: <FiPackage className="h-20 w-20 text-amber-300 drop-shadow-xl" />,
-  },
-  {
-    title: 'PlayStation 5 Disc Edition + 2 Controllers',
-    price: 'LKR 185,000',
-    location: 'Nugegoda',
-    condition: 'USED',
-    views: '4.5K',
-    bgColor: 'bg-gradient-to-br from-rose-50 to-rose-100',
-    icon: <FiPackage className="h-20 w-20 text-rose-300 drop-shadow-xl" />,
-  },
-];
-
-const mockServices = [
-  {
-    title: 'Master Electrician',
-    description: 'Certified professional for home wiring, repairs, and smart home installations. Rapid response times.',
-    price: 'LKR 2,000/hr',
-    pricingType: 'HOURLY',
-    iconBg: 'bg-amber-100',
-    icon: <FiZap className="h-8 w-8 text-amber-600" />,
-  },
-  {
-    title: 'Full-Stack Web Development',
-    description: 'Custom web application design and development. React, Node.js, and modern cloud deployment architectures.',
-    price: 'LKR 150,000',
-    pricingType: 'FIXED',
-    iconBg: 'bg-indigo-100',
-    icon: <FiTool className="h-8 w-8 text-indigo-600" />,
-  },
-  {
-    title: 'Advanced Mathematics Tutoring',
-    description: 'University-level and Advanced Level mathematics preparation. Custom study plans and dedicated mentoring.',
-    price: 'LKR 3,500/hr',
-    pricingType: 'HOURLY',
-    iconBg: 'bg-emerald-100',
-    icon: <FiUsers className="h-8 w-8 text-emerald-600" />,
   },
 ];
 

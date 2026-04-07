@@ -1,14 +1,24 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FiCheckCircle, FiClock, FiShield, FiUser } from 'react-icons/fi';
+import {
+  FiBriefcase,
+  FiCheckCircle,
+  FiClock,
+  FiEdit2,
+  FiMapPin,
+  FiSettings,
+  FiShield,
+  FiUser
+} from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { Avatar, Badge, Button, Card, Input, Spinner } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { usersApi, UpdateProfilePayload } from '@/api/users';
 import apiClient from '@/api/client';
-import { KycStatus } from '@/types';
+import { KycStatus, IUser } from '@/types';
 
 const optionalProfileImage = z
   .string()
@@ -57,6 +67,16 @@ const passwordSchema = z
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
+type EditableSection = 'picture' | 'basic' | 'address' | 'bio' | 'seller' | 'preferences' | 'password';
+type ProfileFieldName = keyof ProfileFormData;
+
+const profileSectionFields: Record<Exclude<EditableSection, 'picture' | 'password'>, ProfileFieldName[]> = {
+  basic: ['name', 'phone', 'age'],
+  address: ['street', 'city', 'province', 'postalCode', 'country'],
+  bio: ['bio'],
+  seller: ['businessName', 'serviceArea', 'sellerDescription'],
+  preferences: ['emailNotifications', 'pushNotifications', 'marketingEmails']
+};
 
 const kycBadgeVariant: Record<KycStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
   UNSUBMITTED: 'neutral',
@@ -65,13 +85,33 @@ const kycBadgeVariant: Record<KycStatus, 'warning' | 'success' | 'danger' | 'neu
   REJECTED: 'danger'
 };
 
+const getProfileDefaults = (user: IUser): ProfileFormData => ({
+  name: user.name,
+  phone: user.phone,
+  age: user.age,
+  profileImage: user.profileImage || '',
+  bio: user.bio || '',
+  street: user.address?.street || '',
+  city: user.address?.city || '',
+  province: user.address?.province || '',
+  postalCode: user.address?.postalCode || '',
+  country: user.address?.country || 'Sri Lanka',
+  businessName: user.sellerProfile?.businessName || '',
+  serviceArea: user.sellerProfile?.serviceArea || '',
+  sellerDescription: user.sellerProfile?.description || '',
+  emailNotifications: user.preferences?.emailNotifications ?? true,
+  pushNotifications: user.preferences?.pushNotifications ?? true,
+  marketingEmails: user.preferences?.marketingEmails ?? false
+});
+
 const ProfilePage: React.FC = () => {
   const { user, setUser, fetchUser } = useAuthStore();
   const [isBootLoading, setIsBootLoading] = useState(true);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
+  const [savingSection, setSavingSection] = useState<Exclude<EditableSection, 'picture' | 'password'> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [serviceStats, setServiceStats] = useState({
     myServices: 0,
@@ -82,9 +122,9 @@ const ProfilePage: React.FC = () => {
 
   const {
     register,
-    handleSubmit,
     reset,
-    setValue,
+    getValues,
+    trigger,
     watch,
     formState: { errors }
   } = useForm<ProfileFormData>({
@@ -139,27 +179,11 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    reset({
-      name: user.name,
-      phone: user.phone,
-      age: user.age,
-      profileImage: user.profileImage || '',
-      bio: user.bio || '',
-      street: user.address?.street || '',
-      city: user.address?.city || '',
-      province: user.address?.province || '',
-      postalCode: user.address?.postalCode || '',
-      country: user.address?.country || 'Sri Lanka',
-      businessName: user.sellerProfile?.businessName || '',
-      serviceArea: user.sellerProfile?.serviceArea || '',
-      sellerDescription: user.sellerProfile?.description || '',
-      emailNotifications: user.preferences?.emailNotifications ?? true,
-      pushNotifications: user.preferences?.pushNotifications ?? true,
-      marketingEmails: user.preferences?.marketingEmails ?? false
-    });
+    reset(getProfileDefaults(user));
   }, [reset, user]);
 
   const profileImageValue = watch('profileImage');
+  const defaults = user ? getProfileDefaults(user) : null;
 
   const handlePickImageClick = () => {
     fileInputRef.current?.click();
@@ -193,7 +217,8 @@ const ProfilePage: React.FC = () => {
     try {
       const { data: response } = await usersApi.updateProfile({ profileImage: base64 });
       setUser(response.user);
-      setValue('profileImage', response.user.profileImage || '', { shouldValidate: true, shouldDirty: true });
+      reset(getProfileDefaults(response.user));
+      setEditingSection(null);
       toast.success('Profile picture updated');
     } finally {
       setIsUpdatingPhoto(false);
@@ -206,7 +231,8 @@ const ProfilePage: React.FC = () => {
     try {
       const { data: response } = await usersApi.updateProfile({ profileImage: null });
       setUser(response.user);
-      setValue('profileImage', '', { shouldValidate: true, shouldDirty: true });
+      reset(getProfileDefaults(response.user));
+      setEditingSection(null);
       toast.success('Profile picture removed');
     } finally {
       setIsUpdatingPhoto(false);
@@ -244,39 +270,100 @@ const ProfilePage: React.FC = () => {
     void loadStats();
   }, [user]);
 
-  const onProfileSave = async (data: ProfileFormData) => {
-    setIsSavingProfile(true);
-    try {
-      const payload: UpdateProfilePayload = {
-        name: data.name,
-        phone: data.phone,
-        age: data.age,
-        profileImage: data.profileImage === '' ? null : data.profileImage,
-        bio: data.bio || undefined,
-        address: {
-          street: data.street || undefined,
-          city: data.city,
-          province: data.province || undefined,
-          postalCode: data.postalCode || undefined,
-          country: data.country
-        },
-        sellerProfile: {
-          businessName: data.businessName || undefined,
-          serviceArea: data.serviceArea || undefined,
-          description: data.sellerDescription || undefined
-        },
-        preferences: {
-          emailNotifications: data.emailNotifications,
-          pushNotifications: data.pushNotifications,
-          marketingEmails: data.marketingEmails
-        }
-      };
+  const isSectionDirty = (section: EditableSection) => {
+    if (!defaults) return false;
+    if (section === 'picture' || section === 'password') return false;
 
+    return profileSectionFields[section].some((field) => getValues(field) !== defaults[field]);
+  };
+
+  const resetProfileFormToUser = () => {
+    if (!defaults) return;
+    reset(defaults);
+  };
+
+  const closeActiveSection = () => {
+    resetProfileFormToUser();
+    resetPassword();
+    setEditingSection(null);
+  };
+
+  const openSection = (nextSection: EditableSection) => {
+    if (editingSection === nextSection) return;
+
+    if (editingSection && isSectionDirty(editingSection)) {
+      const shouldDiscard = window.confirm('You have unsaved changes in the current section. Discard them and continue?');
+      if (!shouldDiscard) return;
+      resetProfileFormToUser();
+    }
+
+    if (editingSection === 'password') {
+      resetPassword();
+    }
+
+    setEditingSection(nextSection);
+  };
+
+  const saveSection = async (section: Exclude<EditableSection, 'picture' | 'password'>) => {
+    const isValid = await trigger(profileSectionFields[section]);
+    if (!isValid) return;
+
+    const values = getValues();
+    let payload: UpdateProfilePayload;
+
+    switch (section) {
+      case 'basic':
+        payload = {
+          name: values.name,
+          phone: values.phone,
+          age: values.age
+        };
+        break;
+      case 'address':
+        payload = {
+          address: {
+            street: values.street || undefined,
+            city: values.city,
+            province: values.province || undefined,
+            postalCode: values.postalCode || undefined,
+            country: values.country
+          }
+        };
+        break;
+      case 'bio':
+        payload = {
+          bio: values.bio || undefined
+        };
+        break;
+      case 'seller':
+        payload = {
+          sellerProfile: {
+            businessName: values.businessName || undefined,
+            serviceArea: values.serviceArea || undefined,
+            description: values.sellerDescription || undefined
+          }
+        };
+        break;
+      case 'preferences':
+        payload = {
+          preferences: {
+            emailNotifications: values.emailNotifications,
+            pushNotifications: values.pushNotifications,
+            marketingEmails: values.marketingEmails
+          }
+        };
+        break;
+    }
+
+    setSavingSection(section);
+    try {
       const { data: response } = await usersApi.updateProfile(payload);
       setUser(response.user);
+      reset(getProfileDefaults(response.user));
+      setEditingSection(null);
       toast.success('Profile updated successfully');
     } finally {
-      setIsSavingProfile(false);
+      setSavingSection(null);
     }
   };
 
@@ -288,6 +375,7 @@ const ProfilePage: React.FC = () => {
         newPassword: data.newPassword
       });
       resetPassword();
+      setEditingSection(null);
       toast.success('Password changed successfully');
     } finally {
       setIsChangingPassword(false);
@@ -313,48 +401,111 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Profile Settings</h1>
-        <p className="text-slate-500 mt-1">Manage your account details, preferences, and security.</p>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <div className="space-y-2">
+        <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">Account Settings</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Profile Settings</h1>
+        <p className="max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+          Review your account details and update one section at a time.
+        </p>
       </div>
 
-      <Card hover={false} className="p-6">
-        <div className="flex items-center gap-4">
-          <Avatar name={user.name} src={profileImageValue || user.profileImage} size="xl" />
-          <div>
-            <p className="text-xl font-semibold text-slate-800">{user.name}</p>
-            <p className="text-sm text-slate-500">{user.email}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <Badge variant="info" size="sm">{user.role.toUpperCase()}</Badge>
-              <Badge variant={user.emailVerified ? 'success' : 'warning'} size="sm">
-                {user.emailVerified ? 'Email Verified' : 'Email Not Verified'}
-              </Badge>
+      <Card hover={false} className="overflow-hidden border border-slate-200/80 bg-white shadow-sm">
+        <div className="bg-gradient-to-r from-slate-50 via-white to-slate-50 px-6 py-6 sm:px-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-4 sm:gap-5">
+              <Avatar
+                name={user.name}
+                src={profileImageValue || user.profileImage}
+                size="xl"
+                className="h-20 w-20 text-xl ring-4 ring-white shadow-sm"
+              />
+              <div className="min-w-0 space-y-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Profile Summary</p>
+                  <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{user.name}</h2>
+                  <p className="truncate text-sm text-slate-500 sm:text-base">{user.email}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="info" size="md" className="rounded-full px-3 py-1 font-semibold">
+                    {user.role.toUpperCase()}
+                  </Badge>
+                  <Badge
+                    variant={user.emailVerified ? 'success' : 'warning'}
+                    size="md"
+                    className="rounded-full px-3 py-1 font-semibold"
+                  >
+                    {user.emailVerified ? 'Email Verified' : 'Email Not Verified'}
+                  </Badge>
+                </div>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:min-w-[280px]">
+                <HeaderMetaCard
+                  label="Profile"
+                  value={user.isProfileComplete ? 'Complete' : 'Incomplete'}
+                  tone={user.isProfileComplete ? 'success' : 'warning'}
+                />
+                <HeaderMetaCard
+                  label="KYC"
+                  value={user.verification?.kycStatus || 'UNSUBMITTED'}
+                  tone={kycBadgeVariant[user.verification?.kycStatus || 'UNSUBMITTED']}
+                />
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 border-t border-slate-200 pt-6 sm:grid-cols-2 xl:grid-cols-4">
+            <ReadonlyField label="Full Name" value={user.name} />
+            <ReadonlyField label="Phone" value={user.phone} />
+            <ReadonlyField label="Age" value={String(user.age)} />
+            <ReadonlyField label="Address" value={formatAddress(user.address)} placeholder="Not provided" />
           </div>
         </div>
       </Card>
 
-      <form onSubmit={handleSubmit(onProfileSave)} className="space-y-6">
-        <Card hover={false} className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-800">Profile Picture</h2>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/webp"
-            className="hidden"
-            onChange={handleImageSelected}
-          />
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <Avatar name={user.name} src={profileImageValue || user.profileImage} size="xl" />
-            <div className="flex-1 space-y-3">
-              <div className="flex gap-2">
+      <EditableCard
+        title="Profile Picture"
+        description="Keep your picture up to date for a polished profile."
+        isEditing={editingSection === 'picture'}
+        onEdit={() => openSection('picture')}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          className="hidden"
+          onChange={handleImageSelected}
+        />
+
+        <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar
+              name={user.name}
+              src={profileImageValue || user.profileImage}
+              size="xl"
+              className="h-20 w-20 text-xl ring-4 ring-white"
+            />
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-slate-900">Current photo</p>
+              <p className="max-w-md text-sm leading-6 text-slate-500">
+                {user.profileImage
+                  ? `Use a JPG, PNG, or WEBP image up to ${MAX_PROFILE_IMAGE_MB}MB.`
+                  : 'No profile picture uploaded yet.'}
+              </p>
+            </div>
+          </div>
+
+          {editingSection === 'picture' ? (
+            <div className="space-y-3 md:text-right">
+              <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
                 <Button
                   type="button"
                   variant="primary"
                   size="sm"
                   onClick={handlePickImageClick}
                   isLoading={isUpdatingPhoto}
+                  className="shadow-sm"
                 >
                   Choose Picture
                 </Button>
@@ -364,103 +515,300 @@ const ProfilePage: React.FC = () => {
                   size="sm"
                   onClick={handleRemovePicture}
                   isLoading={isUpdatingPhoto}
+                  className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100/80"
                 >
                   Remove Picture
                 </Button>
               </div>
-              <p className="text-xs text-slate-500">
-                Use a JPG, PNG, or WEBP image up to {MAX_PROFILE_IMAGE_MB}MB.
-              </p>
+              <p className="text-xs text-slate-400">Picture changes save immediately when you choose or remove an image.</p>
               {errors.profileImage?.message && <p className="text-sm text-red-500">{errors.profileImage.message}</p>}
+              <div className="flex justify-end">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditingSection(null)}>
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
-
-        <Card hover={false} className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-800">Basic Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Full Name" error={errors.name?.message} {...register('name')} />
-            <Input label="Phone" error={errors.phone?.message} {...register('phone')} />
-            <Input label="Age" type="number" error={errors.age?.message} {...register('age', { valueAsNumber: true })} />
-            <div className="md:col-span-2">
-              <Input label="Street" error={errors.street?.message} {...register('street')} />
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+              Upload or remove your profile image when needed.
             </div>
-            <Input label="City" error={errors.city?.message} {...register('city')} />
-            <Input label="Province" error={errors.province?.message} {...register('province')} />
-            <Input label="Postal Code" error={errors.postalCode?.message} {...register('postalCode')} />
-            <Input label="Country" error={errors.country?.message} {...register('country')} />
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Bio</label>
-              <textarea
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                {...register('bio')}
-              />
-              {errors.bio?.message && <p className="mt-1.5 text-sm text-red-500">{errors.bio.message}</p>}
-            </div>
-          </div>
-        </Card>
-
-        <Card hover={false} className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-800">Seller / Provider Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Business Name" error={errors.businessName?.message} {...register('businessName')} />
-            <Input label="Service Area" error={errors.serviceArea?.message} {...register('serviceArea')} />
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Description</label>
-              <textarea
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                {...register('sellerDescription')}
-              />
-              {errors.sellerDescription?.message && (
-                <p className="mt-1.5 text-sm text-red-500">{errors.sellerDescription.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatBox label="My Services" value={serviceStats.myServices} loading={statsLoading} />
-            <StatBox label="Active Services" value={serviceStats.activeServices} loading={statsLoading} />
-            <StatBox label="Provider Bookings" value={serviceStats.providerBookings} loading={statsLoading} />
-            <StatBox label="My Bookings" value={serviceStats.buyerBookings} loading={statsLoading} />
-          </div>
-        </Card>
-
-        <Card hover={false} className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-800">Preferences</h2>
-          <div className="space-y-3 text-sm text-slate-700">
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-4 w-4" {...register('emailNotifications')} />
-              Email notifications
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-4 w-4" {...register('pushNotifications')} />
-              Push notifications
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-4 w-4" {...register('marketingEmails')} />
-              Marketing emails
-            </label>
-          </div>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button type="submit" isLoading={isSavingProfile}>Save Profile</Button>
+          )}
         </div>
-      </form>
+      </EditableCard>
 
-      <Card hover={false} className="p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800">Verification & Profile Status</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={kycBadgeVariant[user.verification?.kycStatus || 'UNSUBMITTED']} size="sm">
+      <EditableCard
+        title="Basic Information"
+        description="Core profile details shown across your account."
+        isEditing={editingSection === 'basic'}
+        onEdit={() => openSection('basic')}
+      >
+        {editingSection === 'basic' ? (
+          <>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Input
+                label="Full Name"
+                error={errors.name?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('name')}
+              />
+              <Input
+                label="Phone"
+                error={errors.phone?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('phone')}
+              />
+              <Input
+                label="Age"
+                type="number"
+                error={errors.age?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm md:max-w-sm"
+                {...register('age', { valueAsNumber: true })}
+              />
+            </div>
+            <SectionFooterActions
+              onCancel={closeActiveSection}
+              onSave={() => void saveSection('basic')}
+              isSaving={savingSection === 'basic'}
+            />
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ReadonlyField label="Full Name" value={user.name} />
+            <ReadonlyField label="Phone" value={user.phone} />
+            <ReadonlyField label="Age" value={String(user.age)} />
+          </div>
+        )}
+      </EditableCard>
+
+      <EditableCard
+        title="Address / Location"
+        description="Location details used for your profile and local activity."
+        icon={<FiMapPin className="h-4 w-4" />}
+        isEditing={editingSection === 'address'}
+        onEdit={() => openSection('address')}
+      >
+        {editingSection === 'address' ? (
+          <>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Input
+                  label="Street"
+                  error={errors.street?.message}
+                  className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                  {...register('street')}
+                />
+              </div>
+              <Input
+                label="City"
+                error={errors.city?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('city')}
+              />
+              <Input
+                label="Province"
+                error={errors.province?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('province')}
+              />
+              <Input
+                label="Postal Code"
+                error={errors.postalCode?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('postalCode')}
+              />
+              <Input
+                label="Country"
+                error={errors.country?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('country')}
+              />
+            </div>
+            <SectionFooterActions
+              onCancel={closeActiveSection}
+              onSave={() => void saveSection('address')}
+              isSaving={savingSection === 'address'}
+            />
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ReadonlyField label="Street" value={user.address?.street} placeholder="Not provided" className="md:col-span-2" />
+            <ReadonlyField label="City" value={user.address?.city} placeholder="Not set" />
+            <ReadonlyField label="Province" value={user.address?.province} placeholder="Not provided" />
+            <ReadonlyField label="Postal Code" value={user.address?.postalCode} placeholder="Not provided" />
+            <ReadonlyField label="Country" value={user.address?.country} placeholder="Not set" />
+          </div>
+        )}
+      </EditableCard>
+
+      <EditableCard
+        title="Bio"
+        description="A short description that helps others understand who you are."
+        isEditing={editingSection === 'bio'}
+        onEdit={() => openSection('bio')}
+      >
+        {editingSection === 'bio' ? (
+          <>
+            <FormTextarea label="Bio" rows={5} error={errors.bio?.message} {...register('bio')} />
+            <SectionFooterActions
+              onCancel={closeActiveSection}
+              onSave={() => void saveSection('bio')}
+              isSaving={savingSection === 'bio'}
+            />
+          </>
+        ) : (
+          <ReadonlyField label="Bio" value={user.bio} placeholder="No bio added" multiline />
+        )}
+      </EditableCard>
+
+      <EditableCard
+        title="Seller / Provider Details"
+        description="Business-facing information and service activity at a glance."
+        icon={<FiBriefcase className="h-4 w-4" />}
+        isEditing={editingSection === 'seller'}
+        onEdit={() => openSection('seller')}
+      >
+        {editingSection === 'seller' ? (
+          <>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Input
+                label="Business Name"
+                error={errors.businessName?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('businessName')}
+              />
+              <Input
+                label="Service Area"
+                error={errors.serviceArea?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...register('serviceArea')}
+              />
+              <div className="md:col-span-2">
+                <FormTextarea
+                  label="Business Description"
+                  rows={4}
+                  error={errors.sellerDescription?.message}
+                  {...register('sellerDescription')}
+                />
+              </div>
+            </div>
+            <SectionFooterActions
+              onCancel={closeActiveSection}
+              onSave={() => void saveSection('seller')}
+              isSaving={savingSection === 'seller'}
+            />
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ReadonlyField label="Business Name" value={user.sellerProfile?.businessName} placeholder="Not provided" />
+            <ReadonlyField label="Service Area" value={user.sellerProfile?.serviceArea} placeholder="Not provided" />
+            <ReadonlyField
+              label="Business Description"
+              value={user.sellerProfile?.description}
+              placeholder="Not provided"
+              className="md:col-span-2"
+              multiline
+            />
+          </div>
+        )}
+
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatBox label="My Services" value={serviceStats.myServices} loading={statsLoading} />
+          <StatBox label="Active Services" value={serviceStats.activeServices} loading={statsLoading} />
+          <StatBox label="Provider Bookings" value={serviceStats.providerBookings} loading={statsLoading} />
+          <StatBox label="My Bookings" value={serviceStats.buyerBookings} loading={statsLoading} />
+        </div>
+      </EditableCard>
+
+      <EditableCard
+        title="Preferences"
+        description="Control how you receive important account and marketplace updates."
+        icon={<FiSettings className="h-4 w-4" />}
+        isEditing={editingSection === 'preferences'}
+        onEdit={() => openSection('preferences')}
+      >
+        {editingSection === 'preferences' ? (
+          <>
+            <div className="grid grid-cols-1 gap-3">
+              <PreferenceRow
+                label="Email notifications"
+                description="Receive important account and activity updates by email."
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/30"
+                  {...register('emailNotifications')}
+                />
+              </PreferenceRow>
+              <PreferenceRow
+                label="Push notifications"
+                description="Get timely updates for account activity and service actions."
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/30"
+                  {...register('pushNotifications')}
+                />
+              </PreferenceRow>
+              <PreferenceRow
+                label="Marketing emails"
+                description="Allow occasional promotional emails and marketplace announcements."
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/30"
+                  {...register('marketingEmails')}
+                />
+              </PreferenceRow>
+            </div>
+            <SectionFooterActions
+              onCancel={closeActiveSection}
+              onSave={() => void saveSection('preferences')}
+              isSaving={savingSection === 'preferences'}
+            />
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-3">
+            <PreferenceSummary
+              label="Email notifications"
+              description="Receive important account and activity updates by email."
+              enabled={user.preferences?.emailNotifications ?? true}
+            />
+            <PreferenceSummary
+              label="Push notifications"
+              description="Get timely updates for account activity and service actions."
+              enabled={user.preferences?.pushNotifications ?? true}
+            />
+            <PreferenceSummary
+              label="Marketing emails"
+              description="Allow occasional promotional emails and marketplace announcements."
+              enabled={user.preferences?.marketingEmails ?? false}
+            />
+          </div>
+        )}
+      </EditableCard>
+
+      <Card hover={false} className="border border-slate-200/80 bg-white p-6 shadow-sm sm:p-7">
+        <SectionHeader
+          title="Verification & Profile Status"
+          description="A quick status overview for account completeness and verification."
+        />
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <Badge
+            variant={kycBadgeVariant[user.verification?.kycStatus || 'UNSUBMITTED']}
+            size="md"
+            className="rounded-full px-3 py-1 font-semibold"
+          >
             KYC: {user.verification?.kycStatus || 'UNSUBMITTED'}
           </Badge>
-          <Badge variant={user.isProfileComplete ? 'success' : 'warning'} size="sm">
+          <Badge
+            variant={user.isProfileComplete ? 'success' : 'warning'}
+            size="md"
+            className="rounded-full px-3 py-1 font-semibold"
+          >
             {user.isProfileComplete ? 'Profile Complete' : 'Profile Incomplete'}
           </Badge>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <StatusItem
             icon={<FiUser className="h-4 w-4" />}
             title="Profile"
@@ -477,54 +825,253 @@ const ProfilePage: React.FC = () => {
             value={user.verification?.kycStatus || 'UNSUBMITTED'}
           />
         </div>
-        <p className="text-xs text-slate-400 flex items-center gap-1">
+        <p className="mt-5 flex items-center gap-1.5 text-xs text-slate-400">
           <FiClock className="h-3.5 w-3.5" />
           KYC status is currently read-only in profile. Contact support to submit or review KYC documents.
         </p>
       </Card>
 
-      <Card hover={false} className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Change Password</h2>
-        <form onSubmit={handlePasswordSubmit(onPasswordChange)} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <Input
-            label="Current Password"
-            type="password"
-            error={passwordErrors.currentPassword?.message}
-            {...registerPassword('currentPassword')}
-          />
-          <Input
-            label="New Password"
-            type="password"
-            error={passwordErrors.newPassword?.message}
-            {...registerPassword('newPassword')}
-          />
-          <Input
-            label="Confirm New Password"
-            type="password"
-            error={passwordErrors.confirmPassword?.message}
-            {...registerPassword('confirmPassword')}
-          />
-          <div className="md:col-span-3 flex justify-end">
-            <Button type="submit" variant="outline" isLoading={isChangingPassword}>Update Password</Button>
+      <EditableCard
+        title="Change Password"
+        description="Update your password with the existing security flow."
+        isEditing={editingSection === 'password'}
+        onEdit={() => openSection('password')}
+      >
+        {editingSection === 'password' ? (
+          <form onSubmit={handlePasswordSubmit(onPasswordChange)} className="space-y-5">
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+              <Input
+                label="Current Password"
+                type="password"
+                error={passwordErrors.currentPassword?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...registerPassword('currentPassword')}
+              />
+              <Input
+                label="New Password"
+                type="password"
+                error={passwordErrors.newPassword?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...registerPassword('newPassword')}
+              />
+              <Input
+                label="Confirm New Password"
+                type="password"
+                error={passwordErrors.confirmPassword?.message}
+                className="min-h-[3.25rem] border-slate-300 shadow-sm"
+                {...registerPassword('confirmPassword')}
+              />
+            </div>
+            <SectionFooterActions
+              onCancel={() => {
+                resetPassword();
+                setEditingSection(null);
+              }}
+              submitLabel="Update Password"
+              isSaving={isChangingPassword}
+              submitType="submit"
+            />
+          </form>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4 text-sm text-slate-500">
+            Passwords are hidden for security. Open this section to update your current password.
           </div>
-        </form>
-      </Card>
+        )}
+      </EditableCard>
+    </div>
+  );
+};
+
+const EditableCard: React.FC<{
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+  isEditing: boolean;
+  onEdit: () => void;
+  children: React.ReactNode;
+}> = ({ title, description, icon, isEditing, onEdit, children }) => (
+  <Card hover={false} className="border border-slate-200/80 bg-white p-6 shadow-sm sm:p-7">
+    <SectionHeader
+      title={title}
+      description={description}
+      icon={icon}
+      action={
+        !isEditing ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            leftIcon={<FiEdit2 className="h-4 w-4" />}
+            className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+          >
+            Edit
+          </Button>
+        ) : (
+          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+            Editing
+          </span>
+        )
+      }
+    />
+    <div className="mt-6">{children}</div>
+  </Card>
+);
+
+const SectionHeader: React.FC<{
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+}> = ({ title, description, icon, action }) => (
+  <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 text-slate-900">
+        {icon && <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">{icon}</span>}
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      </div>
+      <p className="max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+    </div>
+    {action && <div className="shrink-0">{action}</div>}
+  </div>
+);
+
+const SectionFooterActions: React.FC<{
+  onCancel: () => void;
+  onSave?: () => void;
+  isSaving?: boolean;
+  submitLabel?: string;
+  submitType?: 'button' | 'submit';
+}> = ({ onCancel, onSave, isSaving = false, submitLabel = 'Save Changes', submitType = 'button' }) => (
+  <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+    <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+      Cancel
+    </Button>
+    <Button
+      type={submitType}
+      variant="primary"
+      size="sm"
+      isLoading={isSaving}
+      onClick={submitType === 'button' ? onSave : undefined}
+      className="shadow-sm"
+    >
+      {submitLabel}
+    </Button>
+  </div>
+);
+
+const FormTextarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }
+>(({ label, error, className = '', ...props }, ref) => (
+  <div className="w-full">
+    <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
+    <textarea
+      ref={ref}
+      className={`
+        w-full rounded-2xl border bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200
+        placeholder:text-slate-400
+        ${error ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' : 'border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'}
+        ${className}
+      `}
+      {...props}
+    />
+    {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
+  </div>
+));
+
+FormTextarea.displayName = 'FormTextarea';
+
+const ReadonlyField: React.FC<{
+  label: string;
+  value?: string;
+  placeholder?: string;
+  className?: string;
+  multiline?: boolean;
+}> = ({ label, value, placeholder = 'Not provided', className = '', multiline = false }) => (
+  <div className={`rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 shadow-sm ${className}`}>
+    <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{label}</p>
+    <p className={`mt-2 text-sm text-slate-800 ${multiline ? 'whitespace-pre-wrap leading-6' : 'font-medium'}`}>
+      {value && value.trim() !== '' ? value : <span className="text-slate-400">{placeholder}</span>}
+    </p>
+  </div>
+);
+
+const PreferenceRow: React.FC<{ label: string; description: string; children: React.ReactNode }> = ({
+  label,
+  description,
+  children
+}) => (
+  <label className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 transition-colors hover:bg-slate-50">
+    <span className="space-y-1">
+      <span className="block text-sm font-medium text-slate-800">{label}</span>
+      <span className="block text-sm leading-6 text-slate-500">{description}</span>
+    </span>
+    <span className="mt-0.5 shrink-0">{children}</span>
+  </label>
+);
+
+const PreferenceSummary: React.FC<{ label: string; description: string; enabled: boolean }> = ({
+  label,
+  description,
+  enabled
+}) => (
+  <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 shadow-sm">
+    <span className="space-y-1">
+      <span className="block text-sm font-medium text-slate-800">{label}</span>
+      <span className="block text-sm leading-6 text-slate-500">{description}</span>
+    </span>
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+        enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-600'
+      }`}
+    >
+      {enabled ? 'Enabled' : 'Disabled'}
+    </span>
+  </div>
+);
+
+const HeaderMetaCard: React.FC<{ label: string; value: string; tone: 'warning' | 'success' | 'danger' | 'neutral' }> = ({
+  label,
+  value,
+  tone
+}) => {
+  const toneClasses: Record<'warning' | 'success' | 'danger' | 'neutral', string> = {
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    danger: 'border-red-200 bg-red-50 text-red-700',
+    neutral: 'border-slate-200 bg-slate-50 text-slate-700'
+  };
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClasses[tone]}`}>
+      <p className="text-xs font-medium uppercase tracking-[0.14em] opacity-80">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
 };
 
 const StatBox: React.FC<{ label: string; value: number; loading: boolean }> = ({ label, value, loading }) => (
-  <div className="rounded-xl border border-slate-200 p-3">
-    <p className="text-xs text-slate-500">{label}</p>
-    <p className="text-lg font-semibold text-slate-800 mt-1">{loading ? '...' : value}</p>
+  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm">
+    <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{label}</p>
+    <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{loading ? '...' : value}</p>
   </div>
 );
 
 const StatusItem: React.FC<{ icon: React.ReactNode; title: string; value: string }> = ({ icon, title, value }) => (
-  <div className="rounded-xl border border-slate-200 p-3">
-    <p className="text-xs text-slate-500 flex items-center gap-1.5">{icon}{title}</p>
-    <p className="text-sm font-medium text-slate-800 mt-1">{value}</p>
+  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm">
+    <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+      {icon}
+      {title}
+    </p>
+    <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
   </div>
 );
+
+const formatAddress = (address?: IUser['address']) => {
+  if (!address) return '';
+
+  return [address.street, address.city, address.province, address.postalCode, address.country].filter(Boolean).join(', ');
+};
 
 export default ProfilePage;

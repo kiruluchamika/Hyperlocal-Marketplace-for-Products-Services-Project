@@ -8,3 +8,4 @@ export * from './payment';
 export * from './notification';
 export * from './admin';
 export * from './geo';
+export * from './contact';

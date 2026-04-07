@@ -10,6 +10,7 @@ import type {
   Pagination,
   AdminMarketplaceWallet,
 } from '@/types/admin';
+import type { ContactMessage, ContactMessageStatus } from '@/types/contact';
 
 export const adminApi = {
   /* ── Dashboard ── */
@@ -50,4 +51,14 @@ export const adminApi = {
 
   approveListing: (id: string) =>
     apiClient.patch<{ message: string; listing: AdminListing }>(`/admin/listings/${id}/approve`),
+
+  /* ── Contact Requests ── */
+  getContactRequests: (params?: { page?: number; limit?: number; status?: ContactMessageStatus; search?: string }) =>
+    apiClient.get<{ messages: ContactMessage[]; pagination: Pagination }>('/admin/contacts', { params }),
+
+  markContactReviewed: (id: string) =>
+    apiClient.patch<{ message: string; contact: ContactMessage }>(`/admin/contacts/${id}/review`),
+
+  replyToContact: (id: string, replyMessage: string) =>
+    apiClient.patch<{ message: string; contact: ContactMessage }>(`/admin/contacts/${id}/reply`, { replyMessage }),
 };

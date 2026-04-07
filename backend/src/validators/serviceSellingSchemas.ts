@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createServiceSellingSchema = z.object({
   title: z.string().min(3).max(100),
-  description: z.string().min(10).max(2000),
+  description: z.string().max(2000).optional().default(""),
 
   categoryId: z.string().min(1),
 
@@ -11,23 +11,21 @@ export const createServiceSellingSchema = z.object({
 
   locationText: z.string().min(2).max(120),
 
-  // ✅ ADD (optional): Geo location for geo search (MongoDB 2dsphere)
-  // coordinates.coordinates must be [lng, lat]
-  location: z
-    .object({
-      city: z.string().min(2).max(120),
-      address: z.string().min(2).max(200).optional(),
-      coordinates: z.object({
+  location: z.object({
+    city: z.string().min(2).max(120),
+    address: z.string().min(2).max(200).optional(),
+    coordinates: z
+      .object({
         type: z.literal("Point").default("Point"),
         coordinates: z
-          .tuple([z.number(), z.number()]) // [lng, lat]
+          .tuple([z.number(), z.number()])
           .refine(
             ([lng, lat]) => lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90,
             { message: "Invalid coordinates. Use [lng, lat]." }
           ),
-      }),
-    })
-    .optional(),
+      })
+      .optional(),
+  }),
 
   images: z.array(z.string().url()).optional().default([]),
 
