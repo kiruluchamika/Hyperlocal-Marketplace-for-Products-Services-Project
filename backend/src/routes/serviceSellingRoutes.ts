@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth";
+import { authOptional } from "../middlewares/authOptional";
 import { requireRole } from "../middlewares/requireRole";
 import { validate } from "../middlewares/validate";
 import { requireServiceSellingOwnershipOrAdmin } from "../middlewares/requireServiceSellingOwnershipOrAdmin";
@@ -70,7 +71,7 @@ router.get("/", validate(listServiceSellingQuerySchema, "query"), async (req, re
  *       401:
  *         description: Authentication required
  */
-router.get("/me", auth, requireRole(["user"]), async (req: any, res, next) => {
+router.get("/me", auth, async (req: any, res, next) => {
   try {
     const result = await svc.listMyServiceSelling(req.user.id);
     res.json({ success: true, data: result });
@@ -134,7 +135,7 @@ router.get("/admin", auth, requireRole(["admin"]), async (req, res, next) => {
  *       401:
  *         description: Authentication required
  */
-router.get("/:id", auth, async (req: any, res, next) => {
+router.get("/:id", authOptional, async (req: any, res, next) => {
   try {
     const item = await svc.getServiceSellingById(
       req.params.id,

@@ -26,7 +26,7 @@ const AdminPagination: React.FC<AdminPaginationProps> = ({ pagination, onPageCha
   }
 
   return (
-    <div className="flex items-center justify-between border-t border-slate-700/50 px-4 py-3">
+    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
       <p className="text-xs text-slate-500">
         Showing page {page} of {totalPages} ({total} total)
       </p>
@@ -34,7 +34,7 @@ const AdminPagination: React.FC<AdminPaginationProps> = ({ pagination, onPageCha
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <FiChevronLeft size={16} />
         </button>
@@ -50,7 +50,7 @@ const AdminPagination: React.FC<AdminPaginationProps> = ({ pagination, onPageCha
               className={`min-w-[32px] rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
                 p === page
                   ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               {p}
@@ -60,7 +60,7 @@ const AdminPagination: React.FC<AdminPaginationProps> = ({ pagination, onPageCha
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <FiChevronRight size={16} />
         </button>

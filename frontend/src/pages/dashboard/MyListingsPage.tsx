@@ -24,8 +24,8 @@ const MyListingsPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await listingsApi.getMyActive(user.id);
-      setListings(response.data);
+      const response = await listingsApi.getMyActive();
+      setListings(response.data.data);
     } catch {
       setListings([]);
     } finally {
@@ -93,10 +93,35 @@ const MyListingsPage: React.FC = () => {
 
               <div className="mt-3 flex items-center justify-between gap-2">
                 <h3 className="truncate text-base font-semibold text-slate-800">{listing.title}</h3>
-                <Badge variant="info">{listing.status}</Badge>
+                <Badge variant={listing.status === 'SUSPENDED' ? 'danger' : listing.status === 'UNDER_REVIEW' ? 'warning' : 'info'}>
+                  {listing.status}
+                </Badge>
               </div>
 
-              <p className="mt-1 text-sm font-semibold text-slate-700">{formatCurrency(listing.price, listing.currency)}</p>
+              {listing.status === 'SUSPENDED' && (
+                <div className="mt-3 rounded-lg bg-red-50 p-3 shadow-sm border border-red-100">
+                  <div className="flex gap-2 text-red-800">
+                    <FiEye className="mt-0.5 shrink-0" />
+                    <div className="text-xs">
+                      <p className="font-semibold">Listing Suspended</p>
+                      <p className="mt-1 font-medium">{listing.suspendReason || 'A violation was detected.'}</p>
+                      {listing.suspendDeadline && (
+                        <p className="mt-1 text-red-600 font-semibold">
+                          Edit before: {new Date(listing.suspendDeadline).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {listing.status === 'UNDER_REVIEW' && (
+                <div className="mt-3 rounded-lg bg-amber-50 p-2 shadow-sm border border-amber-100 text-xs text-amber-800">
+                  <span className="font-semibold">Review Pending:</span> Your edits have been submitted for admin approval.
+                </div>
+              )}
+
+              <p className="mt-2 text-sm font-semibold text-slate-700">{formatCurrency(listing.price, listing.currency)}</p>
               <p className="mt-1 text-xs text-slate-500">{formatCondition(listing.condition)}</p>
               <p className="mt-1 text-xs text-slate-500">{listing.location?.city || 'City not available'}</p>
 

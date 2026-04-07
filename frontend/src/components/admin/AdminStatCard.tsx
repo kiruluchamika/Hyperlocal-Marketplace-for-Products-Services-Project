@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiArrowDownRight, FiArrowUpRight } from 'react-icons/fi';
 
 interface AdminStatCardProps {
   title: string;
@@ -35,29 +36,32 @@ const AdminStatCard: React.FC<AdminStatCardProps> = ({
 }) => {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20 ${colorMap[color]}`}
-      style={{ background: 'rgba(15, 23, 42, 0.6)' }}
+      className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-slate-200/50 ${colorMap[color]}`}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
             {title}
           </p>
-          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className="text-2xl font-bold text-slate-900">{value}</p>
           {trend && (
-            <p
-              className={`text-xs font-medium ${
-                trend.value >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}%{' '}
-              <span className="text-slate-500">{trend.label}</span>
-            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
+                  trend.value >= 0
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-rose-50 text-rose-600'
+                }`}
+              >
+                {trend.value >= 0 ? <FiArrowUpRight size={12} /> : <FiArrowDownRight size={12} />}
+                {Math.abs(trend.value)}%
+              </span>
+              <span className="text-xs text-slate-500">{trend.label}</span>
+            </div>
           )}
         </div>
         <div className={`rounded-xl p-3 ${iconBgMap[color]}`}>{icon}</div>
       </div>
-      {/* Decorative glow */}
       <div
         className={`absolute -right-4 -top-4 h-24 w-24 rounded-full opacity-20 blur-2xl ${
           color === 'blue'

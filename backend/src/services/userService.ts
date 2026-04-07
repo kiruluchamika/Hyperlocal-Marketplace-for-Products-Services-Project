@@ -3,6 +3,7 @@ import { AppError } from "../utils/AppError";
 import ProductListing from "../models/ProductListing";
 import { Types } from "mongoose";
 import bcrypt from "bcryptjs";
+import { StripeConnectService } from "./stripeConnectService";
 
 interface UpdateProfileInput {
   name?: string;
@@ -48,11 +49,14 @@ export const sanitizeUserProfile = (user: any) => ({
   profileImage: user.profileImage,
   bio: user.bio,
   verification: user.verification,
+  stripeConnect: user.stripeConnect,
   preferences: user.preferences,
   sellerProfile: user.sellerProfile,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt
 });
+
+const stripeConnectService = new StripeConnectService();
 
 const computeProfileCompleteness = (user: any) => {
   return Boolean(
@@ -188,4 +192,20 @@ export const isActiveSeller = async (userId: string): Promise<boolean> => {
     status: { $in: ["ACTIVE", "SOLD"] }
   });
   return count > 0;
+};
+
+export const createStripeConnectOnboardingLink = async (args: {
+  userId: string;
+  returnUrl?: string;
+  refreshUrl?: string;
+}) => {
+  return stripeConnectService.createOnboardingLink(args);
+};
+
+export const getStripeConnectStatusForUser = async (userId: string) => {
+  return stripeConnectService.getUserConnectStatus(userId);
+};
+
+export const getStripeConnectBalanceForUser = async (userId: string) => {
+  return stripeConnectService.getUserConnectBalance(userId);
 };

@@ -15,6 +15,10 @@ export const providerDecisionSchema = z.object({
   action: z.enum(["ACCEPT", "REJECT"]),
 });
 
+export const bookingDepositConfirmSchema = z.object({
+  paymentIntentId: z.string().min(1),
+});
+
 export const slotsQuerySchema = z.object({
   serviceId: z.string().min(1),
   from: z.string().datetime().optional(),

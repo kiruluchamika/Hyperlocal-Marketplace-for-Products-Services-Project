@@ -4,9 +4,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FiCheckCircle, FiClock, FiPackage, FiX } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import { listingsApi } from '@/api/listings';
+import GifLoader from '@/components/ui/GifLoader';
 import type { DeliveryMethod, OrderStatus } from '@/types/order';
 import type { PaymentStatus } from '@/types/payment';
 import type { IProductListing } from '@/types/listing';
+import { formatCurrency } from '@/utils/listings';
 import { orderManagementApi } from './orders/orderManagementApi';
 import OrderStripeCheckoutModal from './orders/OrderStripeCheckoutModal';
 import type {
@@ -37,6 +39,7 @@ const ACTION_LABELS: Record<OrderAction, string> = {
   CANCEL: 'Cancel Order',
   INITIATE_PAYMENT: 'Pay Now',
   CONFIRM_RECEIVED: 'Confirm Received',
+  CONFIRM_RECEIVED_WITH_OTP: 'Confirm Received (OTP)',
   ACCEPT: 'Accept',
   REJECT: 'Reject',
   START: 'Start Fulfillment',
@@ -81,6 +84,7 @@ const ORDER_JOURNEY_ICON: Record<OrderStatus, React.ComponentType<{ size?: numbe
 const getPrimaryAction = (actions: OrderAction[]): OrderAction | null => {
   const priority: OrderAction[] = [
     'INITIATE_PAYMENT',
+    'CONFIRM_RECEIVED_WITH_OTP',
     'ACCEPT',
     'START',
     'COMPLETE_WITH_OTP',
@@ -137,9 +141,6 @@ const formatDateTime = (value: string) => {
   if (Number.isNaN(date.getTime())) return 'N/A';
   return date.toLocaleString();
 };
-
-const formatCurrency = (amount: number, currency = 'LKR') =>
-  `${currency.toUpperCase()} ${amount.toLocaleString()}`;
 
 const isBuyerSide = (order: ManagedOrder, currentUserId: string) =>
   order.buyerId === currentUserId;
@@ -226,11 +227,13 @@ const MyOrdersPage: React.FC = () => {
   const [otpModal, setOtpModal] = useState<{
     isOpen: boolean;
     orderId: string | null;
+    mode: 'BUYER_CONFIRM' | 'SELLER_CONFIRM';
     otp: string;
     isSubmitting: boolean;
   }>({
     isOpen: false,
     orderId: null,
+    mode: 'BUYER_CONFIRM',
     otp: '',
     isSubmitting: false,
   });
@@ -883,13 +886,13 @@ const MyOrdersPage: React.FC = () => {
     toast.success('Prefill cleared.');
   };
 
-  const handleOpenOtpModal = (orderId: string) => {
-    setOtpModal({ isOpen: true, orderId, otp: '', isSubmitting: false });
+  const handleOpenOtpModal = (orderId: string, mode: 'BUYER_CONFIRM' | 'SELLER_CONFIRM') => {
+    setOtpModal({ isOpen: true, orderId, mode, otp: '', isSubmitting: false });
   };
 
   const handleCloseOtpModal = () => {
     if (otpModal.isSubmitting) return;
-    setOtpModal({ isOpen: false, orderId: null, otp: '', isSubmitting: false });
+    setOtpModal({ isOpen: false, orderId: null, mode: 'BUYER_CONFIRM', otp: '', isSubmitting: false });
   };
 
   const handleSubmitOtp = async () => {
@@ -904,11 +907,19 @@ const MyOrdersPage: React.FC = () => {
     setOtpModal((prev) => ({ ...prev, isSubmitting: true }));
 
     try {
-      await orderManagementApi.confirmDeliveryWithOtp(otpModal.orderId, cleanOtp);
+      if (otpModal.mode === 'BUYER_CONFIRM') {
+        await orderManagementApi.confirmReceivedWithOtp(otpModal.orderId, cleanOtp);
+      } else {
+        await orderManagementApi.confirmDeliveryWithOtp(otpModal.orderId, cleanOtp);
+      }
+
       await refreshOrders(otpModal.orderId);
       await loadOrderDetails(otpModal.orderId);
-      setOtpModal({ isOpen: false, orderId: null, otp: '', isSubmitting: false });
-      toast.success(`${ACTION_LABELS.COMPLETE_WITH_OTP} completed.`);
+      setOtpModal({ isOpen: false, orderId: null, mode: 'BUYER_CONFIRM', otp: '', isSubmitting: false });
+
+      const successAction =
+        otpModal.mode === 'BUYER_CONFIRM' ? 'CONFIRM_RECEIVED_WITH_OTP' : 'COMPLETE_WITH_OTP';
+      toast.success(`${ACTION_LABELS[successAction]} completed.`);
     } catch {
       setOtpModal((prev) => ({ ...prev, isSubmitting: false }));
       // Error toast is handled globally by apiClient interceptor.
@@ -1010,8 +1021,13 @@ const MyOrdersPage: React.FC = () => {
         await orderManagementApi.startOrder(order.id);
       }
 
+      if (action === 'CONFIRM_RECEIVED_WITH_OTP') {
+        handleOpenOtpModal(order.id, 'BUYER_CONFIRM');
+        return;
+      }
+
       if (action === 'COMPLETE_WITH_OTP') {
-        handleOpenOtpModal(order.id);
+        handleOpenOtpModal(order.id, 'SELLER_CONFIRM');
         return;
       }
 
@@ -1036,19 +1052,32 @@ const MyOrdersPage: React.FC = () => {
     }
   };
 
-  const handleCheckoutSuccess = async () => {
+  const handleCheckoutSuccess = async (paymentIntentId?: string) => {
     if (!checkoutState.orderId) return;
+
+    try {
+      await orderManagementApi.confirmPayment(checkoutState.orderId, paymentIntentId);
+    } catch {
+      // Fallback to polling/webhook path if confirm endpoint fails.
+    }
 
     await pollPaymentStatus(checkoutState.orderId);
     await refreshOrders(checkoutState.orderId);
     await loadOrderDetails(checkoutState.orderId);
 
-    toast.success('Payment submitted. Waiting for Stripe webhook confirmation.');
+    toast.success('Payment confirmed and moved to HELD.');
   };
 
   const visibleActions = (activeOrder?.actionsAllowed ?? []).filter(
     (action) => action !== 'INITIATE_PAYMENT'
   );
+
+  const sellerWaitingForBuyerOtp =
+    !!activeOrder &&
+    !isBuyerSide(activeOrder, currentUserId) &&
+    activeOrder.status === 'IN_PROGRESS' &&
+    !visibleActions.includes('COMPLETE_WITH_OTP') &&
+    !visibleActions.includes('MARK_COMPLETED');
 
   const recentOrderForPayment = useMemo(() => {
     if (!recentOrderForPaymentId) return null;
@@ -1262,7 +1291,7 @@ const MyOrdersPage: React.FC = () => {
 
         {isProductsLoading && (
           <div className="flex items-center justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+            <GifLoader size="md" label="Loading products..." />
           </div>
         )}
 
@@ -1613,7 +1642,7 @@ const MyOrdersPage: React.FC = () => {
           <div className="max-h-[760px] overflow-y-auto p-4 space-y-3">
             {isListLoading && (
               <div className="flex items-center justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                <GifLoader size="md" label="Loading orders..." />
               </div>
             )}
 
@@ -1704,7 +1733,7 @@ const MyOrdersPage: React.FC = () => {
 
           {isDetailsLoading && (
             <div className="flex items-center justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+              <GifLoader size="md" label="Loading order details..." />
             </div>
           )}
 
@@ -1896,6 +1925,16 @@ const MyOrdersPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {sellerWaitingForBuyerOtp && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">Waiting For Buyer OTP Confirmation</p>
+                  <p className="mt-1 text-sm text-amber-700">
+                    The seller has started this order. Buyer must enter the email OTP to confirm receipt,
+                    complete the order, and release payment.
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1960,9 +1999,13 @@ const MyOrdersPage: React.FC = () => {
       {otpModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-800">Confirm Delivery With OTP</h3>
+            <h3 className="text-lg font-semibold text-slate-800">
+              {otpModal.mode === 'BUYER_CONFIRM' ? 'Confirm Receipt With OTP' : 'Confirm Delivery With OTP'}
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Ask the buyer for the 6-digit OTP and enter it below.
+              {otpModal.mode === 'BUYER_CONFIRM'
+                ? 'Enter the 6-digit OTP sent to your email after seller acceptance.'
+                : 'Ask the buyer for the 6-digit OTP and enter it below.'}
             </p>
 
             <div className="mt-4">

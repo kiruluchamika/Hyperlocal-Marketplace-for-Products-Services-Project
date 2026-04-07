@@ -4,6 +4,43 @@ import ServiceSelling from "../models/ServiceSelling";
 import { AppError } from "../utils/AppError";
 
 type Role = "admin" | "user";
+const DEFAULT_SERVICE_IMAGE = "/images/default-service.svg";
+
+const deriveServiceVisibility = (service: any) => {
+  if (service.deletedAt || service.status === "DELETED") {
+    return { status: "DELETED" as const, isActive: false };
+  }
+
+  if (service.removedAt || service.removedReason || service.status === "REMOVED" || service.isActive === false) {
+    return { status: "REMOVED" as const, isActive: false };
+  }
+
+  return { status: "ACTIVE" as const, isActive: true };
+};
+
+const normalizeServiceSelling = (service: any) => {
+  const normalized = deriveServiceVisibility(service);
+  const raw = typeof service?.toObject === "function" ? service.toObject() : service;
+  delete raw.viewedByUserIds;
+
+  const serviceImage = Array.isArray(raw.images)
+    ? raw.images.find((image: unknown) => typeof image === "string" && image.trim())
+    : undefined;
+  const categoryImage =
+    raw.categoryId &&
+    typeof raw.categoryId === "object" &&
+    typeof raw.categoryId.image === "string" &&
+    raw.categoryId.image.trim()
+      ? raw.categoryId.image
+      : undefined;
+
+  return {
+    ...raw,
+    displayImage: serviceImage || categoryImage || DEFAULT_SERVICE_IMAGE,
+    status: normalized.status,
+    isActive: normalized.isActive,
+  };
+};
 
 const isFilled = (v: unknown) => {
   if (v === null || v === undefined) return false;
@@ -49,31 +86,39 @@ const validateAttributes = (attributeValues: Record<string, unknown>, category: 
   }
 };
 
-/**
- * ✅ CREATE (location support added)
- */
+const buildLocationData = (location?: {
+  city?: string;
+  address?: string;
+  coordinates?: { coordinates?: [number, number] };
+}) => {
+  if (!location?.city) {
+    return undefined;
+  }
+
+  return {
+    city: location.city,
+    address: location.address,
+    ...(location.coordinates?.coordinates?.length === 2
+      ? {
+          coordinates: {
+            type: "Point" as const,
+            coordinates: location.coordinates.coordinates,
+          },
+        }
+      : {}),
+  };
+};
+
 export const createServiceSelling = async (userId: string, payload: any) => {
   const category = await getValidCategory(payload.categoryId);
 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
-  // ✅ Ensure proper GeoJSON structure if location provided
-  let locationData = undefined;
-  if (payload.location?.coordinates?.coordinates?.length === 2) {
-    locationData = {
-      city: payload.location.city,
-      address: payload.location.address,
-      coordinates: {
-        type: "Point",
-        coordinates: payload.location.coordinates.coordinates, // [lng, lat]
-      },
-    };
-  }
-
   const created = await ServiceSelling.create({
     ...payload,
-    location: locationData,
+    description: payload.description || "",
+    location: buildLocationData(payload.location),
     attributeValues,
     sellerId: new Types.ObjectId(userId),
     status: "ACTIVE",
@@ -83,11 +128,13 @@ export const createServiceSelling = async (userId: string, payload: any) => {
   return created;
 };
 
-/**
- * Public feed: only ACTIVE ads
- */
 export const listServiceSelling = async (query: any) => {
-  const filter: any = { status: "ACTIVE" };
+  const filter: any = {
+    status: "ACTIVE",
+    isActive: { $ne: false },
+    deletedAt: { $exists: false },
+    removedAt: { $exists: false },
+  };
 
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.pricingType) filter.pricingType = query.pricingType;
@@ -106,22 +153,25 @@ export const listServiceSelling = async (query: any) => {
     ];
   }
 
-  return ServiceSelling.find(filter)
+  const services = await ServiceSelling.find(filter)
     .select("-description")
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
+
+  return services.map(normalizeServiceSelling);
 };
 
 export const listMyServiceSelling = async (userId: string) => {
-  return ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
+  const services = await ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
+
+  return services.map(normalizeServiceSelling);
 };
 
 export const listAdminServiceSelling = async (query: any) => {
   const filter: any = {};
 
-  if (query.status) filter.status = query.status;
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.pricingType) filter.pricingType = query.pricingType;
 
@@ -133,9 +183,17 @@ export const listAdminServiceSelling = async (query: any) => {
     ];
   }
 
-  return ServiceSelling.find(filter)
+  const services = await ServiceSelling.find(filter)
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
+
+  const normalizedServices = services.map(normalizeServiceSelling);
+
+  if (!query.status) {
+    return normalizedServices;
+  }
+
+  return normalizedServices.filter((service) => service.status === query.status);
 };
 
 export const getServiceSellingById = async (
@@ -143,23 +201,36 @@ export const getServiceSellingById = async (
   requesterId?: string,
   requesterRole?: Role
 ) => {
-  const doc = await ServiceSelling.findById(id).populate("categoryId", "name type");
+  const doc = await ServiceSelling.findById(id)
+    .select("+viewedByUserIds")
+    .populate("categoryId", "name type image");
   if (!doc) throw new AppError("Service ad not found", 404);
 
   const isOwner = requesterId && doc.sellerId.toString() === requesterId;
   const isAdmin = requesterRole === "admin";
-  const isActive = doc.status === "ACTIVE";
+  const normalized = deriveServiceVisibility(doc);
+  const isActive = normalized.status === "ACTIVE";
 
   if (!isActive && !isOwner && !isAdmin) {
     throw new AppError("Service ad not found", 404);
   }
 
-  return doc;
+  if (requesterId) {
+    const hasViewed = doc.viewedByUserIds.some((viewerId) => viewerId.toString() === requesterId);
+
+    if (!hasViewed) {
+      doc.viewedByUserIds.push(new Types.ObjectId(requesterId));
+      doc.viewsCount += 1;
+      await doc.save();
+    }
+  } else {
+    doc.viewsCount += 1;
+    await doc.save();
+  }
+
+  return normalizeServiceSelling(doc);
 };
 
-/**
- * ✅ UPDATE (location support added)
- */
 export const updateServiceSelling = async (id: string, userId: string, payload: any) => {
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
@@ -168,7 +239,7 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
     throw new AppError("Forbidden", 403);
   }
 
-  if (existing.status !== "ACTIVE") {
+  if (deriveServiceVisibility(existing).status !== "ACTIVE") {
     throw new AppError("Cannot update a removed/deleted ad", 400);
   }
 
@@ -178,25 +249,24 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
-  let updateData: any = { ...payload, attributeValues };
+  const updateData: any = {
+    ...payload,
+    attributeValues,
+  };
 
-  // ✅ Update geo location if provided
-  if (payload.location?.coordinates?.coordinates?.length === 2) {
-    updateData.location = {
-      city: payload.location.city,
-      address: payload.location.address,
-      coordinates: {
-        type: "Point",
-        coordinates: payload.location.coordinates.coordinates,
-      },
-    };
+  if ("description" in payload) {
+    updateData.description = payload.description || "";
+  }
+
+  if (payload.location?.city) {
+    updateData.location = buildLocationData(payload.location);
   }
 
   const updated = await ServiceSelling.findByIdAndUpdate(
     id,
     updateData,
     { new: true }
-  ).populate("categoryId", "name type");
+  ).populate("categoryId", "name type image");
 
   return updated;
 };
@@ -225,7 +295,7 @@ export const moderateRemoveServiceSelling = async (
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
 
-  if (existing.status === "DELETED") {
+  if (deriveServiceVisibility(existing).status === "DELETED") {
     throw new AppError("Cannot moderate a deleted ad", 400);
   }
 

@@ -1,5 +1,14 @@
 export type UserRole = 'admin' | 'user';
 export type KycStatus = 'UNSUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type StripeConnectOnboardingStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'VERIFICATION_FAILED';
+
+export interface IUserStripeConnect {
+  accountId?: string;
+  onboardingStatus: StripeConnectOnboardingStatus;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  updatedAt?: string;
+}
 
 export interface Address {
   street?: string;
@@ -10,6 +19,7 @@ export interface Address {
 }
 
 export interface IUser {
+  _id?: string;
   id: string;
   name: string;
   email: string;
@@ -37,6 +47,7 @@ export interface IUser {
     serviceArea?: string;
     description?: string;
   };
+  stripeConnect?: IUserStripeConnect;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,21 +2,39 @@ import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  FiChevronDown,
-  FiChevronUp,
+  FiArrowRight,
+  FiClock,
   FiCrosshair,
+  FiEye,
   FiMapPin,
-  FiNavigation,
-  FiSearch,
   FiSliders,
 } from 'react-icons/fi';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
-import { geoApi } from '@/api/geo';
+import StarRating from '@/components/reviews/StarRating';
+import { servicesApi } from '@/api/services';
 import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
 import { useCategoryStore } from '@/store/categoryStore';
-import { GeoNearbyItem } from '@/types';
+import { GeoNearbyItem, IServiceSelling } from '@/types';
 
-type SortOption = 'nearest' | 'priceAsc' | 'priceDesc';
+type SortOption = 'recent' | 'priceAsc' | 'priceDesc';
+type ServicePricingFilter = '' | 'FIXED' | 'HOURLY';
+
+interface BrowseServiceFilters {
+  search: string;
+  categoryId: string;
+  city: string;
+  pricingType: ServicePricingFilter;
+  minPrice?: number;
+  maxPrice?: number;
+  sort: SortOption;
+}
+
+const sortOptions: { label: string; value: SortOption }[] = [
+  { label: 'Most Recent', value: 'recent' },
+  { label: 'Price: Low to High', value: 'priceAsc' },
+  { label: 'Price: High to Low', value: 'priceDesc' },
+];
 
 const SRI_LANKAN_DISTRICTS: { name: string; lat: number; lng: number }[] = [
   { name: 'Ampara', lat: 7.2917, lng: 81.6725 },
@@ -46,55 +64,84 @@ const SRI_LANKAN_DISTRICTS: { name: string; lat: number; lng: number }[] = [
   { name: 'Vavuniya', lat: 8.7514, lng: 80.4971 },
 ];
 
-const sortOptions: { label: string; value: SortOption }[] = [
-  { label: 'Nearest', value: 'nearest' },
-  { label: 'Price: Low to High', value: 'priceAsc' },
-  { label: 'Price: High to Low', value: 'priceDesc' },
-];
-
 const parseNumber = (value: string | null) => {
-  if (!value) {
-    return undefined;
-  }
-
+  if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const sortServices = (services: GeoNearbyItem[], sort: SortOption) => {
+const sortServices = (services: IServiceSelling[], sort: SortOption) => {
   const cloned = [...services];
+  if (sort === 'priceAsc') return cloned.sort((a, b) => a.price - b.price);
+  if (sort === 'priceDesc') return cloned.sort((a, b) => b.price - a.price);
+  return cloned.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
 
-  if (sort === 'priceAsc') {
-    return cloned.sort((a, b) => a.price - b.price);
-  }
+const getServiceCity = (service: IServiceSelling) => service.location?.city || service.locationText || 'Location unavailable';
 
-  if (sort === 'priceDesc') {
-    return cloned.sort((a, b) => b.price - a.price);
-  }
+const getServiceCategory = (service: IServiceSelling) =>
+  typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
 
-  return cloned.sort((a, b) => a.distance - b.distance);
+const DEFAULT_SERVICE_IMAGE = '/images/default-service.svg';
+
+const getServiceDisplayImage = (service: IServiceSelling) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  DEFAULT_SERVICE_IMAGE;
+
+const matchesDistrict = (service: IServiceSelling, districtName: string) => {
+  if (!districtName) return true;
+  const normalizedDistrict = districtName.toLowerCase();
+  const normalizedLocation = `${service.location?.city || ''} ${service.locationText || ''}`.toLowerCase();
+  return normalizedLocation.includes(normalizedDistrict);
+};
+
+const toGeoItem = (service: IServiceSelling): GeoNearbyItem | null => {
+  const coords = service.location?.coordinates?.coordinates;
+  if (!coords || coords.length !== 2) return null;
+
+  const [lng, lat] = coords;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    id: service._id,
+    type: 'SERVICE',
+    title: service.title,
+    description: service.description,
+    price: service.price,
+    pricingType: service.pricingType,
+    city: getServiceCity(service),
+    distance: 0,
+    sellerId: typeof service.sellerId === 'string' ? service.sellerId : service.sellerId?.id || '',
+    categoryId: typeof service.categoryId === 'string' ? service.categoryId : service.categoryId?._id || '',
+    location: { coordinates: [lat, lng], text: service.locationText || '' },
+    images: service.images,
+    status: service.status,
+    isActive: service.isActive,
+  };
 };
 
 const BrowseServicesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navbarSearch = searchParams.get('search') || searchParams.get('searchTerm') || '';
   const [center, setCenter] = React.useState<[number, number]>([6.9271, 79.8612]);
   const [isMapOpen, setIsMapOpen] = React.useState(true);
-  const [searchInput, setSearchInput] = React.useState(searchParams.get('searchTerm') || '');
-  const [filters, setFilters] = React.useState({
-    searchTerm: searchParams.get('searchTerm') || '',
+  const [isBrowseOpen, setIsBrowseOpen] = React.useState(false);
+  const [filters, setFilters] = React.useState<BrowseServiceFilters>({
+    search: navbarSearch,
     categoryId: searchParams.get('categoryId') || '',
     city: searchParams.get('city') || '',
+    pricingType: (searchParams.get('pricingType') as ServicePricingFilter) || '',
     minPrice: parseNumber(searchParams.get('minPrice')),
     maxPrice: parseNumber(searchParams.get('maxPrice')),
-    sort: (searchParams.get('sort') as SortOption) || 'nearest',
-    radiusKm: parseNumber(searchParams.get('radiusKm')) || 5,
+    sort: (searchParams.get('sort') as SortOption) || 'recent',
   });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [results, setResults] = React.useState<GeoNearbyItem[]>([]);
+  const [results, setResults] = React.useState<IServiceSelling[]>([]);
   const [selectedItemId, setSelectedItemId] = React.useState<string | undefined>();
   const [locationSource, setLocationSource] = React.useState<'district' | 'live' | ''>('');
-  const [locationName, setLocationName] = React.useState('Colombo');
 
   const { serviceCategories, fetchCategories } = useCategoryStore();
 
@@ -103,84 +150,63 @@ const BrowseServicesPage: React.FC = () => {
   }, [fetchCategories]);
 
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters((prev) => ({ ...prev, searchTerm: searchInput.trim() }));
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    setFilters((prev) => (prev.search === navbarSearch ? prev : { ...prev, search: navbarSearch }));
+  }, [navbarSearch]);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
-    if (filters.searchTerm) params.set('searchTerm', filters.searchTerm);
+    if (filters.search) params.set('search', filters.search);
     if (filters.categoryId) params.set('categoryId', filters.categoryId);
     if (filters.city) params.set('city', filters.city);
+    if (filters.pricingType) params.set('pricingType', filters.pricingType);
     if (filters.minPrice !== undefined) params.set('minPrice', String(filters.minPrice));
     if (filters.maxPrice !== undefined) params.set('maxPrice', String(filters.maxPrice));
-    if (filters.sort !== 'nearest') params.set('sort', filters.sort);
-    if (filters.radiusKm !== 5) params.set('radiusKm', String(filters.radiusKm));
+    if (filters.sort !== 'recent') params.set('sort', filters.sort);
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
   React.useEffect(() => {
-    const timer = setTimeout(async () => {
+    const fetchServices = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const { data } = await geoApi.searchWithFilters({
-          latitude: center[0],
-          longitude: center[1],
-          radiusKm: filters.radiusKm,
+        const { data } = await servicesApi.getAll({
+          search: filters.search || undefined,
+          categoryId: filters.categoryId || undefined,
+          pricingType: filters.pricingType || undefined,
           minPrice: filters.minPrice,
           maxPrice: filters.maxPrice,
-          type: 'SERVICE',
-          categoryId: filters.categoryId || undefined,
+          limit: 50,
         });
 
-        const geoValidServices = data.data.services.filter(
-          (service) =>
-            service.location?.coordinates &&
-            Number.isFinite(service.location.coordinates[0]) &&
-            Number.isFinite(service.location.coordinates[1])
+        const filtered = (data.data || []).filter(
+          (service) => service.status === 'ACTIVE' && service.isActive !== false && matchesDistrict(service, filters.city)
         );
-
-        const cityFiltered = filters.city
-          ? geoValidServices.filter((service) => service.city.toLowerCase() === filters.city.toLowerCase())
-          : geoValidServices;
-
-        const searchFiltered = filters.searchTerm
-          ? cityFiltered.filter((service) => {
-              const query = filters.searchTerm.toLowerCase();
-              return (
-                service.title.toLowerCase().includes(query) ||
-                service.description?.toLowerCase().includes(query) ||
-                service.city.toLowerCase().includes(query)
-              );
-            })
-          : cityFiltered;
-
-        setResults(sortServices(searchFiltered, filters.sort));
+        setResults(sortServices(filtered, filters.sort));
       } catch {
-        setError('Unable to load nearby services. Try another area or radius.');
+        setError('Unable to load active services right now. Please try again.');
       } finally {
         setLoading(false);
       }
-    }, 300);
+    };
 
-    return () => clearTimeout(timer);
-  }, [center, filters]);
+    void fetchServices();
+  }, [filters]);
+
+  const mapItems = React.useMemo(() => results.map(toGeoItem).filter((item): item is GeoNearbyItem => !!item), [results]);
 
   React.useEffect(() => {
-    if (results.length === 0) {
-      setSelectedItemId(undefined);
+    if (filters.city) {
+      const district = SRI_LANKAN_DISTRICTS.find((item) => item.name === filters.city);
+      if (district) setCenter([district.lat, district.lng]);
       return;
     }
 
-    if (!selectedItemId) {
-      setSelectedItemId(results[0].id);
+    if (mapItems.length > 0 && mapItems[0].location?.coordinates) {
+      setCenter(mapItems[0].location.coordinates);
     }
-  }, [results, selectedItemId]);
+  }, [filters.city, mapItems]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -191,22 +217,17 @@ const BrowseServicesPage: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setCenter([position.coords.latitude, position.coords.longitude]);
-        setLocationSource('live');
-        setLocationName('Current Location');
         setIsMapOpen(true);
+        setLocationSource('live');
         toast.success('Location updated.');
       },
-      () => {
-        toast.error('Location permission denied. You can click map to set location.');
-      }
+      () => toast.error('Location permission denied. You can click the map to set location.')
     );
   };
 
   const onDistrictChange = (districtName: string) => {
     const district = SRI_LANKAN_DISTRICTS.find((item) => item.name === districtName);
-
     setFilters((prev) => ({ ...prev, city: districtName }));
-    setLocationName(districtName || 'Selected Location');
 
     if (district) {
       setCenter([district.lat, district.lng]);
@@ -216,212 +237,313 @@ const BrowseServicesPage: React.FC = () => {
   };
 
   const onResetFilters = () => {
-    setSearchInput('');
     setFilters({
-      searchTerm: '',
+      search: '',
       categoryId: '',
       city: '',
+      pricingType: '',
       minPrice: undefined,
       maxPrice: undefined,
-      sort: 'nearest',
-      radiusKm: 5,
+      sort: 'recent',
     });
     setLocationSource('');
-    setLocationName('Colombo');
-    setCenter([6.9271, 79.8612]);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 py-10">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card lg:col-span-1 lg:sticky lg:top-24 lg:h-fit">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Nearby Services</h1>
-            <p className="mt-1 text-sm text-slate-500">Search, filter, and explore nearby providers using map-first discovery.</p>
-          </div>
-
-          <div className="relative">
-            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              type="search"
-              className="input-field py-2 pl-9"
-              placeholder="Search services by title, city, or description"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={useCurrentLocation}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
-          >
-            <FiCrosshair size={16} /> Use My Location
-          </button>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <select
-              value={filters.city}
-              onChange={(event) => onDistrictChange(event.target.value)}
-              className="input-field py-2"
-            >
-              <option value="">All Districts</option>
-              {SRI_LANKAN_DISTRICTS.map((district) => (
-                <option key={district.name} value={district.name}>
-                  {district.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.categoryId}
-              onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value }))}
-              className="input-field py-2"
-            >
-              <option value="">All Service Categories</option>
-              {serviceCategories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              value={filters.minPrice ?? ''}
-              onChange={(e) => setFilters((prev) => ({ ...prev, minPrice: parseNumber(e.target.value) }))}
-              type="number"
-              min={0}
-              placeholder="Min price"
-              className="input-field py-2"
-            />
-            <input
-              value={filters.maxPrice ?? ''}
-              onChange={(e) => setFilters((prev) => ({ ...prev, maxPrice: parseNumber(e.target.value) }))}
-              type="number"
-              min={0}
-              placeholder="Max price"
-              className="input-field py-2"
-            />
-          </div>
-
-          <select
-            value={filters.sort}
-            onChange={(event) => setFilters((prev) => ({ ...prev, sort: event.target.value as SortOption }))}
-            className="input-field py-2"
-          >
-            {sortOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={onResetFilters}
-            >
-              Reset
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="flex-1"
-              onClick={() => setIsMapOpen((prev) => !prev)}
-              leftIcon={<FiSliders size={14} />}
-            >
-              {isMapOpen ? 'Hide Map' : 'Show Map'}
-            </Button>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-slate-600">
-              {locationSource === 'live'
-                ? `Using live location: ${locationName}`
-                : locationSource === 'district'
-                ? `Using district: ${locationName}`
-                : `Selected location: ${locationName}`}
-            </p>
-          </div>
-
-          <Link to="/" className="btn-secondary inline-block w-full text-center">
-            &larr; Back to Home
-          </Link>
-        </div>
-
-        <div className="space-y-4 lg:col-span-2">
-          <button
-            type="button"
-            onClick={() => setIsMapOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700"
-          >
-            {isMapOpen ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-            {isMapOpen ? 'Collapse map view' : 'Expand map view'}
-          </button>
-
-          {isMapOpen && (
-            <GeoMapCanvas
-              center={center}
-              radiusKm={filters.radiusKm}
-              items={results}
-              selectedItemId={selectedItemId}
-              onCenterChange={setCenter}
-              onSelectItem={(item) => setSelectedItemId(item.id)}
-            />
-          )}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700">{results.length} services found</p>
-              <p className="text-xs text-slate-500">Map-based results</p>
+    <div className="min-h-screen bg-transparent py-10 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className={`grid grid-cols-1 items-start gap-6 xl:gap-8 ${isMapOpen ? 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]'}`}>
+          <div className="order-1 flex flex-col pt-2 md:pt-4">
+            <div className="mb-6 flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{results.length.toLocaleString()} services</p>
+                <p className="text-sm text-slate-500">Showing {results.length} listing{results.length === 1 ? '' : 's'} that match your current browse settings</p>
+              </div>
+              <div className="flex items-center gap-3 self-start sm:self-auto">
+                <Badge variant="info" className="!px-3 !py-1 text-xs font-medium">
+                  {mapItems.length} geo-mapped
+                </Badge>
+                <p className="text-sm font-medium text-slate-500">
+                  {filters.search || filters.city || filters.categoryId ? 'Filtered results' : 'All active services'}
+                </p>
+              </div>
             </div>
 
-            {loading && <p className="py-6 text-sm text-slate-500">Loading nearby services...</p>}
-            {error && !loading && <p className="py-6 text-sm text-rose-600">{error}</p>}
+            <div className="lg:min-h-0 lg:flex-1">
+              {loading && (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <ServiceCardSkeleton key={index} />
+                  ))}
+                </div>
+              )}
+              {error && !loading && <p className="py-8 text-sm text-rose-600">{error}</p>}
+              {!loading && !error && results.length === 0 && (
+                <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-12 text-center">
+                  <h3 className="text-lg font-semibold text-slate-900">No services match this search</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                    Try adjusting your search term, district, category, or pricing filters to discover more service ads.
+                  </p>
+                  <div className="mt-5 flex justify-center">
+                    <Button type="button" variant="secondary" size="sm" onClick={onResetFilters}>
+                      Reset filters
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-            {!loading && !error && results.length === 0 && (
-              <p className="py-6 text-sm text-slate-500">No services found in this area. Increase radius or change location.</p>
-            )}
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {results.map((service) => (
+                  <ServiceCard
+                    key={service._id}
+                    service={service}
+                    isSelected={selectedItemId === service._id}
+                    onMouseEnter={() => setSelectedItemId(service._id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
 
-            <div className="space-y-3">
-              {results.map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/services/${item.id}`}
-                  onMouseEnter={() => setSelectedItemId(item.id)}
-                  className={`block rounded-xl border p-3 transition-colors ${
-                    selectedItemId === item.id ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-800">{item.title}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.pricingType || 'Pricing not specified'}</p>
-                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-slate-600">
-                        <FiMapPin size={12} /> {item.city}
+          <aside className="order-2 space-y-4 lg:self-start relative z-10 w-full">
+            <div className="space-y-5 lg:sticky lg:top-24">
+              <div className="rounded-[24px] border border-white/70 bg-white/90 p-4 shadow-card backdrop-blur-xl">
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<FiSliders size={14} />}
+                    onClick={() => setIsBrowseOpen((prev) => !prev)}
+                  >
+                    {isBrowseOpen ? 'Hide Browse' : 'Browse'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FiCrosshair size={14} />}
+                    onClick={useCurrentLocation}
+                  >
+                    Use My Location
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsMapOpen((prev) => !prev)}>
+                    {isMapOpen ? 'Hide Map' : 'Show Map'}
+                  </Button>
+                </div>
+
+                {isBrowseOpen && (
+                  <div className="mt-4 border-t border-indigo-100 pt-4">
+                    <div className="mb-4">
+                      <h2 className="text-sm font-semibold text-slate-900">Browse Filters</h2>
+                      <p className="mt-1 text-sm text-slate-500">Refine by category, pricing, price range, and location.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <select value={filters.city} onChange={(event) => onDistrictChange(event.target.value)} className="input-field py-2.5">
+                        <option value="">All Districts</option>
+                        {SRI_LANKAN_DISTRICTS.map((district) => (
+                          <option key={district.name} value={district.name}>
+                            {district.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={filters.categoryId}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value }))}
+                        className="input-field py-2.5"
+                      >
+                        <option value="">All Categories</option>
+                        {serviceCategories.map((category) => (
+                          <option key={category._id} value={category._id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          value={filters.minPrice ?? ''}
+                          onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: parseNumber(event.target.value) }))}
+                          type="number"
+                          min={0}
+                          className="input-field py-2.5"
+                          placeholder="Min price"
+                        />
+                        <input
+                          value={filters.maxPrice ?? ''}
+                          onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: parseNumber(event.target.value) }))}
+                          type="number"
+                          min={0}
+                          className="input-field py-2.5"
+                          placeholder="Max price"
+                        />
+                      </div>
+                      <select
+                        value={filters.pricingType}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, pricingType: event.target.value as ServicePricingFilter }))}
+                        className="input-field py-2.5"
+                      >
+                        <option value="">All Pricing Types</option>
+                        <option value="FIXED">Fixed Pricing</option>
+                        <option value="HOURLY">Hourly Pricing</option>
+                      </select>
+                      <select
+                        value={filters.sort}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, sort: event.target.value as SortOption }))}
+                        className="input-field py-2.5"
+                      >
+                        {sortOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-3">
+                      <p className="text-sm text-slate-600">
+                        {locationSource === 'live'
+                          ? `Using live location (${center[0].toFixed(5)}, ${center[1].toFixed(5)})`
+                          : locationSource === 'district'
+                            ? `Using district center (${center[0].toFixed(5)}, ${center[1].toFixed(5)})`
+                            : 'Pick a district or use your live location for more local service discovery.'}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={onResetFilters}>
+                          Reset
+                        </Button>
+                        <Link to="/" className="btn-secondary !px-4 !py-3 text-sm">
+                          Back to Home
+                        </Link>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-800">LKR {item.price.toLocaleString()}</p>
-                      <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600">
-                        <FiNavigation size={12} /> {item.distance} km
-                      </p>
-                    </div>
                   </div>
-                </Link>
-              ))}
+                )}
+              </div>
+
+              <div className="rounded-[26px] border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-xl">
+                <div className="mb-4">
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">Map Preview</p>
+                    <p className="text-sm text-slate-500">A lighter support view for nearby listing context</p>
+                  </div>
+                </div>
+
+                {isMapOpen ? (
+                  <GeoMapCanvas
+                    center={center}
+                    radiusKm={5}
+                    items={mapItems}
+                    selectedItemId={selectedItemId}
+                    onCenterChange={setCenter}
+                    onSelectItem={(item) => setSelectedItemId(item.id)}
+                    heightClassName="h-[260px] sm:h-[300px] lg:h-[280px]"
+                  />
+                ) : (
+                  <div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-500">
+                    Map preview is hidden. Turn it on whenever you want a quick geo view.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
+          </aside>
+        </section>
       </div>
     </div>
   );
 };
+
+const ServiceCard: React.FC<{
+  service: IServiceSelling;
+  isSelected: boolean;
+  onMouseEnter: () => void;
+}> = ({ service, isSelected, onMouseEnter }) => {
+  const category = getServiceCategory(service);
+  const displayImage = getServiceDisplayImage(service);
+
+  return (
+    <Link
+      to={`/services/${service._id}`}
+      state={{ service }}
+      onMouseEnter={onMouseEnter}
+      className={`group flex h-full flex-col overflow-hidden rounded-[24px] border bg-white transition-all duration-300 ${
+        isSelected
+          ? 'border-indigo-400 shadow-xl shadow-indigo-100/80 ring-4 ring-indigo-50/50'
+          : 'border-slate-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-slate-200/60'
+      }`}
+    >
+      <div className="h-52 w-full overflow-hidden bg-slate-100">
+        <img
+          src={displayImage}
+          alt={service.title}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = DEFAULT_SERVICE_IMAGE;
+          }}
+        />
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <h2 className="line-clamp-2 min-h-[3rem] text-base font-semibold leading-6 text-slate-900 transition-colors group-hover:text-indigo-700">{service.title}</h2>
+        <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">LKR {service.price.toLocaleString()}</p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            {service.pricingType === 'HOURLY' ? 'Hourly pricing' : 'Fixed pricing'}
+          </span>
+          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            {category}
+          </span>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+          <div className="inline-flex items-center gap-2">
+            <StarRating rating={service.averageRating || 0} size="sm" />
+            <span className="text-sm font-semibold text-slate-700">{(service.averageRating || 0).toFixed(1)}</span>
+          </div>
+          <span className="text-xs font-medium text-slate-500">{service.reviewCount || 0} reviews</span>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500">
+          <p className="inline-flex items-center gap-2">
+            <FiClock size={15} className="text-slate-400" />
+            {service.pricingType === 'HOURLY' ? 'Hourly pricing' : 'Fixed pricing'}
+          </p>
+          <p className="inline-flex items-center gap-2">
+            <FiMapPin size={15} className="text-slate-400" />
+            {getServiceCity(service)}
+          </p>
+          <p className="inline-flex items-center gap-2">
+            <FiEye size={15} className="text-slate-400" />
+            {service.viewsCount ?? 0} views
+          </p>
+        </div>
+
+        <div className="mt-auto pt-5">
+          <span className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-800">
+            Open booking
+            <FiArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+};
+
+const ServiceCardSkeleton: React.FC = () => (
+  <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+    <div className="h-52 animate-pulse bg-slate-100" />
+    <div className="space-y-3 p-5">
+      <div className="h-6 w-4/5 animate-pulse rounded-lg bg-slate-100" />
+      <div className="h-6 w-2/5 animate-pulse rounded-lg bg-slate-100" />
+      <div className="h-4 w-1/3 animate-pulse rounded-lg bg-slate-100" />
+      <div className="h-4 w-1/2 animate-pulse rounded-lg bg-slate-100" />
+      <div className="pt-3">
+        <div className="h-12 w-36 animate-pulse rounded-xl bg-slate-100" />
+      </div>
+    </div>
+  </div>
+);
 
 export default BrowseServicesPage;

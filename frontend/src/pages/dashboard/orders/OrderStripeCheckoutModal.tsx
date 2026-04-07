@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import GifLoader from '@/components/ui/GifLoader';
+import { formatCurrency } from '@/utils/listings';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -8,14 +10,14 @@ interface CheckoutModalProps {
   amount: number;
   currency: string;
   onClose: () => void;
-  onSuccess: () => Promise<void> | void;
+  onSuccess: (paymentIntentId?: string) => Promise<void> | void;
 }
 
 interface CheckoutFormProps {
   amount: number;
   currency: string;
   onClose: () => void;
-  onSuccess: () => Promise<void> | void;
+  onSuccess: (paymentIntentId?: string) => Promise<void> | void;
 }
 
 const stripePublishableKey =
@@ -29,8 +31,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ amount, currency, onClose, 
   const [submitError, setSubmitError] = useState<string>('');
 
   const amountLabel = useMemo(() => {
-    const normalizedCurrency = currency.toUpperCase();
-    return `${normalizedCurrency} ${amount.toLocaleString()}`;
+    return formatCurrency(amount, currency);
   }, [amount, currency]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -57,7 +58,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ amount, currency, onClose, 
 
     const status = paymentIntent?.status;
     if (status === 'succeeded' || status === 'processing' || status === 'requires_capture') {
-      await onSuccess();
+      await onSuccess(paymentIntent?.id);
       setIsSubmitting(false);
       onClose();
       return;
@@ -144,7 +145,7 @@ const OrderStripeCheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {stripePromise && !clientSecret && (
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+            <GifLoader size="xs" />
             Preparing secure checkout...
           </div>
         )}

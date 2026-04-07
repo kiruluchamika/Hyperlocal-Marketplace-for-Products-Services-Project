@@ -22,7 +22,9 @@ import Stripe from "stripe";
 import { env } from "../config/env";
 import Order from "../models/Order";
 import Payment, { PaymentStatus } from "../models/Payment";
+import ServiceBooking from "../models/ServiceBooking";
 import { AppError } from "../utils/AppError";
+import { StripeConnectService } from "./stripeConnectService";
 
 // ✅ ADD: booking confirm handler (ONLY used when paymentPurpose === BOOKING_DEPOSIT)
 import { confirmBookingFromStripeSuccess } from "./serviceBookingService";
@@ -32,7 +34,40 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-12-18.acacia" as any // Use stable version
 });
 
+const stripeConnectService = new StripeConnectService();
+const stripePaymentCurrency = env.STRIPE_PAYMENT_CURRENCY.toUpperCase();
+
+const convertDisplayAmountToStripeAmount = (amount: number) => {
+  if (stripePaymentCurrency === "USD") {
+    return Math.round((amount / env.STRIPE_BALANCE_TO_LKR_RATE) * 100) / 100;
+  }
+
+  return amount;
+};
+
+const normalizePayoutAmount = (amount: number, sourceCurrency?: string) => {
+  const normalizedSource = String(sourceCurrency || stripePaymentCurrency).toUpperCase();
+
+  if (normalizedSource === stripePaymentCurrency) {
+    return amount;
+  }
+
+  if (normalizedSource === "LKR" && stripePaymentCurrency === "USD") {
+    return Math.round((amount / env.STRIPE_BALANCE_TO_LKR_RATE) * 100) / 100;
+  }
+
+  if (normalizedSource === "USD" && stripePaymentCurrency === "LKR") {
+    return Math.round(amount * env.STRIPE_BALANCE_TO_LKR_RATE * 100) / 100;
+  }
+
+  return amount;
+};
+
 export class PaymentService {
+  getPublishableKey() {
+    return env.STRIPE_PUBLISHABLE_KEY;
+  }
+
   /**
    * Initiate Payment
    * Creates Stripe PaymentIntent and Payment record
@@ -64,15 +99,17 @@ export class PaymentService {
     }
 
     // 3. Create Stripe PaymentIntent
-    const amount = Math.round(order.totalAmount * 100); // Convert to cents
+    const chargeableAmount = convertDisplayAmountToStripeAmount(Number(order.totalAmount || 0));
+    const amount = Math.round(chargeableAmount * 100); // Convert to smallest currency unit
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: env.CURRENCY.toLowerCase(),
+      currency: stripePaymentCurrency.toLowerCase(),
       metadata: {
         orderId: order._id.toString(),
         buyerId: order.buyerId.toString(),
-        sellerId: order.sellerId.toString()
+        sellerId: order.sellerId.toString(),
+        displayAmountLkr: String(order.totalAmount),
       },
       description: `Order #${order._id.toString().slice(-8)} - ${order.titleSnapshot}`,
       automatic_payment_methods: {
@@ -87,12 +124,13 @@ export class PaymentService {
       sellerId: order.sellerId,
       provider: "STRIPE",
       providerPaymentId: paymentIntent.id,
-      amount: order.totalAmount,
-      currency: env.CURRENCY,
+      amount: chargeableAmount,
+      currency: stripePaymentCurrency,
       status: PaymentStatus.INITIATED,
       metadata: {
         stripePaymentIntentId: paymentIntent.id,
-        stripeClientSecret: paymentIntent.client_secret
+        stripeClientSecret: paymentIntent.client_secret,
+        displayAmountLkr: order.totalAmount,
       }
     });
 
@@ -103,10 +141,59 @@ export class PaymentService {
     return {
       paymentId: payment._id,
       clientSecret: paymentIntent.client_secret,
-      amount: order.totalAmount,
-      currency: env.CURRENCY,
+      amount: chargeableAmount,
+      currency: stripePaymentCurrency,
       status: PaymentStatus.INITIATED
     };
+  }
+
+  /**
+   * Confirm payment from client-side checkout success.
+   * Useful for environments where webhook delivery is delayed.
+   */
+  async confirmPayment(orderId: string, buyerId: string, paymentIntentId?: string) {
+    const payment = await Payment.findOne({ orderId });
+
+    if (!payment) {
+      throw new AppError("Payment not found for this order", 404);
+    }
+
+    if (payment.buyerId.toString() !== buyerId) {
+      throw new AppError("You are not authorized to confirm this payment", 403);
+    }
+
+    if (paymentIntentId && payment.providerPaymentId !== paymentIntentId) {
+      throw new AppError("PaymentIntent does not match this order payment", 400);
+    }
+
+    if (payment.status === PaymentStatus.HELD || payment.status === PaymentStatus.RELEASED) {
+      return payment;
+    }
+
+    if (payment.status !== PaymentStatus.INITIATED) {
+      throw new AppError(`Cannot confirm payment with status: ${payment.status}`, 400);
+    }
+
+    const intent = await stripe.paymentIntents.retrieve(payment.providerPaymentId);
+    if (!intent) {
+      throw new AppError("Stripe PaymentIntent not found", 404);
+    }
+
+    if (!["succeeded", "processing", "requires_capture"].includes(intent.status)) {
+      throw new AppError("Payment has not completed successfully yet", 400);
+    }
+
+    payment.status = PaymentStatus.HELD;
+    payment.metadata = payment.metadata || {};
+
+    const latestCharge = intent.latest_charge;
+    if (typeof latestCharge === "string") {
+      payment.metadata.stripeChargeId = latestCharge;
+    }
+
+    await payment.save();
+
+    return payment;
   }
 
   /**
@@ -157,7 +244,7 @@ export class PaymentService {
 
           const amountMainUnit = amountSmallest / 100;
 
-          const currencyUpper = (paymentIntent.currency || env.CURRENCY).toUpperCase();
+          const currencyUpper = (paymentIntent.currency || stripePaymentCurrency).toUpperCase();
 
           console.log("✅ BOOKING_DEPOSIT detected, confirming booking:", bookingId);
 
@@ -211,6 +298,12 @@ export class PaymentService {
         break;
       }
 
+      case "account.updated": {
+        const account = event.data.object as Stripe.Account;
+        await stripeConnectService.handleAccountUpdated(account);
+        break;
+      }
+
       default:
         console.log(`⚠️ Unhandled event type: ${event.type}`);
     }
@@ -239,6 +332,13 @@ export class PaymentService {
 
     // Update payment status to HELD (in escrow)
     payment.status = PaymentStatus.HELD;
+    payment.metadata = payment.metadata || {};
+
+    const latestCharge = paymentIntent.latest_charge;
+    if (typeof latestCharge === "string") {
+      payment.metadata.stripeChargeId = latestCharge;
+    }
+
     await payment.save();
 
     console.log(`✅ Payment ${payment._id} marked as HELD (escrow)`);
@@ -297,12 +397,67 @@ export class PaymentService {
       );
     }
 
-    // In production with Stripe Connect:
-    // - Create transfer to seller's connected account
-    // - Deduct platform fee
+    const payoutMetadata = payment.metadata || {};
+    const displayGrossAmount = Number(payment.amount || 0);
+    const transferGrossAmount = normalizePayoutAmount(displayGrossAmount, payment.currency);
 
-    // For simulation, just update status
     payment.status = PaymentStatus.RELEASED;
+
+    const existingTransferId = payoutMetadata.stripeTransferId;
+    const platformFeePercent = env.STRIPE_TRANSFER_FEE_PERCENT;
+    const feeAmount = Math.round(displayGrossAmount * (platformFeePercent / 100) * 100) / 100;
+    const netAmount = Math.max(0, displayGrossAmount - feeAmount);
+
+    payoutMetadata.payoutGrossAmount = displayGrossAmount;
+    payoutMetadata.payoutFeePercent = platformFeePercent;
+    payoutMetadata.payoutFeeAmount = feeAmount;
+    payoutMetadata.payoutNetAmount = netAmount;
+    payoutMetadata.payoutAttemptedAt = new Date().toISOString();
+    payoutMetadata.payoutStripeGrossAmount = transferGrossAmount;
+    payoutMetadata.payoutStripeCurrency = stripePaymentCurrency;
+
+    if (!existingTransferId) {
+      const eligible = await stripeConnectService.isUserEligibleForPayout(payment.sellerId.toString());
+      const sourceTransaction =
+        typeof payoutMetadata.stripeChargeId === "string"
+          ? payoutMetadata.stripeChargeId
+          : await stripeConnectService.resolveLatestChargeId(payment.providerPaymentId);
+
+      if (sourceTransaction) {
+        payoutMetadata.stripeChargeId = sourceTransaction;
+      }
+
+      if (eligible && netAmount > 0) {
+        const transferAmount = normalizePayoutAmount(netAmount, payment.currency);
+        try {
+          const transfer = await stripeConnectService.createTransferToUser({
+            userId: payment.sellerId.toString(),
+            amount: transferAmount,
+            currency: stripePaymentCurrency,
+            description: `Order ${orderId} payout`,
+            transferGroup: `ORDER_${orderId}`,
+            metadata: {
+              orderId,
+              paymentId: payment._id.toString(),
+              sellerId: payment.sellerId.toString(),
+            },
+            idempotencyKey: `order-release-${payment._id.toString()}-${stripePaymentCurrency}-${transferAmount.toFixed(2)}`,
+            sourceTransaction,
+          });
+
+          payoutMetadata.stripeTransferId = transfer.id;
+          payoutMetadata.payoutStatus = "TRANSFER_CREATED";
+          payoutMetadata.payoutError = null;
+        } catch (error: any) {
+          payoutMetadata.payoutStatus = "TRANSFER_FAILED";
+          payoutMetadata.payoutError = error?.message || "Unknown transfer error";
+        }
+      } else {
+        payoutMetadata.payoutStatus = "SKIPPED_NOT_ELIGIBLE";
+      }
+    }
+
+    payment.metadata = payoutMetadata;
     await payment.save();
 
     console.log(`Payment ${payment._id} RELEASED to seller ${payment.sellerId}`);
@@ -390,17 +545,70 @@ export class PaymentService {
     return payment;
   }
 
-    /**
+  async confirmBookingDepositPayment(args: {
+    bookingId: string;
+    buyerId: string;
+    paymentIntentId: string;
+  }) {
+    const booking = await ServiceBooking.findById(args.bookingId);
+
+    if (!booking) {
+      throw new AppError("Booking not found", 404);
+    }
+
+    if (String(booking.buyerId) !== String(args.buyerId)) {
+      throw new AppError("You are not authorized to confirm this booking payment", 403);
+    }
+
+    if (booking.status === "CONFIRMED") {
+      return booking;
+    }
+
+    if (booking.status !== "PROVIDER_ACCEPTED") {
+      throw new AppError("This booking is not ready for payment confirmation", 400);
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(args.paymentIntentId);
+
+    if (!paymentIntent) {
+      throw new AppError("Payment not found", 404);
+    }
+
+    const paymentPurpose = (paymentIntent.metadata as any)?.paymentPurpose;
+    const paymentBookingId = (paymentIntent.metadata as any)?.bookingId;
+
+    if (paymentPurpose !== "BOOKING_DEPOSIT" || String(paymentBookingId) !== String(args.bookingId)) {
+      throw new AppError("This payment does not belong to the selected booking", 400);
+    }
+
+    if (!["succeeded", "processing", "requires_capture"].includes(paymentIntent.status)) {
+      throw new AppError("Payment has not completed successfully yet", 400);
+    }
+
+    const amountSmallest =
+      typeof paymentIntent.amount_received === "number" && paymentIntent.amount_received > 0
+        ? paymentIntent.amount_received
+        : paymentIntent.amount;
+
+    return confirmBookingFromStripeSuccess({
+      bookingId: args.bookingId,
+      paymentIntentId: paymentIntent.id,
+      amount: amountSmallest / 100,
+      currency: (paymentIntent.currency || stripePaymentCurrency).toUpperCase(),
+    });
+  }
+
+  /**
    * Initiate Booking Deposit PaymentIntent (Service Booking)
    * NOTE: This does NOT create Payment DB record (separate from orders).
    * It ONLY creates a Stripe PaymentIntent and returns clientSecret.
    */
   async initiateBookingDeposit(args: {
     bookingId: string;
-    amount: number;     // main unit (ex: 3000 LKR)
-    currency: string;   // "lkr"
+    amount: number;
+    currency: string;
   }) {
-    const amountSmallest = Math.round(args.amount * 100); // Stripe expects cents-like unit
+    const amountSmallest = Math.round(args.amount * 100);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountSmallest,

@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 export type ProductListingType = "PRODUCT";
 export type TransactionMode = "BUY_NOW" | "NEGOTIABLE";
 export type ListingCondition = "NEW" | "USED_LIKE_NEW" | "USED_GOOD" | "USED_FAIR";
-export type ListingStatus = "ACTIVE" | "SOLD" | "HIDDEN" | "DELETED";
+export type ListingStatus = "ACTIVE" | "SOLD" | "HIDDEN" | "DELETED" | "SUSPENDED" | "UNDER_REVIEW";
 
 interface ILocation {
   city: string;
@@ -31,9 +31,13 @@ export interface IProductListing extends Document {
   status: ListingStatus;
   tags: string[];
   viewsCount: number;
+  viewedByUserIds: Types.ObjectId[];
   savedCount: number;
+  isWishlisted?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  suspendReason?: string;
+  suspendDeadline?: Date;
 }
 
 const productListingSchema = new Schema<IProductListing>(
@@ -108,12 +112,19 @@ const productListingSchema = new Schema<IProductListing>(
     },
     status: {
       type: String,
-      enum: ["ACTIVE", "SOLD", "HIDDEN", "DELETED"],
+      enum: ["ACTIVE", "SOLD", "HIDDEN", "DELETED", "SUSPENDED", "UNDER_REVIEW"],
       default: "ACTIVE",
       index: true
     },
+    suspendReason: { type: String, trim: true },
+    suspendDeadline: { type: Date, index: true },
     tags: { type: [String], default: [] },
     viewsCount: { type: Number, default: 0, min: 0 },
+    viewedByUserIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      select: false
+    },
     savedCount: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }

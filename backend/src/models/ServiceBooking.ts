@@ -24,11 +24,21 @@ export interface IServiceBooking extends Document {
     amount: number;
     currency: string;
     stripePaymentIntentId?: string;
+    stripeTransferId?: string;
+    payoutStatus?: "TRANSFER_CREATED" | "TRANSFER_FAILED" | "SKIPPED_NOT_ELIGIBLE";
+    payoutGrossAmount?: number;
+    payoutFeePercent?: number;
+    payoutFeeAmount?: number;
+    payoutNetAmount?: number;
+    payoutError?: string;
+    payoutAttemptedAt?: Date;
     paidAt?: Date;
   };
 
   createdAt: Date;
   updatedAt: Date;
+
+  isSlotTaken?: boolean;
 }
 
 const serviceBookingSchema = new Schema<IServiceBooking>(
@@ -53,6 +63,17 @@ const serviceBookingSchema = new Schema<IServiceBooking>(
       amount: { type: Number, min: 0 },
       currency: { type: String, default: "lkr" },
       stripePaymentIntentId: { type: String },
+      stripeTransferId: { type: String },
+      payoutStatus: {
+        type: String,
+        enum: ["TRANSFER_CREATED", "TRANSFER_FAILED", "SKIPPED_NOT_ELIGIBLE"],
+      },
+      payoutGrossAmount: { type: Number, min: 0 },
+      payoutFeePercent: { type: Number, min: 0, max: 100 },
+      payoutFeeAmount: { type: Number, min: 0 },
+      payoutNetAmount: { type: Number, min: 0 },
+      payoutError: { type: String },
+      payoutAttemptedAt: { type: Date },
       paidAt: { type: Date },
     },
   },

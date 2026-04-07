@@ -5,17 +5,33 @@ import AdminTable from '@/components/admin/AdminTable';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminBadge from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import CategoryReportModal from '@/components/admin/CategoryReportModal';
+import { FiFileText, FiImage, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { CategoryAttribute, CategoryType, ICategory } from '@/types';
+import {
+  generateAdminCategoriesPdf,
+  type CategoryReportOptions,
+} from '@/utils/adminCategoryReport';
 
 interface CategoryForm {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes: CategoryAttribute[];
   isActive: boolean;
 }
+
+const MAX_IMAGE_SIZE_MB = 5;
+
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 
 type ValidationResult =
   | { valid: true; payload: ReturnType<typeof normalizeFormStatic> }
@@ -46,6 +62,7 @@ const normalizeFormStatic = (input: CategoryForm) => {
     name: input.name.trim(),
     type: input.type,
     description: input.description?.trim() || undefined,
+    ...(input.image ? { image: input.image } : {}),
     attributes: normalizedAttributes,
     isActive: input.isActive,
   };
@@ -55,6 +72,7 @@ const emptyForm: CategoryForm = {
   name: '',
   type: 'PRODUCT',
   description: '',
+  image: '',
   attributes: [],
   isActive: true,
 };
@@ -78,6 +96,10 @@ const AdminCategoriesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ICategory | null>(null);
+  const [reportCategories, setReportCategories] = useState<ICategory[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const getIsActiveFilter = () => {
     if (statusFilter === 'active') {
@@ -98,6 +120,10 @@ const AdminCategoriesPage: React.FC = () => {
 
     if (normalized.description && normalized.description.length > 500) {
       return { valid: false, message: 'Description must not exceed 500 characters.' };
+    }
+
+    if (!editId && !normalized.image) {
+      return { valid: false, message: 'Category image is required for new categories.' };
     }
 
     for (let index = 0; index < normalized.attributes.length; index += 1) {
@@ -130,10 +156,64 @@ const AdminCategoriesPage: React.FC = () => {
     }
   }, [search, statusFilter, typeFilter]);
 
+  const fetchReportCategories = useCallback(async () => {
+    setReportLoading(true);
+    try {
+      const merged: ICategory[] = [];
+      const limit = 100;
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const response = await categoriesApi.getAll({
+          search: search || undefined,
+          type: typeFilter || undefined,
+          isActive: getIsActiveFilter(),
+          page,
+          limit,
+        });
+
+        merged.push(...response.data.data);
+        totalPages = response.data.pagination.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages && page <= 50);
+
+      setReportCategories(merged);
+    } catch {
+      setReportCategories([]);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [search, statusFilter, typeFilter]);
+
   useEffect(() => {
-    const timer = setTimeout(() => fetchCategories(), 300);
+    const timer = setTimeout(() => {
+      void fetchCategories();
+      void fetchReportCategories();
+    }, 300);
     return () => clearTimeout(timer);
-  }, [fetchCategories]);
+  }, [fetchCategories, fetchReportCategories]);
+
+  const generatePdf = async (options: CategoryReportOptions) => {
+    if (reportCategories.length === 0) {
+      toast.error('No categories found to generate report.');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await generateAdminCategoriesPdf({
+        categories: reportCategories,
+        options,
+      });
+      setPdfModalOpen(false);
+      toast.success('Categories PDF report generated successfully.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to generate categories PDF report.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const openCreate = () => {
     setEditId(null);
@@ -148,6 +228,7 @@ const AdminCategoriesPage: React.FC = () => {
       name: cat.name,
       type: cat.type,
       description: cat.description ?? '',
+      image: cat.image || '',
       attributes: (cat.attributes || []).map((attribute) => ({
         ...attribute,
         options: attribute.options || [],
@@ -156,6 +237,28 @@ const AdminCategoriesPage: React.FC = () => {
     });
     setFormError(null);
     setShowModal(true);
+  };
+
+  const handleSelectImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Category image must be smaller than ${MAX_IMAGE_SIZE_MB}MB.`);
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      const image = await fileToDataUrl(file);
+      setForm((prev) => ({ ...prev, image }));
+    } catch {
+      toast.error('Unable to process the selected category image.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const addAttribute = () => {
@@ -269,7 +372,10 @@ const AdminCategoriesPage: React.FC = () => {
         await categoriesApi.update(editId, validation.payload);
         toast.success('Category updated');
       } else {
-        await categoriesApi.create(validation.payload);
+        await categoriesApi.create({
+          ...validation.payload,
+          image: validation.payload.image!,
+        });
         toast.success('Category created');
       }
       setShowModal(false);
@@ -295,9 +401,22 @@ const AdminCategoriesPage: React.FC = () => {
 
   const columns = [
     {
+      key: 'image',
+      header: 'Image',
+      render: (row: ICategory) => (
+        row.image ? (
+          <img src={row.image} alt={row.name} className="h-10 w-10 rounded-xl object-cover" />
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            <FiImage size={14} />
+          </div>
+        )
+      ),
+    },
+    {
       key: 'name',
       header: 'Name',
-      render: (row: ICategory) => <span className="font-medium text-white">{row.name}</span>,
+      render: (row: ICategory) => <span className="font-medium text-slate-900">{row.name}</span>,
     },
     {
       key: 'type',
@@ -310,7 +429,7 @@ const AdminCategoriesPage: React.FC = () => {
       key: 'attributes',
       header: 'Attributes',
       render: (row: ICategory) => (
-        <span className="text-slate-400">{row.attributes?.length ?? 0} fields</span>
+        <span className="text-slate-500">{row.attributes?.length ?? 0} fields</span>
       ),
     },
     {
@@ -329,13 +448,13 @@ const AdminCategoriesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); openEdit(row); }}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             Edit
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
           >
             <FiTrash2 size={14} />
           </button>
@@ -349,14 +468,25 @@ const AdminCategoriesPage: React.FC = () => {
       <AdminPageHeader
         title="Categories"
         description="Manage product and service categories"
-        actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <FiPlus size={16} /> New Category
-          </button>
-        }
+        actions={(
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPdfModalOpen(true)}
+              disabled={pdfLoading || reportLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiFileText size={16} />
+              {pdfLoading ? 'Generating PDF...' : reportLoading ? 'Preparing Data...' : 'Download PDF Report'}
+            </button>
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <FiPlus size={16} /> New Category
+            </button>
+          </div>
+        )}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -366,7 +496,7 @@ const AdminCategoriesPage: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as CategoryType | '')}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="">All Types</option>
           <option value="PRODUCT">Product</option>
@@ -375,7 +505,7 @@ const AdminCategoriesPage: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -383,11 +513,10 @@ const AdminCategoriesPage: React.FC = () => {
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-900/50">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <AdminTable columns={columns} data={categories} loading={loading} emptyMessage="No categories found" />
       </div>
 
-      {/* Create / Edit Modal */}
       <AdminModal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? 'Edit Category' : 'New Category'} size="md">
         <div className="space-y-4">
           {formError && (
@@ -396,44 +525,67 @@ const AdminCategoriesPage: React.FC = () => {
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Name</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Name</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
               placeholder="Category name"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Type</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Type</label>
             <select
               value={form.type}
               onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as 'PRODUCT' | 'SERVICE' }))}
               disabled={!!editId}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50 disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500/50 disabled:opacity-50"
             >
               <option value="PRODUCT">Product</option>
               <option value="SERVICE">Service</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Description</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={3}
-              className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
               placeholder="Optional description"
             />
           </div>
-          <div className="space-y-3 rounded-lg border border-slate-800/60 p-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Category Image {!editId && <span className="text-rose-500">*</span>}
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600 transition-colors hover:border-blue-500/50 hover:bg-slate-100">
+              <FiUpload size={15} />
+              {form.image ? 'Replace image' : 'Upload image'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => void handleSelectImage(event)}
+              />
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              {editId ? 'Optional in edit. Leave unchanged to keep the current image.' : 'Required for new categories.'}
+            </p>
+            {form.image && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <img src={form.image} alt="Category preview" className="h-40 w-full object-cover" />
+              </div>
+            )}
+          </div>
+          <div className="space-y-3 rounded-lg border border-slate-200 p-3">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-medium text-slate-400">Attributes</label>
+              <label className="block text-xs font-medium text-slate-700">Attributes</label>
               <button
                 type="button"
                 onClick={addAttribute}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-200 transition-colors hover:border-blue-500/60 hover:text-white"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 transition-colors hover:border-blue-500/60 hover:text-slate-900"
               >
                 <FiPlus size={12} /> Add Field
               </button>
@@ -445,19 +597,19 @@ const AdminCategoriesPage: React.FC = () => {
 
             <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
               {form.attributes.map((attribute, index) => (
-                <div key={`attribute-${index}`} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+                <div key={`attribute-${index}`} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <input
                       type="text"
                       value={attribute.fieldName}
                       onChange={(e) => updateAttribute(index, { fieldName: e.target.value })}
-                      className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
                       placeholder="Field name"
                     />
                     <select
                       value={attribute.fieldType}
                       onChange={(e) => updateAttribute(index, { fieldType: e.target.value as CategoryAttribute['fieldType'] })}
-                      className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500/50"
                     >
                       <option value="string">String</option>
                       <option value="number">Number</option>
@@ -467,13 +619,13 @@ const AdminCategoriesPage: React.FC = () => {
                   </div>
 
                   {attribute.fieldType === 'select' && (
-                    <div className="space-y-2 rounded-lg border border-slate-800/70 bg-slate-950/30 p-2.5">
+                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-slate-400">Options</p>
+                        <p className="text-xs text-slate-700">Options</p>
                         <button
                           type="button"
                           onClick={() => addAttributeOption(index)}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-200 transition-colors hover:border-blue-500/60 hover:text-white"
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 transition-colors hover:border-blue-500/60 hover:text-slate-900"
                         >
                           <FiPlus size={12} /> Add Option
                         </button>
@@ -489,13 +641,13 @@ const AdminCategoriesPage: React.FC = () => {
                             type="text"
                             value={option}
                             onChange={(e) => updateAttributeOption(index, optionIndex, e.target.value)}
-                            className="w-full rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500/50"
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
                             placeholder={`Option ${optionIndex + 1}`}
                           />
                           <button
                             type="button"
                             onClick={() => removeAttributeOption(index, optionIndex)}
-                            className="rounded-md px-2 py-1 text-xs text-rose-400 transition-colors hover:bg-rose-500/10"
+                            className="rounded-md px-2 py-1 text-xs text-rose-600 transition-colors hover:bg-rose-50"
                           >
                             Remove
                           </button>
@@ -505,19 +657,19 @@ const AdminCategoriesPage: React.FC = () => {
                   )}
 
                   <div className="flex items-center justify-between">
-                    <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-700">
                       <input
                         type="checkbox"
                         checked={attribute.required}
                         onChange={(e) => updateAttribute(index, { required: e.target.checked })}
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/30"
+                        className="h-4 w-4 rounded border-slate-300 bg-white text-blue-600 focus:ring-blue-500/30"
                       />
                       Required field
                     </label>
                     <button
                       type="button"
                       onClick={() => removeAttribute(index)}
-                      className="rounded-md px-2 py-1 text-xs text-rose-400 transition-colors hover:bg-rose-500/10"
+                      className="rounded-md px-2 py-1 text-xs text-rose-600 transition-colors hover:bg-rose-50"
                     >
                       Remove
                     </button>
@@ -533,15 +685,15 @@ const AdminCategoriesPage: React.FC = () => {
                 checked={form.isActive}
                 onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
                 id="isActive"
-                className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/30"
+                className="h-4 w-4 rounded border-slate-300 bg-white text-blue-600 focus:ring-blue-500/30"
               />
-              <label htmlFor="isActive" className="text-sm text-slate-300">Active</label>
+              <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
             </div>
           )}
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-800/60">
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
             <button
               onClick={() => setShowModal(false)}
-              className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             >
               Cancel
             </button>
@@ -556,16 +708,15 @@ const AdminCategoriesPage: React.FC = () => {
         </div>
       </AdminModal>
 
-      {/* Delete Confirmation Modal */}
       <AdminModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Category" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-slate-300">
-            Delete <span className="font-semibold text-white">{deleteTarget?.name}</span>? This will set the category as inactive (soft delete), and you can still view it using the status filter.
+          <p className="text-sm text-slate-600">
+            Delete <span className="font-semibold text-slate-900">{deleteTarget?.name}</span>? This will set the category as inactive (soft delete), and you can still view it using the status filter.
           </p>
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setDeleteTarget(null)}
-              className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             >
               Cancel
             </button>
@@ -578,6 +729,13 @@ const AdminCategoriesPage: React.FC = () => {
           </div>
         </div>
       </AdminModal>
+
+      <CategoryReportModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onGenerate={generatePdf}
+        isGenerating={pdfLoading}
+      />
     </div>
   );
 };

@@ -2,8 +2,13 @@ import mongoose from "mongoose";
 import ServiceSelling from "../models/ServiceSelling";
 import ServiceBooking from "../models/ServiceBooking";
 import { AppError } from "../utils/AppError";
+import { env } from "../config/env";
+import { StripeConnectService } from "./stripeConnectService";
 
+import { NotificationType } from "../models/Notification";
+import { createUserNotification } from "./notificationService";
 import {
+  notifyBookingUnavailable,
   notifyBookingCreated,
   notifyBookingDecision,
   notifyBookingConfirmed,
@@ -11,6 +16,47 @@ import {
 
 function addMinutes(date: Date, mins: number) {
   return new Date(date.getTime() + mins * 60 * 1000);
+}
+
+const stripeConnectService = new StripeConnectService();
+const stripePaymentCurrency = env.STRIPE_PAYMENT_CURRENCY.toLowerCase();
+
+const convertLkrToStripeAmount = (amountLkr: number) => {
+  if (stripePaymentCurrency === "usd") {
+    return Math.round((amountLkr / env.STRIPE_BALANCE_TO_LKR_RATE) * 100) / 100;
+  }
+
+  return amountLkr;
+};
+
+export async function populateIsSlotTaken(bookings: any[]) {
+  if (!bookings || !bookings.length) return bookings;
+
+  const candidates = bookings.filter((b) => ["PENDING", "PROVIDER_ACCEPTED"].includes(b.status));
+  if (!candidates.length) return bookings;
+
+  const serviceIds = [...new Set(candidates.map((b) => String(b.serviceId?._id || b.serviceId)))];
+
+  const confirmed = await ServiceBooking.find({
+    serviceId: { $in: serviceIds },
+    status: "CONFIRMED",
+    endAt: { $gte: new Date() },
+  }).select("serviceId startAt endAt");
+
+  for (const booking of bookings) {
+    if (!["PENDING", "PROVIDER_ACCEPTED"].includes(booking.status)) continue;
+
+    const sId = String(booking.serviceId?._id || booking.serviceId);
+    const hasOverlap = confirmed.some(
+      (c) => String(c.serviceId) === sId && overlaps(booking.startAt, booking.endAt, c.startAt, c.endAt)
+    );
+
+    if (hasOverlap) {
+      booking.isSlotTaken = true;
+    }
+  }
+
+  return bookings;
 }
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -52,13 +98,39 @@ export async function createBooking(buyerId: string, body: any) {
 export async function listMyBookings(buyerId: string, status?: string) {
   const query: any = { buyerId: new mongoose.Types.ObjectId(buyerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query).sort({ createdAt: -1 });
+  let bookings = await ServiceBooking.find(query)
+    .populate({
+      path: "serviceId",
+      select: "title locationText location price pricingType images status isActive sellerId",
+    })
+    .populate({
+      path: "providerId",
+      select: "name email profileImage",
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  bookings = await populateIsSlotTaken(bookings);
+  return bookings;
 }
 
 export async function listProviderBookings(providerId: string, status?: string) {
   const query: any = { providerId: new mongoose.Types.ObjectId(providerId) };
   if (status) query.status = status;
-  return ServiceBooking.find(query).sort({ startAt: 1 });
+  let bookings = await ServiceBooking.find(query)
+    .populate({
+      path: "serviceId",
+      select: "title locationText location price pricingType images status isActive sellerId",
+    })
+    .populate({
+      path: "buyerId",
+      select: "name email profileImage",
+    })
+    .sort({ startAt: 1 })
+    .lean();
+
+  bookings = await populateIsSlotTaken(bookings);
+  return bookings;
 }
 
 export async function cancelBooking(id: string, buyerId: string) {
@@ -69,8 +141,14 @@ export async function cancelBooking(id: string, buyerId: string) {
     throw new AppError("Forbidden", 403);
   }
 
-  if (booking.status !== "PENDING") {
-    throw new AppError("Only PENDING bookings can be cancelled", 400);
+  const cancellableStatuses = ["PENDING", "PROVIDER_ACCEPTED"];
+
+  if (!cancellableStatuses.includes(booking.status)) {
+    throw new AppError("Only pending or accepted unpaid bookings can be cancelled", 400);
+  }
+
+  if (booking.deposit?.paidAt) {
+    throw new AppError("Confirmed bookings cannot be cancelled from this page", 400);
   }
 
   booking.status = "CANCELLED";
@@ -110,18 +188,23 @@ export async function providerDecision(
 }
 
 export async function getConfirmedSlots(query: any) {
-  const q: any = {
-    serviceId: new mongoose.Types.ObjectId(query.serviceId),
-    status: "CONFIRMED",
-  };
+  const conditions: any[] = [
+    { serviceId: new mongoose.Types.ObjectId(query.serviceId) },
+    { status: "CONFIRMED" },
+  ];
 
-  if (query.from || query.to) {
-    q.startAt = {};
-    if (query.from) q.startAt.$gte = new Date(query.from);
-    if (query.to) q.startAt.$lte = new Date(query.to);
+  // Include overlapping slots so currently active confirmed bookings are visible too.
+  const now = new Date();
+  const fromDate = query.from ? new Date(query.from) : now;
+  conditions.push({ endAt: { $gte: fromDate > now ? fromDate : now } });
+
+  if (query.to) {
+    conditions.push({ startAt: { $lte: new Date(query.to) } });
   }
 
-  return ServiceBooking.find(q).select("startAt endAt -_id");
+  return ServiceBooking.find({ $and: conditions })
+    .sort({ startAt: 1 })
+    .select("startAt endAt -_id");
 }
 
 export async function calculateDepositForBooking(bookingId: string, buyerId: string) {
@@ -142,12 +225,15 @@ export async function calculateDepositForBooking(bookingId: string, buyerId: str
   const depositAmount =
     service.pricingType === "HOURLY" ? service.price : Math.round(service.price * 0.2);
 
+  const stripeAmount = convertLkrToStripeAmount(Number(depositAmount || 0));
+
   return {
-    amount: depositAmount,
-    currency: "lkr",
+    amount: stripeAmount,
+    currency: stripePaymentCurrency,
     metadata: {
       paymentPurpose: "BOOKING_DEPOSIT",
       bookingId: String(booking._id),
+      displayAmountLkr: String(depositAmount),
     },
   };
 }
@@ -187,6 +273,96 @@ export async function confirmBookingFromStripeSuccess(params: {
   };
 
   await booking.save();
+
+  if (!booking.deposit?.stripeTransferId) {
+    const grossAmount = Number(booking.deposit?.amount || 0);
+    const feePercent = env.STRIPE_TRANSFER_FEE_PERCENT;
+    const feeAmount = Math.round(grossAmount * (feePercent / 100) * 100) / 100;
+    const netAmount = Math.max(0, grossAmount - feeAmount);
+
+    booking.deposit = {
+      amount: booking.deposit.amount,
+      currency: booking.deposit.currency,
+      stripePaymentIntentId: booking.deposit.stripePaymentIntentId,
+      paidAt: booking.deposit.paidAt,
+      payoutGrossAmount: grossAmount,
+      payoutFeePercent: feePercent,
+      payoutFeeAmount: feeAmount,
+      payoutNetAmount: netAmount,
+      payoutAttemptedAt: new Date(),
+    };
+
+    const eligible = await stripeConnectService.isUserEligibleForPayout(String(booking.providerId));
+    const sourceTransaction = await stripeConnectService.resolveLatestChargeId(params.paymentIntentId);
+
+    if (eligible && netAmount > 0) {
+      try {
+        const transfer = await stripeConnectService.createTransferToUser({
+          userId: String(booking.providerId),
+          amount: netAmount,
+          currency: params.currency,
+          description: `Service booking ${booking._id.toString()} payout`,
+          transferGroup: `BOOKING_${booking._id.toString()}`,
+          metadata: {
+            bookingId: booking._id.toString(),
+            providerId: String(booking.providerId),
+            paymentIntentId: params.paymentIntentId,
+          },
+          idempotencyKey: `booking-payout-${booking._id.toString()}`,
+          sourceTransaction,
+        });
+
+        booking.deposit = {
+          ...booking.deposit,
+          stripeTransferId: transfer.id,
+          payoutStatus: "TRANSFER_CREATED",
+          payoutError: undefined,
+        };
+      } catch (error: any) {
+        booking.deposit = {
+          ...booking.deposit,
+          payoutStatus: "TRANSFER_FAILED",
+          payoutError: error?.message || "Unknown transfer error",
+        };
+      }
+    } else {
+      booking.deposit = {
+        ...booking.deposit,
+        payoutStatus: "SKIPPED_NOT_ELIGIBLE",
+      };
+    }
+
+    await booking.save();
+  }
+
+  // Find clashing pending/accepted bookings
+  const clashingBookings = await ServiceBooking.find({
+    serviceId: booking.serviceId,
+    _id: { $ne: booking._id },
+    status: { $in: ["PENDING", "PROVIDER_ACCEPTED"] }
+  }).select("_id buyerId providerId startAt endAt");
+
+  const actualClashes = clashingBookings.filter(b => 
+    overlaps(booking.startAt, booking.endAt, b.startAt, b.endAt)
+  );
+
+  for (const clash of actualClashes) {
+    void notifyBookingUnavailable({
+      bookingId: String(clash._id),
+      buyerId: String(clash.buyerId),
+      providerId: String(clash.providerId),
+      startAt: clash.startAt,
+      endAt: clash.endAt,
+    }).catch(() => {});
+
+    void createUserNotification(clash.buyerId, {
+      title: "Booking Slot Taken",
+      message: `The slot you requested for booking #${String(clash._id).slice(-6)} has been taken by another user who paid first. Please make another request.`,
+      type: NotificationType.ORDER,
+      entityType: "ServiceBooking",
+      entityId: String(clash._id)
+    }).catch(() => {});
+  }
 
   // ✅ Email both: booking confirmed (non-blocking)
   void notifyBookingConfirmed({

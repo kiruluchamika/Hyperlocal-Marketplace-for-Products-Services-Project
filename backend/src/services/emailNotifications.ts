@@ -8,7 +8,7 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.de
 // Create client only if key exists
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-async function getEmail(userId: string): Promise<string> {
+export async function getEmail(userId: string): Promise<string> {
   if (!userId) throw new Error("Missing userId for email lookup");
 
   const user: any = await User.findById(userId).select("email");
@@ -24,7 +24,7 @@ async function getEmail(userId: string): Promise<string> {
   return String(user.email).trim();
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string) {
   // Don’t break booking if env not configured
   if (!resend) {
     console.warn("⚠️ RESEND_API_KEY not set → skipping email send");
@@ -103,5 +103,27 @@ export async function notifyBookingConfirmed(data: {
   await Promise.all([
     sendEmail(buyerEmail, "Booking Confirmed", html),
     sendEmail(providerEmail, "Booking Confirmed", html),
+  ]);
+}
+
+export async function notifyBookingUnavailable(data: {
+  bookingId: string;
+  buyerId: string;
+  providerId: string;
+  startAt: Date;
+  endAt: Date;
+}) {
+  const buyerEmail = await getEmail(data.buyerId);
+  const providerEmail = await getEmail(data.providerId);
+
+  const html = `<p><b>Booking Request Unavailable</b></p>
+                <p>We are writing to inform you that the requested slot for Booking #${data.bookingId} has been confirmed by another user and is no longer available.</p>
+                <p><b>Start:</b> ${new Date(data.startAt).toISOString()}</p>
+                <p><b>End:</b> ${new Date(data.endAt).toISOString()}</p>
+                <p>Please log in to your dashboard to make another request.</p>`;
+
+  await Promise.all([
+    sendEmail(buyerEmail, "Booking Request Unavailable - Slot Taken", html),
+    sendEmail(providerEmail, "Booking Request Unavailable - Slot Taken", html),
   ]);
 }

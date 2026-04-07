@@ -4,6 +4,7 @@ import { authApi, LoginPayload, RegisterPayload } from '@/api/auth';
 import { usersApi } from '@/api/users';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { authStorage } from '@/utils/authStorage';
 
 interface AuthState {
   user: IUser | null;
@@ -24,29 +25,32 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  token: localStorage.getItem('bazaaro_token'),
-  isAuthenticated: !!localStorage.getItem('bazaaro_token'),
-  isLoading: false,
+  token: authStorage.getToken(),
+  isAuthenticated: !!authStorage.getToken(),
+  isLoading: true,
 
   persistSession: (token: string, user: IUser) => {
-    localStorage.setItem('bazaaro_token', token);
-    localStorage.setItem('bazaaro_user', JSON.stringify(user));
+    authStorage.persistSession(token, user);
     set({ user, token, isAuthenticated: true, isLoading: false });
   },
 
   initialize: () => {
-    const token = localStorage.getItem('bazaaro_token');
-    const userStr = localStorage.getItem('bazaaro_user');
+    set({ isLoading: true });
+    const { token, user: userStr } = authStorage.migrateLegacySession();
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true });
+        set({ user, token, isAuthenticated: true, isLoading: false });
       } catch {
-        localStorage.removeItem('bazaaro_token');
-        localStorage.removeItem('bazaaro_user');
-        set({ user: null, token: null, isAuthenticated: false });
+        authStorage.clearSession();
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
       }
+      return;
     }
+
+    // Keep auth/session state consistent to avoid route flicker on refresh.
+    authStorage.clearSession();
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
   },
 
   login: async (payload) => {
@@ -114,9 +118,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('bazaaro_token');
-    localStorage.removeItem('bazaaro_user');
-    set({ user: null, token: null, isAuthenticated: false });
+    authStorage.clearSession();
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     toast.success('Logged out successfully');
   },
 
@@ -125,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data } = await usersApi.getMe();
       const user = data.user;
-      localStorage.setItem('bazaaro_user', JSON.stringify(user));
+      authStorage.setUser(user);
       set({ user });
     } catch {
       get().logout();
@@ -133,7 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setUser: (user) => {
-    localStorage.setItem('bazaaro_user', JSON.stringify(user));
+    authStorage.setUser(user);
     set({ user });
   },
 }));

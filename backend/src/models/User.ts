@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 type Role = "admin" | "user";
 type KycStatus = "UNSUBMITTED" | "PENDING" | "VERIFIED" | "REJECTED";
@@ -29,6 +29,20 @@ interface ISellerProfile {
   description?: string;
 }
 
+export type StripeConnectOnboardingStatus =
+  | "NOT_STARTED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "VERIFICATION_FAILED";
+
+interface IStripeConnect {
+  accountId?: string;
+  onboardingStatus: StripeConnectOnboardingStatus;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  updatedAt?: Date;
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -45,6 +59,8 @@ export interface IUser extends Document {
   verification: IUserVerification;
   preferences: IUserPreferences;
   sellerProfile?: ISellerProfile;
+  stripeConnect?: IStripeConnect;
+  wishlist: Types.ObjectId[];
   isActive: boolean;
   suspendedAt?: Date;
   createdAt: Date;
@@ -90,6 +106,21 @@ const sellerProfileSchema = new Schema<ISellerProfile>(
   { _id: false }
 );
 
+const stripeConnectSchema = new Schema<IStripeConnect>(
+  {
+    accountId: { type: String, trim: true },
+    onboardingStatus: {
+      type: String,
+      enum: ["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "VERIFICATION_FAILED"],
+      default: "NOT_STARTED"
+    },
+    chargesEnabled: { type: Boolean, default: false },
+    payoutsEnabled: { type: Boolean, default: false },
+    updatedAt: { type: Date }
+  },
+  { _id: false }
+);
+
 const userSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
@@ -111,6 +142,12 @@ const userSchema = new Schema<IUser>(
     verification: { type: verificationSchema, default: () => ({}) },
     preferences: { type: preferencesSchema, default: () => ({}) },
     sellerProfile: { type: sellerProfileSchema, default: () => ({}) },
+    stripeConnect: { type: stripeConnectSchema, default: () => ({}) },
+    wishlist: {
+      type: [{ type: Schema.Types.ObjectId, ref: "ProductListing" }],
+      default: [],
+      select: false,
+    },
     isActive: { type: Boolean, default: true },
     suspendedAt: { type: Date }
   },

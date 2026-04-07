@@ -8,6 +8,9 @@ export interface AdminStats {
   totalBookings: number;
   totalCategories: number;
   totalRevenue: number;
+  totalReviews: number;
+  hiddenReviewRatio: number;
+  averageServiceRating: number;
 }
 
 export interface ChartDataPoint {
@@ -20,12 +23,29 @@ export interface ChartData {
   revenueByMonth: { month: string; revenue: number }[];
   ordersByMonth: { month: string; count: number }[];
   listingsByMonth: { month: string; count: number }[];
+  reviewsByMonth: { month: string; avgRating: number; count: number }[];
 }
 
 export interface DashboardData {
   stats: AdminStats;
   ordersByStatus: Record<string, number>;
   userGrowth: { month: string; count: number }[];
+  performance: {
+    topSellingProduct: {
+      name: string;
+      orderCount: number;
+      revenue: number;
+    } | null;
+    mostActiveUser: {
+      name: string;
+      activityCount: number;
+      activityLabel: string;
+    } | null;
+    topCategory: {
+      name: string;
+      listingCount: number;
+    } | null;
+  };
   recentUsers: {
     _id: string;
     name: string;
@@ -83,6 +103,16 @@ export interface AdminPayment {
   amount: number;
   currency: string;
   status: string;
+  metadata?: {
+    payoutStatus?: string;
+    stripeTransferId?: string;
+    payoutError?: string;
+    payoutAttemptedAt?: string;
+    payoutGrossAmount?: number;
+    payoutFeePercent?: number;
+    payoutFeeAmount?: number;
+    payoutNetAmount?: number;
+  };
   createdAt: string;
 }
 
@@ -95,6 +125,18 @@ export interface AdminBooking {
   endAt: string;
   durationMinutes: number;
   status: string;
+  deposit?: {
+    amount?: number;
+    currency?: string;
+    stripeTransferId?: string;
+    payoutStatus?: string;
+    payoutError?: string;
+    payoutAttemptedAt?: string;
+    payoutGrossAmount?: number;
+    payoutFeePercent?: number;
+    payoutFeeAmount?: number;
+    payoutNetAmount?: number;
+  };
   note?: string;
   createdAt: string;
 }
@@ -117,4 +159,15 @@ export interface Pagination {
   total: number;
   page: number;
   totalPages: number;
+}
+
+export interface WalletBalanceItem {
+  currency: string;
+  amount: number;
+}
+
+export interface AdminMarketplaceWallet {
+  available: WalletBalanceItem[];
+  pending: WalletBalanceItem[];
+  instantAvailable: WalletBalanceItem[];
 }

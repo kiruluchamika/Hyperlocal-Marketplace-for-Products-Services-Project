@@ -18,6 +18,7 @@ const ORDER_ACTIONS: OrderAction[] = [
   'CANCEL',
   'INITIATE_PAYMENT',
   'CONFIRM_RECEIVED',
+  'CONFIRM_RECEIVED_WITH_OTP',
   'ACCEPT',
   'REJECT',
   'START',
@@ -51,6 +52,9 @@ const asString = (value: unknown, fallback = ''): string =>
 
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const asOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
 const normalizeId = (value: unknown): string => {
   if (typeof value === 'string') return value;
@@ -169,6 +173,7 @@ const normalizeOrder = (orderLike: unknown, actionsLike?: unknown): ManagedOrder
 
 const normalizePayment = (paymentLike: unknown): ManagedPayment => {
   const record = asRecord(paymentLike);
+  const metadata = asRecord(record.metadata);
 
   return {
     id: normalizeId(record),
@@ -179,6 +184,14 @@ const normalizePayment = (paymentLike: unknown): ManagedPayment => {
     currency: asString(record.currency, 'LKR'),
     status: parsePaymentStatus(record.status),
     providerPaymentId: asString(record.providerPaymentId) || undefined,
+    payoutStatus: asString(metadata.payoutStatus) as ManagedPayment['payoutStatus'] | undefined,
+    stripeTransferId: asString(metadata.stripeTransferId) || undefined,
+    payoutError: asString(metadata.payoutError) || undefined,
+    payoutAttemptedAt: asString(metadata.payoutAttemptedAt) || undefined,
+    payoutGrossAmount: asOptionalNumber(metadata.payoutGrossAmount),
+    payoutFeePercent: asOptionalNumber(metadata.payoutFeePercent),
+    payoutFeeAmount: asOptionalNumber(metadata.payoutFeeAmount),
+    payoutNetAmount: asOptionalNumber(metadata.payoutNetAmount),
     createdAt: asString(record.createdAt) || undefined,
     updatedAt: asString(record.updatedAt) || undefined,
   };
@@ -289,6 +302,10 @@ export const orderManagementApi = {
     return mutateOrder('patch', `/orders/${id}/confirm-received`);
   },
 
+  async confirmReceivedWithOtp(id: string, otp: string): Promise<ManagedOrder> {
+    return mutateOrder('post', `/orders/${id}/confirm-received-otp`, { otp });
+  },
+
   async updateDeliveryDetails(
     id: string,
     payload: { deliveryMethod: DeliveryMethod; deliveryAddress?: string }
@@ -329,6 +346,15 @@ export const orderManagementApi = {
       currency: asString(data.currency, 'LKR'),
       status: parsePaymentStatus(data.status),
     };
+  },
+
+  async confirmPayment(orderId: string, paymentIntentId?: string): Promise<ManagedPayment> {
+    const response = await apiClient.post('/payments/confirm', {
+      orderId,
+      paymentIntentId,
+    });
+    const data = pickResponseData(response.data);
+    return normalizePayment(data);
   },
 
   async getPaymentByOrder(orderId: string): Promise<ManagedPayment> {
