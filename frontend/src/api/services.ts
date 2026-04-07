@@ -1,5 +1,6 @@
 import apiClient from './client';
 import { IServiceBooking, IServiceBookingSlot, IServiceSelling } from '@/types';
+import { IReviewSummary, IServiceReview, IWebsiteReview, ReviewSort } from '@/types/review';
 
 export const servicesApi = {
   getAll: (params?: {
@@ -65,4 +66,93 @@ export const bookingsApi = {
     apiClient.post<{ success: boolean; data: IServiceBooking }>(`/servicebookings/${id}/deposit/confirm`, {
       paymentIntentId,
     }),
+};
+
+export const reviewsApi = {
+  listByService: (
+    serviceId: string,
+    params?: { page?: number; limit?: number; sortBy?: ReviewSort; rating?: number }
+  ) =>
+    apiClient.get<{
+      success: boolean;
+      data: IServiceReview[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/reviews/service/${serviceId}`, { params }),
+
+  getSummaryByService: (serviceId: string) =>
+    apiClient.get<{ success: boolean; data: IReviewSummary }>(`/reviews/service/${serviceId}/summary`),
+
+  getMyReviewByService: (serviceId: string) =>
+    apiClient.get<{ success: boolean; data: IServiceReview | null }>(`/reviews/service/${serviceId}/me`),
+
+  create: (payload: { serviceId: string; rating: number; title?: string; content: string; bookingId?: string }) =>
+    apiClient.post<{ success: boolean; data: IServiceReview }>('/reviews', payload),
+
+  update: (id: string, payload: { rating?: number; title?: string; content?: string }) =>
+    apiClient.patch<{ success: boolean; data: IServiceReview }>(`/reviews/${id}`, payload),
+
+  delete: (id: string) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/reviews/${id}`),
+
+  reply: (id: string, content: string) =>
+    apiClient.post<{ success: boolean; data: IServiceReview }>(`/reviews/${id}/reply`, { content }),
+
+  voteHelpful: (id: string) =>
+    apiClient.post<{ success: boolean; data: { reviewId: string; helpfulCount: number; voted: boolean } }>(
+      `/reviews/${id}/helpful`,
+      { action: 'TOGGLE' }
+    ),
+
+  listAdmin: (params?: { page?: number; limit?: number; status?: 'PUBLISHED' | 'HIDDEN'; serviceId?: string; search?: string }) =>
+    apiClient.get<{
+      success: boolean;
+      data: IServiceReview[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>('/reviews/admin/list', { params }),
+
+  moderate: (id: string, payload: { action: 'HIDE' | 'RESTORE'; reason?: string }) =>
+    apiClient.patch<{ success: boolean; data: IServiceReview }>(`/reviews/${id}/moderate`, payload),
+
+  deleteByAdmin: (id: string) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/reviews/${id}/admin`),
+};
+
+export const websiteReviewsApi = {
+  list: (params?: { page?: number; limit?: number; sortBy?: ReviewSort; rating?: number }) =>
+    apiClient.get<{
+      success: boolean;
+      data: IWebsiteReview[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>('/website-reviews', { params }),
+
+  getSummary: () => apiClient.get<{ success: boolean; data: IReviewSummary }>('/website-reviews/summary'),
+
+  getMine: () => apiClient.get<{ success: boolean; data: IWebsiteReview | null }>('/website-reviews/me'),
+
+  create: (payload: { rating: number; title?: string; content: string }) =>
+    apiClient.post<{ success: boolean; data: IWebsiteReview }>('/website-reviews', payload),
+
+  update: (id: string, payload: { rating?: number; title?: string; content?: string }) =>
+    apiClient.patch<{ success: boolean; data: IWebsiteReview }>(`/website-reviews/${id}`, payload),
+
+  delete: (id: string) => apiClient.delete<{ success: boolean; message: string }>(`/website-reviews/${id}`),
+
+  voteHelpful: (id: string) =>
+    apiClient.post<{ success: boolean; data: { reviewId: string; helpfulCount: number; voted: boolean } }>(
+      `/website-reviews/${id}/helpful`,
+      { action: 'TOGGLE' }
+    ),
+
+  listAdmin: (params?: { page?: number; limit?: number; status?: 'PUBLISHED' | 'HIDDEN'; search?: string }) =>
+    apiClient.get<{
+      success: boolean;
+      data: IWebsiteReview[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>('/website-reviews/admin/list', { params }),
+
+  moderate: (id: string, payload: { action: 'HIDE' | 'RESTORE'; reason?: string }) =>
+    apiClient.patch<{ success: boolean; data: IWebsiteReview }>(`/website-reviews/${id}/moderate`, payload),
+
+  deleteByAdmin: (id: string) =>
+    apiClient.delete<{ success: boolean; message: string }>(`/website-reviews/${id}/admin`),
 };
