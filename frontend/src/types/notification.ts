@@ -1,4 +1,4 @@
-export type NotificationType = 'ORDER' | 'PAYMENT' | 'LISTING' | 'USER' | 'CATEGORY' | 'SYSTEM';
+export type NotificationType = 'ORDER' | 'PAYMENT' | 'LISTING' | 'REVIEW' | 'USER' | 'CATEGORY' | 'SYSTEM' | 'REPORT';
 export type RecipientType = 'USER' | 'ADMIN_BROADCAST';
 
 export interface INotification {
