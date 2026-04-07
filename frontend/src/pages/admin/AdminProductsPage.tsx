@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { adminApi } from '@/api/admin';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTable from '@/components/admin/AdminTable';
@@ -6,8 +6,16 @@ import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminPagination from '@/components/admin/AdminPagination';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
+import AdminStatCard from '@/components/admin/AdminStatCard';
+import ProductReportModal from '@/components/admin/ProductReportModal';
 import type { AdminListing, Pagination } from '@/types/admin';
+import { FiBarChart2, FiClock, FiDownload, FiEye, FiFileText, FiPackage, FiTrendingUp } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import {
+  generateAdminProductsPdf,
+  type ProductReportOptions,
+} from '@/utils/adminProductReport';
 
 const AdminProductsPage: React.FC = () => {
   const [listings, setListings] = useState<AdminListing[]>([]);
@@ -20,6 +28,11 @@ const AdminProductsPage: React.FC = () => {
   const [selectedListing, setSelectedListing] = useState<AdminListing | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [analyticsListings, setAnalyticsListings] = useState<AdminListing[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchListings = useCallback(async (page = 1) => {
     setLoading(true);
@@ -34,6 +47,36 @@ const AdminProductsPage: React.FC = () => {
     }
   }, [search, statusFilter]);
 
+  const fetchAnalyticsListings = useCallback(async () => {
+    setAnalyticsLoading(true);
+
+    try {
+      const merged: AdminListing[] = [];
+      const limit = 100;
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const response = await adminApi.getListings({
+          page,
+          limit,
+          search,
+          status: statusFilter || undefined,
+        });
+
+        merged.push(...response.data.listings);
+        totalPages = response.data.pagination.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages && page <= 50);
+
+      setAnalyticsListings(merged);
+    } catch {
+      setAnalyticsListings([]);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [search, statusFilter]);
+
   const handleSuspend = async () => {
     if (!selectedListing || !suspendReason.trim()) return;
     setActionLoading(true);
@@ -43,6 +86,7 @@ const AdminProductsPage: React.FC = () => {
       setSuspendReason('');
       setSelectedListing(null);
       fetchListings(pagination.page);
+      fetchAnalyticsListings();
     } catch (err) {
       console.error(err);
       alert('Failed to suspend listing.');
@@ -56,6 +100,7 @@ const AdminProductsPage: React.FC = () => {
     try {
       await adminApi.approveListing(id);
       fetchListings(pagination.page);
+      fetchAnalyticsListings();
     } catch (err) {
       console.error(err);
       alert(`Failed to ${actionName} listing.`);
@@ -63,9 +108,96 @@ const AdminProductsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchListings(1), 300);
+    const timer = setTimeout(() => {
+      void fetchListings(1);
+      void fetchAnalyticsListings();
+    }, 300);
     return () => clearTimeout(timer);
-  }, [fetchListings]);
+  }, [fetchAnalyticsListings, fetchListings]);
+
+  const analytics = useMemo(() => {
+    const rows = analyticsListings;
+    const totalProducts = rows.length;
+    const active = rows.filter((row) => row.status === 'ACTIVE').length;
+    const sold = rows.filter((row) => row.status === 'SOLD').length;
+    const underReview = rows.filter((row) => row.status === 'UNDER_REVIEW').length;
+    const suspended = rows.filter((row) => row.status === 'SUSPENDED').length;
+    const totalViews = rows.reduce((sum, row) => sum + (row.viewsCount ?? 0), 0);
+    const averagePrice = totalProducts
+      ? Math.round(rows.reduce((sum, row) => sum + (row.price ?? 0), 0) / totalProducts)
+      : 0;
+
+    return {
+      totalProducts,
+      active,
+      sold,
+      underReview,
+      suspended,
+      totalViews,
+      averagePrice,
+    };
+  }, [analyticsListings]);
+
+  const exportCsv = () => {
+    if (analyticsListings.length === 0) {
+      toast.error('No products found to export.');
+      return;
+    }
+
+    setCsvLoading(true);
+    try {
+      const headers = ['Title', 'Owner', 'Owner Email', 'Category', 'Price', 'Currency', 'Condition', 'Status', 'Views', 'Listed Date'];
+      const rows = analyticsListings.map((row) => [
+        row.title || '',
+        row.ownerId?.name || '',
+        row.ownerId?.email || '',
+        row.categoryId?.name || '',
+        String(row.price ?? 0),
+        row.currency || 'LKR',
+        row.condition || '',
+        row.status || '',
+        String(row.viewsCount ?? 0),
+        format(new Date(row.createdAt), 'yyyy-MM-dd HH:mm'),
+      ]);
+
+      const csv = [headers, ...rows]
+        .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `bazzoro-products-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('CSV report downloaded.');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const generatePdf = async (options: ProductReportOptions) => {
+    if (analyticsListings.length === 0) {
+      toast.error('No products available to generate report.');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await generateAdminProductsPdf({
+        listings: analyticsListings,
+        options,
+      });
+      setPdfModalOpen(false);
+      toast.success('PDF report generated successfully.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to generate PDF report.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const columns = [
     {
@@ -168,7 +300,48 @@ const AdminProductsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="Products" description={`${pagination.total} product listings`} />
+      <AdminPageHeader
+        title="Products"
+        description={`${pagination.total} product listings`}
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={csvLoading}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiDownload size={16} />
+              {csvLoading ? 'Preparing CSV...' : 'Download CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPdfModalOpen(true)}
+              disabled={pdfLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiFileText size={16} />
+              {pdfLoading ? 'Generating PDF...' : 'Download PDF Report'}
+            </button>
+          </>
+        )}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <AdminStatCard title="Total Products" value={analytics.totalProducts} icon={<FiPackage size={18} />} color="blue" />
+        <AdminStatCard title="Active" value={analytics.active} icon={<FiTrendingUp size={18} />} color="emerald" />
+        <AdminStatCard title="Sold" value={analytics.sold} icon={<FiBarChart2 size={18} />} color="cyan" />
+        <AdminStatCard title="Under Review" value={analytics.underReview} icon={<FiClock size={18} />} color="amber" />
+        <AdminStatCard title="Suspended" value={analytics.suspended} icon={<FiFileText size={18} />} color="rose" />
+        <AdminStatCard title="Total Views" value={analytics.totalViews.toLocaleString()} icon={<FiEye size={18} />} color="violet" />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <p>
+          <span className="font-semibold text-slate-800">Average Price:</span> LKR {analytics.averagePrice.toLocaleString()}.
+          {analyticsLoading ? ' Refreshing analytics snapshot...' : ' Analytics reflects current filters.'}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="w-full max-w-sm">
@@ -232,6 +405,13 @@ const AdminProductsPage: React.FC = () => {
           </div>
         </div>
       </AdminModal>
+
+      <ProductReportModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onGenerate={generatePdf}
+        isGenerating={pdfLoading}
+      />
     </div>
   );
 };
