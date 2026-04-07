@@ -43,6 +43,7 @@ const MyServiceRequestsPage = React.lazy(() => import('@/pages/dashboard/MyServi
 const ServiceBookingPaymentPage = React.lazy(() => import('@/pages/dashboard/ServiceBookingPaymentPage'));
 const CreateServicePage = React.lazy(() => import('@/pages/dashboard/CreateServicePage'));
 const MyPostedServicesPage = React.lazy(() => import('@/pages/dashboard/MyPostedServicesPage'));
+const InsightsPage = React.lazy(() => import('@/pages/dashboard/InsightsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/dashboard/ProfilePage'));
 const NotificationsPage = React.lazy(() => import('@/pages/dashboard/NotificationsPage'));
 const StripeConnectCallbackPage = React.lazy(() => import('@/pages/dashboard/StripeConnectCallbackPage'));
@@ -306,6 +307,16 @@ const router = createBrowserRouter([
               <ProtectedRoute>
                 <React.Suspense fallback={<PageLoader />}>
                   <MyPaymentsPage />
+                </React.Suspense>
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: '/dashboard/insights',
+            element: (
+              <ProtectedRoute requiredRole="user">
+                <React.Suspense fallback={<PageLoader />}>
+                  <InsightsPage />
                 </React.Suspense>
               </ProtectedRoute>
             ),

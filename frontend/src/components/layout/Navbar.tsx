@@ -17,6 +17,7 @@ import {
   FiCreditCard,
   FiCalendar,
   FiPlus,
+  FiBarChart2,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -310,6 +311,9 @@ const Navbar: React.FC = () => {
 
                           <div className="my-1 border-t border-slate-100" />
                           <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="Payments" onClick={() => setIsProfileOpen(false)} />
+                          {user.role === 'user' && (
+                            <DropdownLink to="/dashboard/insights" icon={<FiBarChart2 />} label="Insights" onClick={() => setIsProfileOpen(false)} />
+                          )}
                           <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
                           
                           {user.role === 'admin' && (
