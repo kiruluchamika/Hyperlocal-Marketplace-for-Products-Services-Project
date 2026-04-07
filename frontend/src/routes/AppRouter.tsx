@@ -149,6 +149,14 @@ const router = createBrowserRouter([
               </React.Suspense>
             ),
           },
+          {
+            path: 'notifications',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <NotificationsPage />
+              </React.Suspense>
+            ),
+          },
         ],
       },
       {
