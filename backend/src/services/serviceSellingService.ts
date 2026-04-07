@@ -4,6 +4,7 @@ import ServiceSelling from "../models/ServiceSelling";
 import { AppError } from "../utils/AppError";
 
 type Role = "admin" | "user";
+const DEFAULT_SERVICE_IMAGE = "/images/default-service.svg";
 
 const deriveServiceVisibility = (service: any) => {
   if (service.deletedAt || service.status === "DELETED") {
@@ -22,8 +23,20 @@ const normalizeServiceSelling = (service: any) => {
   const raw = typeof service?.toObject === "function" ? service.toObject() : service;
   delete raw.viewedByUserIds;
 
+  const serviceImage = Array.isArray(raw.images)
+    ? raw.images.find((image: unknown) => typeof image === "string" && image.trim())
+    : undefined;
+  const categoryImage =
+    raw.categoryId &&
+    typeof raw.categoryId === "object" &&
+    typeof raw.categoryId.image === "string" &&
+    raw.categoryId.image.trim()
+      ? raw.categoryId.image
+      : undefined;
+
   return {
     ...raw,
+    displayImage: serviceImage || categoryImage || DEFAULT_SERVICE_IMAGE,
     status: normalized.status,
     isActive: normalized.isActive,
   };
@@ -143,7 +156,7 @@ export const listServiceSelling = async (query: any) => {
   const services = await ServiceSelling.find(filter)
     .select("-description")
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
 
   return services.map(normalizeServiceSelling);
 };
@@ -151,7 +164,7 @@ export const listServiceSelling = async (query: any) => {
 export const listMyServiceSelling = async (userId: string) => {
   const services = await ServiceSelling.find({ sellerId: new Types.ObjectId(userId) })
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
 
   return services.map(normalizeServiceSelling);
 };
@@ -172,7 +185,7 @@ export const listAdminServiceSelling = async (query: any) => {
 
   const services = await ServiceSelling.find(filter)
     .sort({ createdAt: -1 })
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
 
   const normalizedServices = services.map(normalizeServiceSelling);
 
@@ -190,7 +203,7 @@ export const getServiceSellingById = async (
 ) => {
   const doc = await ServiceSelling.findById(id)
     .select("+viewedByUserIds")
-    .populate("categoryId", "name type");
+    .populate("categoryId", "name type image");
   if (!doc) throw new AppError("Service ad not found", 404);
 
   const isOwner = requesterId && doc.sellerId.toString() === requesterId;
@@ -253,7 +266,7 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
     id,
     updateData,
     { new: true }
-  ).populate("categoryId", "name type");
+  ).populate("categoryId", "name type image");
 
   return updated;
 };

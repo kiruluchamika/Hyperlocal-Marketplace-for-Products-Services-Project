@@ -11,6 +11,7 @@ import {
   FiClock,
   FiEye,
   FiFlag,
+  FiImage,
   FiMapPin,
   FiTag,
 } from 'react-icons/fi';
@@ -44,6 +45,14 @@ const formatTimeInput = (date: Date) => {
 
 const getCategoryName = (service: IServiceSelling) =>
   typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
+
+const DEFAULT_SERVICE_IMAGE = '/images/default-service.svg';
+
+const getServiceDisplayImage = (service: IServiceSelling) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  DEFAULT_SERVICE_IMAGE;
 
 const getMapItems = (service: IServiceSelling): GeoNearbyItem[] => {
   const coords = service.location?.coordinates?.coordinates;
@@ -181,7 +190,7 @@ const ServiceDetailPage: React.FC = () => {
   }, [bookingForm.time, minimumTimeForSelectedDate]);
 
   const isOwner = service && user ? (typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id) === user.id : false;
-  const images = service?.images?.length ? service.images : [];
+  const images = service?.images?.length ? service.images : service ? [getServiceDisplayImage(service)] : [];
   const mapItems = service ? getMapItems(service) : [];
   const selectedStartAt = bookingForm.date && bookingForm.time ? new Date(`${bookingForm.date}T${bookingForm.time}`) : null;
   const hasConflict =
@@ -291,13 +300,17 @@ const ServiceDetailPage: React.FC = () => {
                       src={images[activeImage]}
                       alt={service.title}
                       className="h-[220px] w-full rounded-xl object-cover"
+                      onError={(event) => {
+                        event.currentTarget.onerror = null;
+                        event.currentTarget.src = DEFAULT_SERVICE_IMAGE;
+                      }}
                     />
                   ) : (
-                    <div className="flex h-[220px] w-full items-end rounded-xl bg-gradient-to-br from-primary-600 via-indigo-500 to-sky-400 p-6">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{getCategoryName(service)}</p>
-                        <h1 className="mt-2 text-2xl font-bold text-white">{service.title}</h1>
+                    <div className="flex h-[220px] w-full flex-col items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 p-6 text-slate-500">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm">
+                        <FiImage size={24} />
                       </div>
+                      <p className="mt-3 text-sm font-medium">Image not available</p>
                     </div>
                   )}
 

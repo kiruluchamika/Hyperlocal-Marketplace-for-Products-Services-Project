@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { FiClock, FiEye, FiMapPin, FiTag } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiTag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { servicesApi } from '@/api/services';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
@@ -24,6 +24,7 @@ type AdminServiceRow = IServiceSelling & {
     | {
         _id?: string;
         name?: string;
+        image?: string;
       };
 };
 
@@ -40,6 +41,12 @@ const getSellerId = (service: AdminServiceRow) => {
 
 const getCategoryName = (service: AdminServiceRow) =>
   typeof service.categoryId === 'object' ? service.categoryId?.name || 'Service' : 'Service';
+
+const getServiceDisplayImage = (service: AdminServiceRow) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  '/images/default-service.svg';
 
 const formatAttributeValue = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -136,13 +143,15 @@ const AdminServicesPage: React.FC = () => {
           onClick={() => openDetails(row)}
           className="flex w-full items-center gap-3 text-left"
         >
-          {row.images?.[0] ? (
-            <img src={row.images[0]} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
-          ) : (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-              <FiEye size={16} />
-            </div>
-          )}
+          <img
+            src={getServiceDisplayImage(row)}
+            alt=""
+            className="h-11 w-11 shrink-0 rounded-xl object-cover"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = '/images/default-service.svg';
+            }}
+          />
           <div className="min-w-0">
             <p className="max-w-[240px] truncate font-medium text-slate-900">{row.title}</p>
             <p className="truncate text-xs text-slate-600">
@@ -271,17 +280,15 @@ const AdminServicesPage: React.FC = () => {
           <div className="space-y-6">
             <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
               <div>
-                {selectedService.images?.[0] ? (
-                  <img
-                    src={selectedService.images[0]}
-                    alt={selectedService.title}
-                    className="h-52 w-full rounded-2xl object-cover"
-                  />
-                ) : (
-                  <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                    No image
-                  </div>
-                )}
+                <img
+                  src={getServiceDisplayImage(selectedService)}
+                  alt={selectedService.title}
+                  className="h-52 w-full rounded-2xl object-cover"
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = '/images/default-service.svg';
+                  }}
+                />
               </div>
 
               <div className="min-w-0">

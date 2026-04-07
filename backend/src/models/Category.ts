@@ -14,6 +14,7 @@ export interface ICategory extends Document {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes: IAttribute[];
   isActive: boolean;
   createdAt: Date;
@@ -40,6 +41,7 @@ const categorySchema = new Schema<ICategory>(
       required: true
     },
     description: { type: String, trim: true },
+    image: { type: String, required: true, trim: true },
     attributes: [attributeSchema],
     isActive: { type: Boolean, default: true }
   },
