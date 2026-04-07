@@ -12,6 +12,8 @@ import otpRoutes from "./otpRoutes";
 import geoRoutes from "./geoRoutes";
 import adminRoutes from "./adminRoutes";
 import reportRoutes from "./reportRoutes";
+import reviewRoutes from "./reviewRoutes";
+import websiteReviewRoutes from "./websiteReviewRoutes";
 
 import bookingTestRoutes from "./bookingTestRoutes";
 
@@ -30,6 +32,8 @@ router.use("/otp", otpRoutes);
 router.use("/geo-search", geoRoutes);
 router.use("/admin", adminRoutes);
 router.use("/reports", reportRoutes);
+router.use("/reviews", reviewRoutes);
+router.use("/website-reviews", websiteReviewRoutes);
 
 router.use("/servicebookings-test", bookingTestRoutes);
 

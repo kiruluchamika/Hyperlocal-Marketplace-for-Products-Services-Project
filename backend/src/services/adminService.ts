@@ -5,6 +5,8 @@ import ServiceBooking from "../models/ServiceBooking";
 import Order from "../models/Order";
 import Payment from "../models/Payment";
 import Category from "../models/Category";
+import Review from "../models/Review";
+import WebsiteReview from "../models/WebsiteReview";
 import Stripe from "stripe";
 import { env } from "../config/env";
 import { createUserNotification } from "./notificationService";
@@ -136,6 +138,12 @@ export const getDashboardStats = async () => {
     totalOrders,
     totalBookings,
     totalCategories,
+    totalReviews,
+    totalWebsiteReviews,
+    hiddenReviews,
+    hiddenWebsiteReviews,
+    averageRatingAgg,
+    averageWebsiteRatingAgg,
     recentUsers,
     recentOrders,
   ] = await Promise.all([
@@ -145,6 +153,18 @@ export const getDashboardStats = async () => {
     Order.countDocuments({ isDeleted: false }),
     ServiceBooking.countDocuments(),
     Category.countDocuments(),
+    Review.countDocuments({ isDeleted: false }),
+    WebsiteReview.countDocuments({ isDeleted: false }),
+    Review.countDocuments({ isDeleted: false, status: "HIDDEN" }),
+    WebsiteReview.countDocuments({ isDeleted: false, status: "HIDDEN" }),
+    Review.aggregate([
+      { $match: { isDeleted: false, status: "PUBLISHED" } },
+      { $group: { _id: null, avgRating: { $avg: "$rating" } } },
+    ]),
+    WebsiteReview.aggregate([
+      { $match: { isDeleted: false, status: "PUBLISHED" } },
+      { $group: { _id: null, avgRating: { $avg: "$rating" } } },
+    ]),
     User.find().sort({ createdAt: -1 }).limit(5).select("name email role createdAt profileImage"),
     Order.find({ isDeleted: false })
       .sort({ createdAt: -1 })
@@ -184,6 +204,16 @@ export const getDashboardStats = async () => {
     { $sort: { "_id.year": 1, "_id.month": 1 } },
   ]);
 
+  const mergedReviewCount = totalReviews + totalWebsiteReviews;
+  const mergedHiddenReviews = hiddenReviews + hiddenWebsiteReviews;
+  const mergedWeightedRating =
+    (Number(averageRatingAgg[0]?.avgRating || 0) * totalReviews +
+      Number(averageWebsiteRatingAgg[0]?.avgRating || 0) * totalWebsiteReviews) /
+    (mergedReviewCount || 1);
+  const averageServiceRating = Number((mergedWeightedRating || 0).toFixed(1));
+  const hiddenReviewRatio =
+    mergedReviewCount > 0 ? Number(((mergedHiddenReviews / mergedReviewCount) * 100).toFixed(1)) : 0;
+
   return {
     stats: {
       totalUsers,
@@ -193,6 +223,9 @@ export const getDashboardStats = async () => {
       totalBookings,
       totalCategories,
       totalRevenue,
+      totalReviews: mergedReviewCount,
+      hiddenReviewRatio,
+      averageServiceRating,
     },
     ordersByStatus: ordersByStatus.reduce(
       (acc, cur) => ({ ...acc, [cur._id]: cur.count }),
@@ -212,7 +245,7 @@ export const getChartData = async () => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [revenueByMonth, ordersByMonth, listingsByMonth] = await Promise.all([
+  const [revenueByMonth, ordersByMonth, listingsByMonth, reviewsByMonth, websiteReviewsByMonth] = await Promise.all([
     // Monthly revenue
     Payment.aggregate([
       {
@@ -256,10 +289,81 @@ export const getChartData = async () => {
       },
       { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]),
+    Review.aggregate([
+      {
+        $match: {
+          status: "PUBLISHED",
+          isDeleted: false,
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          avgRating: { $avg: "$rating" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+    WebsiteReview.aggregate([
+      {
+        $match: {
+          status: "PUBLISHED",
+          isDeleted: false,
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          avgRating: { $avg: "$rating" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
   ]);
 
   const formatMonth = (g: { _id: { year: number; month: number } }) =>
     `${g._id.year}-${String(g._id.month).padStart(2, "0")}`;
+
+  const reviewsMap = new Map<string, { totalRating: number; count: number }>();
+
+  for (const row of reviewsByMonth) {
+    const month = formatMonth(row);
+    reviewsMap.set(month, {
+      totalRating: Number(row.avgRating || 0) * Number(row.count || 0),
+      count: Number(row.count || 0),
+    });
+  }
+
+  for (const row of websiteReviewsByMonth) {
+    const month = formatMonth(row);
+    const existing = reviewsMap.get(month);
+    const addTotalRating = Number(row.avgRating || 0) * Number(row.count || 0);
+    const addCount = Number(row.count || 0);
+
+    if (existing) {
+      reviewsMap.set(month, {
+        totalRating: existing.totalRating + addTotalRating,
+        count: existing.count + addCount,
+      });
+    } else {
+      reviewsMap.set(month, {
+        totalRating: addTotalRating,
+        count: addCount,
+      });
+    }
+  }
+
+  const mergedReviewsByMonth = Array.from(reviewsMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, value]) => ({
+      month,
+      avgRating: Number(((value.totalRating || 0) / (value.count || 1)).toFixed(2)),
+      count: value.count,
+    }));
 
   return {
     revenueByMonth: revenueByMonth.map((g) => ({
@@ -274,6 +378,7 @@ export const getChartData = async () => {
       month: formatMonth(g),
       count: g.count,
     })),
+    reviewsByMonth: mergedReviewsByMonth,
   };
 };
 
