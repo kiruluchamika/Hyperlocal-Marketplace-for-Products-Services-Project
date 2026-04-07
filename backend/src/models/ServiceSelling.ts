@@ -50,7 +50,7 @@ export interface IServiceSelling extends Document {
 const serviceSellingSchema = new Schema<IServiceSelling>(
   {
     title: { type: String, required: true, trim: true, maxlength: 100 },
-    description: { type: String, required: true, trim: true, maxlength: 2000 },
+    description: { type: String, trim: true, maxlength: 2000, default: "" },
 
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
 

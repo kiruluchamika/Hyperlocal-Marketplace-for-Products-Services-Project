@@ -72,31 +72,39 @@ const validateAttributes = (attributeValues: Record<string, unknown>, category: 
   }
 };
 
-/**
- * ✅ CREATE (location support added)
- */
+const buildLocationData = (location?: {
+  city?: string;
+  address?: string;
+  coordinates?: { coordinates?: [number, number] };
+}) => {
+  if (!location?.city) {
+    return undefined;
+  }
+
+  return {
+    city: location.city,
+    address: location.address,
+    ...(location.coordinates?.coordinates?.length === 2
+      ? {
+          coordinates: {
+            type: "Point" as const,
+            coordinates: location.coordinates.coordinates,
+          },
+        }
+      : {}),
+  };
+};
+
 export const createServiceSelling = async (userId: string, payload: any) => {
   const category = await getValidCategory(payload.categoryId);
 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
-  // ✅ Ensure proper GeoJSON structure if location provided
-  let locationData = undefined;
-  if (payload.location?.coordinates?.coordinates?.length === 2) {
-    locationData = {
-      city: payload.location.city,
-      address: payload.location.address,
-      coordinates: {
-        type: "Point",
-        coordinates: payload.location.coordinates.coordinates, // [lng, lat]
-      },
-    };
-  }
-
   const created = await ServiceSelling.create({
     ...payload,
-    location: locationData,
+    description: payload.description || "",
+    location: buildLocationData(payload.location),
     attributeValues,
     sellerId: new Types.ObjectId(userId),
     status: "ACTIVE",
@@ -106,9 +114,6 @@ export const createServiceSelling = async (userId: string, payload: any) => {
   return created;
 };
 
-/**
- * Public feed: only ACTIVE ads
- */
 export const listServiceSelling = async (query: any) => {
   const filter: any = {
     status: "ACTIVE",
@@ -197,9 +202,6 @@ export const getServiceSellingById = async (
   return normalizeServiceSelling(doc);
 };
 
-/**
- * ✅ UPDATE (location support added)
- */
 export const updateServiceSelling = async (id: string, userId: string, payload: any) => {
   const existing = await ServiceSelling.findById(id);
   if (!existing) throw new AppError("Service ad not found", 404);
@@ -218,18 +220,17 @@ export const updateServiceSelling = async (id: string, userId: string, payload: 
   const attributeValues = payload.attributeValues || {};
   validateAttributes(attributeValues, category);
 
-  let updateData: any = { ...payload, attributeValues };
+  const updateData: any = {
+    ...payload,
+    attributeValues,
+  };
 
-  // ✅ Update geo location if provided
-  if (payload.location?.coordinates?.coordinates?.length === 2) {
-    updateData.location = {
-      city: payload.location.city,
-      address: payload.location.address,
-      coordinates: {
-        type: "Point",
-        coordinates: payload.location.coordinates.coordinates,
-      },
-    };
+  if ("description" in payload) {
+    updateData.description = payload.description || "";
+  }
+
+  if (payload.location?.city) {
+    updateData.location = buildLocationData(payload.location);
   }
 
   const updated = await ServiceSelling.findByIdAndUpdate(
