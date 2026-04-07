@@ -35,6 +35,16 @@ export interface IServiceSelling extends Document {
 
   sellerId: mongoose.Types.ObjectId;
 
+  averageRating: number;
+  reviewCount: number;
+  ratingBreakdown: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+
   // Visibility / moderation
   status: ServiceSellingStatus;
   isActive: boolean; // kept for backward compatibility
@@ -85,6 +95,16 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
     attributeValues: { type: Schema.Types.Mixed, default: {} },
 
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0, min: 0 },
+    ratingBreakdown: {
+      1: { type: Number, default: 0, min: 0 },
+      2: { type: Number, default: 0, min: 0 },
+      3: { type: Number, default: 0, min: 0 },
+      4: { type: Number, default: 0, min: 0 },
+      5: { type: Number, default: 0, min: 0 },
+    },
 
     status: { type: String, enum: ["ACTIVE", "REMOVED", "DELETED"], default: "ACTIVE" },
 
