@@ -11,8 +11,8 @@ import serviceBookingRoutes from "./serviceBookingRoutes";
 import otpRoutes from "./otpRoutes";
 import geoRoutes from "./geoRoutes";
 import adminRoutes from "./adminRoutes";
-import reportRoutes from "./reportRoutes";
-
+import contactRoutes from "./contactRoutes";   // ✅ from feature branch
+import reportRoutes from "./reportRoutes";     // ✅ from dev branch
 import bookingTestRoutes from "./bookingTestRoutes";
 
 const router = Router();
@@ -29,9 +29,8 @@ router.use("/servicebookings", serviceBookingRoutes);
 router.use("/otp", otpRoutes);
 router.use("/geo-search", geoRoutes);
 router.use("/admin", adminRoutes);
-router.use("/reports", reportRoutes);
-
+router.use("/contact", contactRoutes);   // ✅ kept
+router.use("/reports", reportRoutes);    // ✅ kept
 router.use("/servicebookings-test", bookingTestRoutes);
-
 
 export default router;
