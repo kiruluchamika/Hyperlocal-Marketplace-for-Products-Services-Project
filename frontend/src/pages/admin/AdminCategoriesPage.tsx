@@ -5,9 +5,14 @@ import AdminTable from '@/components/admin/AdminTable';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminBadge from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import CategoryReportModal from '@/components/admin/CategoryReportModal';
+import { FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { CategoryAttribute, CategoryType, ICategory } from '@/types';
+import {
+  generateAdminCategoriesPdf,
+  type CategoryReportOptions,
+} from '@/utils/adminCategoryReport';
 
 interface CategoryForm {
   name: string;
@@ -78,6 +83,10 @@ const AdminCategoriesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ICategory | null>(null);
+  const [reportCategories, setReportCategories] = useState<ICategory[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const getIsActiveFilter = () => {
     if (statusFilter === 'active') {
@@ -130,10 +139,64 @@ const AdminCategoriesPage: React.FC = () => {
     }
   }, [search, statusFilter, typeFilter]);
 
+  const fetchReportCategories = useCallback(async () => {
+    setReportLoading(true);
+    try {
+      const merged: ICategory[] = [];
+      const limit = 100;
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const response = await categoriesApi.getAll({
+          search: search || undefined,
+          type: typeFilter || undefined,
+          isActive: getIsActiveFilter(),
+          page,
+          limit,
+        });
+
+        merged.push(...response.data.data);
+        totalPages = response.data.pagination.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages && page <= 50);
+
+      setReportCategories(merged);
+    } catch {
+      setReportCategories([]);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [search, statusFilter, typeFilter]);
+
   useEffect(() => {
-    const timer = setTimeout(() => fetchCategories(), 300);
+    const timer = setTimeout(() => {
+      void fetchCategories();
+      void fetchReportCategories();
+    }, 300);
     return () => clearTimeout(timer);
-  }, [fetchCategories]);
+  }, [fetchCategories, fetchReportCategories]);
+
+  const generatePdf = async (options: CategoryReportOptions) => {
+    if (reportCategories.length === 0) {
+      toast.error('No categories found to generate report.');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await generateAdminCategoriesPdf({
+        categories: reportCategories,
+        options,
+      });
+      setPdfModalOpen(false);
+      toast.success('Categories PDF report generated successfully.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to generate categories PDF report.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const openCreate = () => {
     setEditId(null);
@@ -349,14 +412,25 @@ const AdminCategoriesPage: React.FC = () => {
       <AdminPageHeader
         title="Categories"
         description="Manage product and service categories"
-        actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <FiPlus size={16} /> New Category
-          </button>
-        }
+        actions={(
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPdfModalOpen(true)}
+              disabled={pdfLoading || reportLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiFileText size={16} />
+              {pdfLoading ? 'Generating PDF...' : reportLoading ? 'Preparing Data...' : 'Download PDF Report'}
+            </button>
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <FiPlus size={16} /> New Category
+            </button>
+          </div>
+        )}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -578,6 +652,13 @@ const AdminCategoriesPage: React.FC = () => {
           </div>
         </div>
       </AdminModal>
+
+      <CategoryReportModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onGenerate={generatePdf}
+        isGenerating={pdfLoading}
+      />
     </div>
   );
 };
