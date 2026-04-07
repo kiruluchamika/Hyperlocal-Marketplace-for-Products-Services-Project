@@ -10,6 +10,7 @@ import {
   FiSliders,
 } from 'react-icons/fi';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
+import StarRating from '@/components/reviews/StarRating';
 import { servicesApi } from '@/api/services';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -491,6 +492,14 @@ const ServiceCard: React.FC<{
           <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
             {category}
           </span>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+          <div className="inline-flex items-center gap-2">
+            <StarRating rating={service.averageRating || 0} size="sm" />
+            <span className="text-sm font-semibold text-slate-700">{(service.averageRating || 0).toFixed(1)}</span>
+          </div>
+          <span className="text-xs font-medium text-slate-500">{service.reviewCount || 0} reviews</span>
         </div>
 
         <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500">
