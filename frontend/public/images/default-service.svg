@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Default service image</title>
+  <desc id="desc">Fallback artwork for service listings without uploaded photos.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="50%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#ede9fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <circle cx="240" cy="180" r="120" fill="#ffffff" fill-opacity="0.45"/>
+  <circle cx="1000" cy="120" r="90" fill="#ffffff" fill-opacity="0.35"/>
+  <circle cx="930" cy="660" r="140" fill="#ffffff" fill-opacity="0.3"/>
+  <rect x="330" y="180" width="540" height="420" rx="44" fill="#ffffff" fill-opacity="0.92"/>
+  <rect x="395" y="250" width="410" height="240" rx="28" fill="#cbd5e1"/>
+  <path d="M430 450l95-105c14-16 39-16 53 0l53 59 78-89c14-16 39-16 53 0l108 135H430z" fill="#94a3b8"/>
+  <circle cx="760" cy="318" r="34" fill="#ffffff" fill-opacity="0.85"/>
+  <rect x="420" y="535" width="180" height="24" rx="12" fill="#cbd5e1"/>
+  <rect x="420" y="575" width="280" height="20" rx="10" fill="#e2e8f0"/>
+  <rect x="730" y="535" width="84" height="84" rx="24" fill="#4f46e5" fill-opacity="0.9"/>
+  <path d="M772 562c0-10-8-18-18-18s-18 8-18 18 8 18 18 18 18-8 18-18zm-46 34h56v10h-56z" fill="#ffffff"/>
+</svg>

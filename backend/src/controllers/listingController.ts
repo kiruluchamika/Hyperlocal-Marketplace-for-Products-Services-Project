@@ -123,3 +123,36 @@ export const getMyListingsHandler = asyncHandler(async (req: Request, res: Respo
     pagination: { total: data.length, page: 1, limit: data.length, totalPages: 1 }
   });
 });
+
+export const getMyWishlistHandler = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const data = await listingService.getMyWishlist(userId);
+
+  res.status(200).json({
+    success: true,
+    data,
+    pagination: { total: data.length, page: 1, limit: data.length || 1, totalPages: 1 }
+  });
+});
+
+export const saveListingToWishlistHandler = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const listing = await listingService.saveListingToWishlist(userId, req.params.id);
+
+  res.status(200).json({
+    success: true,
+    data: listing,
+    message: "Listing saved to wishlist"
+  });
+});
+
+export const removeListingFromWishlistHandler = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const listing = await listingService.removeListingFromWishlist(userId, req.params.id);
+
+  res.status(200).json({
+    success: true,
+    data: listing,
+    message: "Listing removed from wishlist"
+  });
+});

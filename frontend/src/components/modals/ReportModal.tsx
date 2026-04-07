@@ -10,9 +10,7 @@ import Input from '@/components/ui/Input';
 import { reportsApi } from '@/api/reports';
 
 const reportSchema = z.object({
-  reason: z.enum(['SPAM', 'FRAUD', 'INAPPROPRIATE_CONTENT', 'HARASSMENT', 'DUPLICATE', 'OTHER'], {
-    errorMap: () => ({ message: 'Please select a reason' }),
-  }),
+  reason: z.enum(['SPAM', 'FRAUD', 'INAPPROPRIATE_CONTENT', 'HARASSMENT', 'DUPLICATE', 'OTHER']),
   description: z.string()
     .min(10, 'Description must be at least 10 characters')
     .max(1000, 'Description must not exceed 1000 characters'),

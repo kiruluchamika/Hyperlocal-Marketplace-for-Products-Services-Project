@@ -30,10 +30,22 @@ export interface IServiceSelling extends Document {
   location?: ILocation;
 
   images: string[];
+  viewsCount: number;
+  viewedByUserIds: mongoose.Types.ObjectId[];
 
   attributeValues: Record<string, unknown>;
 
   sellerId: mongoose.Types.ObjectId;
+
+  averageRating: number;
+  reviewCount: number;
+  ratingBreakdown: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
 
   // Visibility / moderation
   status: ServiceSellingStatus;
@@ -50,7 +62,7 @@ export interface IServiceSelling extends Document {
 const serviceSellingSchema = new Schema<IServiceSelling>(
   {
     title: { type: String, required: true, trim: true, maxlength: 100 },
-    description: { type: String, required: true, trim: true, maxlength: 2000 },
+    description: { type: String, trim: true, maxlength: 2000, default: "" },
 
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
 
@@ -81,10 +93,26 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
     },
 
     images: { type: [String], default: [] },
+    viewsCount: { type: Number, default: 0, min: 0 },
+    viewedByUserIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      select: false,
+    },
 
     attributeValues: { type: Schema.Types.Mixed, default: {} },
 
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0, min: 0 },
+    ratingBreakdown: {
+      1: { type: Number, default: 0, min: 0 },
+      2: { type: Number, default: 0, min: 0 },
+      3: { type: Number, default: 0, min: 0 },
+      4: { type: Number, default: 0, min: 0 },
+      5: { type: Number, default: 0, min: 0 },
+    },
 
     status: { type: String, enum: ["ACTIVE", "REMOVED", "DELETED"], default: "ACTIVE" },
 

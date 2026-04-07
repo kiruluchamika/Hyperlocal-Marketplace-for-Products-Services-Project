@@ -5,11 +5,12 @@ import {
   FiArrowRight,
   FiClock,
   FiCrosshair,
-  FiImage,
+  FiEye,
   FiMapPin,
   FiSliders,
 } from 'react-icons/fi';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
+import StarRating from '@/components/reviews/StarRating';
 import { servicesApi } from '@/api/services';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -80,6 +81,14 @@ const getServiceCity = (service: IServiceSelling) => service.location?.city || s
 
 const getServiceCategory = (service: IServiceSelling) =>
   typeof service.categoryId === 'string' ? 'Service' : service.categoryId?.name || 'Service';
+
+const DEFAULT_SERVICE_IMAGE = '/images/default-service.svg';
+
+const getServiceDisplayImage = (service: IServiceSelling) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  DEFAULT_SERVICE_IMAGE;
 
 const matchesDistrict = (service: IServiceSelling, districtName: string) => {
   if (!districtName) return true;
@@ -449,8 +458,8 @@ const ServiceCard: React.FC<{
   isSelected: boolean;
   onMouseEnter: () => void;
 }> = ({ service, isSelected, onMouseEnter }) => {
-  const hasImage = Array.isArray(service.images) && service.images.length > 0 && !!service.images[0];
   const category = getServiceCategory(service);
+  const displayImage = getServiceDisplayImage(service);
 
   return (
     <Link
@@ -464,20 +473,15 @@ const ServiceCard: React.FC<{
       }`}
     >
       <div className="h-52 w-full overflow-hidden bg-slate-100">
-        {hasImage ? (
-          <img
-            src={service.images[0]}
-            alt={service.title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 text-slate-500">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm">
-              <FiImage size={24} />
-            </div>
-            <p className="mt-3 text-sm font-medium">Image not available</p>
-          </div>
-        )}
+        <img
+          src={displayImage}
+          alt={service.title}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = DEFAULT_SERVICE_IMAGE;
+          }}
+        />
       </div>
 
       <div className="flex flex-1 flex-col p-5">
@@ -493,6 +497,14 @@ const ServiceCard: React.FC<{
           </span>
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+          <div className="inline-flex items-center gap-2">
+            <StarRating rating={service.averageRating || 0} size="sm" />
+            <span className="text-sm font-semibold text-slate-700">{(service.averageRating || 0).toFixed(1)}</span>
+          </div>
+          <span className="text-xs font-medium text-slate-500">{service.reviewCount || 0} reviews</span>
+        </div>
+
         <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500">
           <p className="inline-flex items-center gap-2">
             <FiClock size={15} className="text-slate-400" />
@@ -501,6 +513,10 @@ const ServiceCard: React.FC<{
           <p className="inline-flex items-center gap-2">
             <FiMapPin size={15} className="text-slate-400" />
             {getServiceCity(service)}
+          </p>
+          <p className="inline-flex items-center gap-2">
+            <FiEye size={15} className="text-slate-400" />
+            {service.viewsCount ?? 0} views
           </p>
         </div>
 

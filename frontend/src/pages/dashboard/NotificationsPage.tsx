@@ -8,9 +8,11 @@ const typeToVariant: Record<NotificationType, 'primary' | 'success' | 'warning' 
   ORDER: 'info',
   PAYMENT: 'success',
   LISTING: 'primary',
+  REVIEW: 'warning',
   USER: 'neutral',
   CATEGORY: 'warning',
   SYSTEM: 'danger',
+  REPORT: 'danger',
 };
 
 const formatRelativeTime = (value: string) => {

@@ -32,6 +32,7 @@ export enum NotificationType {
   ORDER = "ORDER",
   PAYMENT = "PAYMENT",
   LISTING = "LISTING",
+  REVIEW = "REVIEW",
   USER = "USER",
   CATEGORY = "CATEGORY",
   SYSTEM = "SYSTEM",

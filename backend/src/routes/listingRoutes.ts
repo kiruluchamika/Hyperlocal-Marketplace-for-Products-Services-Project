@@ -9,7 +9,10 @@ import {
   getListingByIdHandler,
   listListingsHandler,
   updateListingHandler,
-  getMyListingsHandler
+  getMyListingsHandler,
+  getMyWishlistHandler,
+  saveListingToWishlistHandler,
+  removeListingFromWishlistHandler,
 } from "../controllers/listingController";
 import {
   createListingSchema,
@@ -183,6 +186,9 @@ router.get("/", validate(listListingsQuerySchema, "query"), listListingsHandler)
  *         description: User's listings
  */
 router.get("/me", auth, getMyListingsHandler);
+router.get("/wishlist", auth, getMyWishlistHandler);
+router.post("/:id/wishlist", auth, validate(listingIdParamSchema, "params"), saveListingToWishlistHandler);
+router.delete("/:id/wishlist", auth, validate(listingIdParamSchema, "params"), removeListingFromWishlistHandler);
 
 /**
  * @openapi

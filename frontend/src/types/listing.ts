@@ -33,6 +33,7 @@ export interface IProductListing {
   tags: string[];
   viewsCount: number;
   savedCount: number;
+  isWishlisted?: boolean;
   createdAt: string;
   updatedAt: string;
   suspendReason?: string;

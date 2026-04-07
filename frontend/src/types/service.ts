@@ -25,9 +25,14 @@ export interface IServiceSelling {
   locationText: string;
   location?: IServiceLocation;
   images: string[];
+  displayImage?: string;
+  viewsCount: number;
   attributeValues: Record<string, unknown>;
   status: ServiceStatus;
   isActive: boolean;
+  averageRating?: number;
+  reviewCount?: number;
+  ratingBreakdown?: Record<number, number>;
   removedReason?: string;
   removedBy?: string;
   removedAt?: string;

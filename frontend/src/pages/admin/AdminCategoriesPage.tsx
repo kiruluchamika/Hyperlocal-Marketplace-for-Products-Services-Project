@@ -6,7 +6,7 @@ import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminBadge from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
 import CategoryReportModal from '@/components/admin/CategoryReportModal';
-import { FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiFileText, FiImage, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { CategoryAttribute, CategoryType, ICategory } from '@/types';
 import {
@@ -18,9 +18,20 @@ interface CategoryForm {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes: CategoryAttribute[];
   isActive: boolean;
 }
+
+const MAX_IMAGE_SIZE_MB = 5;
+
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 
 type ValidationResult =
   | { valid: true; payload: ReturnType<typeof normalizeFormStatic> }
@@ -51,6 +62,7 @@ const normalizeFormStatic = (input: CategoryForm) => {
     name: input.name.trim(),
     type: input.type,
     description: input.description?.trim() || undefined,
+    ...(input.image ? { image: input.image } : {}),
     attributes: normalizedAttributes,
     isActive: input.isActive,
   };
@@ -60,6 +72,7 @@ const emptyForm: CategoryForm = {
   name: '',
   type: 'PRODUCT',
   description: '',
+  image: '',
   attributes: [],
   isActive: true,
 };
@@ -107,6 +120,10 @@ const AdminCategoriesPage: React.FC = () => {
 
     if (normalized.description && normalized.description.length > 500) {
       return { valid: false, message: 'Description must not exceed 500 characters.' };
+    }
+
+    if (!editId && !normalized.image) {
+      return { valid: false, message: 'Category image is required for new categories.' };
     }
 
     for (let index = 0; index < normalized.attributes.length; index += 1) {
@@ -211,6 +228,7 @@ const AdminCategoriesPage: React.FC = () => {
       name: cat.name,
       type: cat.type,
       description: cat.description ?? '',
+      image: cat.image || '',
       attributes: (cat.attributes || []).map((attribute) => ({
         ...attribute,
         options: attribute.options || [],
@@ -219,6 +237,28 @@ const AdminCategoriesPage: React.FC = () => {
     });
     setFormError(null);
     setShowModal(true);
+  };
+
+  const handleSelectImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Category image must be smaller than ${MAX_IMAGE_SIZE_MB}MB.`);
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      const image = await fileToDataUrl(file);
+      setForm((prev) => ({ ...prev, image }));
+    } catch {
+      toast.error('Unable to process the selected category image.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const addAttribute = () => {
@@ -332,7 +372,10 @@ const AdminCategoriesPage: React.FC = () => {
         await categoriesApi.update(editId, validation.payload);
         toast.success('Category updated');
       } else {
-        await categoriesApi.create(validation.payload);
+        await categoriesApi.create({
+          ...validation.payload,
+          image: validation.payload.image!,
+        });
         toast.success('Category created');
       }
       setShowModal(false);
@@ -357,6 +400,19 @@ const AdminCategoriesPage: React.FC = () => {
   };
 
   const columns = [
+    {
+      key: 'image',
+      header: 'Image',
+      render: (row: ICategory) => (
+        row.image ? (
+          <img src={row.image} alt={row.name} className="h-10 w-10 rounded-xl object-cover" />
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            <FiImage size={14} />
+          </div>
+        )
+      ),
+    },
     {
       key: 'name',
       header: 'Name',
@@ -461,7 +517,6 @@ const AdminCategoriesPage: React.FC = () => {
         <AdminTable columns={columns} data={categories} loading={loading} emptyMessage="No categories found" />
       </div>
 
-      {/* Create / Edit Modal */}
       <AdminModal isOpen={showModal} onClose={() => setShowModal(false)} title={editId ? 'Edit Category' : 'New Category'} size="md">
         <div className="space-y-4">
           {formError && (
@@ -500,6 +555,29 @@ const AdminCategoriesPage: React.FC = () => {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500/50"
               placeholder="Optional description"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Category Image {!editId && <span className="text-rose-500">*</span>}
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600 transition-colors hover:border-blue-500/50 hover:bg-slate-100">
+              <FiUpload size={15} />
+              {form.image ? 'Replace image' : 'Upload image'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => void handleSelectImage(event)}
+              />
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              {editId ? 'Optional in edit. Leave unchanged to keep the current image.' : 'Required for new categories.'}
+            </p>
+            {form.image && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <img src={form.image} alt="Category preview" className="h-40 w-full object-cover" />
+              </div>
+            )}
           </div>
           <div className="space-y-3 rounded-lg border border-slate-200 p-3">
             <div className="flex items-center justify-between">
@@ -630,7 +708,6 @@ const AdminCategoriesPage: React.FC = () => {
         </div>
       </AdminModal>
 
-      {/* Delete Confirmation Modal */}
       <AdminModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Category" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">

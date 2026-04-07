@@ -119,6 +119,10 @@ const AdminPaymentsPage: React.FC = () => {
         stripeTransferId?: string;
         payoutError?: string;
         payoutAttemptedAt?: string;
+        payoutGrossAmount?: number;
+        payoutFeePercent?: number;
+        payoutFeeAmount?: number;
+        payoutNetAmount?: number;
       };
     } | undefined)?.deposit;
 

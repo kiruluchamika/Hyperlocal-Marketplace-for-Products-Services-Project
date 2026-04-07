@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { FiClock, FiEye, FiMapPin, FiTag } from 'react-icons/fi';
+import { FiClock, FiDownload, FiFileText, FiMapPin, FiStar, FiTag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { servicesApi } from '@/api/services';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
@@ -8,7 +8,12 @@ import AdminModal from '@/components/admin/AdminModal';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminTable from '@/components/admin/AdminTable';
+import ServiceReportModal from '@/components/admin/ServiceReportModal';
 import type { IServiceSelling } from '@/types';
+import {
+  generateAdminServicesPdf,
+  type ServiceReportOptions,
+} from '@/utils/adminServiceReport';
 
 type AdminServiceRow = IServiceSelling & {
   sellerId:
@@ -24,6 +29,7 @@ type AdminServiceRow = IServiceSelling & {
     | {
         _id?: string;
         name?: string;
+        image?: string;
       };
 };
 
@@ -40,6 +46,12 @@ const getSellerId = (service: AdminServiceRow) => {
 
 const getCategoryName = (service: AdminServiceRow) =>
   typeof service.categoryId === 'object' ? service.categoryId?.name || 'Service' : 'Service';
+
+const getServiceDisplayImage = (service: AdminServiceRow) =>
+  service.displayImage ||
+  service.images?.find((image) => !!image) ||
+  (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+  '/images/default-service.svg';
 
 const formatAttributeValue = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -65,6 +77,9 @@ const AdminServicesPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<AdminServiceRow | null>(null);
   const [moderateReason, setModerateReason] = useState('');
   const [submittingModeration, setSubmittingModeration] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -126,6 +141,82 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
+  const exportCsv = () => {
+    if (services.length === 0) {
+      toast.error('No services found to export.');
+      return;
+    }
+
+    setCsvLoading(true);
+    try {
+      const headers = [
+        'Title',
+        'Owner',
+        'Owner Email',
+        'Category',
+        'Price',
+        'Pricing Type',
+        'Location',
+        'Status',
+        'Views',
+        'Created Date',
+      ];
+
+      const rows = services.map((row) => {
+        const seller = getSeller(row);
+        return [
+          row.title || '',
+          seller?.name || getSellerId(row),
+          seller?.email || '',
+          getCategoryName(row),
+          String(row.price ?? 0),
+          row.pricingType || '',
+          row.location?.city || row.locationText || '',
+          row.status || '',
+          String(row.viewsCount ?? 0),
+          format(new Date(row.createdAt), 'yyyy-MM-dd HH:mm'),
+        ];
+      });
+
+      const csv = [headers, ...rows]
+        .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `bazzoro-services-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('CSV report downloaded.');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const generatePdf = async (options: ServiceReportOptions) => {
+    if (services.length === 0) {
+      toast.error('No services available to generate report.');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await generateAdminServicesPdf({
+        services,
+        options,
+      });
+      setPdfModalOpen(false);
+      toast.success('PDF report generated successfully.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to generate PDF report.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const columns = [
     {
       key: 'title',
@@ -136,13 +227,15 @@ const AdminServicesPage: React.FC = () => {
           onClick={() => openDetails(row)}
           className="flex w-full items-center gap-3 text-left"
         >
-          {row.images?.[0] ? (
-            <img src={row.images[0]} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
-          ) : (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-              <FiEye size={16} />
-            </div>
-          )}
+          <img
+            src={getServiceDisplayImage(row)}
+            alt=""
+            className="h-11 w-11 shrink-0 rounded-xl object-cover"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = '/images/default-service.svg';
+            }}
+          />
           <div className="min-w-0">
             <p className="max-w-[240px] truncate font-medium text-slate-900">{row.title}</p>
             <p className="truncate text-xs text-slate-600">
@@ -174,6 +267,18 @@ const AdminServicesPage: React.FC = () => {
         <div>
           <p className="font-medium text-slate-900">LKR {row.price?.toLocaleString()}</p>
           <p className="text-xs uppercase tracking-wide text-slate-600">{row.pricingType}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'rating',
+      header: 'Rating',
+      render: (row: AdminServiceRow) => (
+        <div>
+          <p className="inline-flex items-center gap-1 font-medium text-slate-900">
+            <FiStar size={13} className="text-amber-500" /> {(row.averageRating || 0).toFixed(1)}
+          </p>
+          <p className="text-xs text-slate-600">{row.reviewCount || 0} reviews</p>
         </div>
       ),
     },
@@ -227,6 +332,28 @@ const AdminServicesPage: React.FC = () => {
       <AdminPageHeader
         title="Services"
         description="Review service ads, inspect posting details, and moderate listings across active, removed, and deleted states."
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={csvLoading}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiDownload size={16} />
+              {csvLoading ? 'Preparing CSV...' : 'Download CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPdfModalOpen(true)}
+              disabled={pdfLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiFileText size={16} />
+              {pdfLoading ? 'Generating PDF...' : 'Download PDF Report'}
+            </button>
+          </>
+        )}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -271,17 +398,15 @@ const AdminServicesPage: React.FC = () => {
           <div className="space-y-6">
             <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
               <div>
-                {selectedService.images?.[0] ? (
-                  <img
-                    src={selectedService.images[0]}
-                    alt={selectedService.title}
-                    className="h-52 w-full rounded-2xl object-cover"
-                  />
-                ) : (
-                  <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                    No image
-                  </div>
-                )}
+                <img
+                  src={getServiceDisplayImage(selectedService)}
+                  alt={selectedService.title}
+                  className="h-52 w-full rounded-2xl object-cover"
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = '/images/default-service.svg';
+                  }}
+                />
               </div>
 
               <div className="min-w-0">
@@ -450,6 +575,13 @@ const AdminServicesPage: React.FC = () => {
           </div>
         )}
       </AdminModal>
+
+      <ServiceReportModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onGenerate={generatePdf}
+        isGenerating={pdfLoading}
+      />
     </div>
   );
 };

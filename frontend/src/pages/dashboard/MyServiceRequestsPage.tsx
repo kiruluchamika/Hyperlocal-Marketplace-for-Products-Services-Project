@@ -269,6 +269,20 @@ const MyServiceRequestsPage: React.FC = () => {
                       {formatCurrency(booking.deposit.amount, booking.deposit.currency.toUpperCase())}
                       {booking.deposit.paidAt ? ` paid on ${dateTimeFormatter.format(new Date(booking.deposit.paidAt))}` : ''}
                     </p>
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          navigate(
+                            `/services/${typeof booking.serviceId === 'object' ? booking.serviceId._id : booking.serviceId}?reviewBookingId=${booking._id}`
+                          )
+                        }
+                      >
+                        Leave a Review
+                      </Button>
+                    </div>
                   </div>
                 )}
 

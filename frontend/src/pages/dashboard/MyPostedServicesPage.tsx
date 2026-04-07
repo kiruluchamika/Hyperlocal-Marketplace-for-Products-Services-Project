@@ -4,16 +4,18 @@ import toast from 'react-hot-toast';
 import { FiArrowLeft, FiEdit2, FiMapPin, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import StarRating from '@/components/reviews/StarRating';
 import { servicesApi } from '@/api/services';
 import { IServiceSelling } from '@/types';
 import { formatCurrency } from '@/utils/listings';
 
 const getServiceImage = (service: IServiceSelling) => {
-  if (Array.isArray(service.images) && service.images.length > 0 && service.images[0]) {
-    return service.images[0];
-  }
-
-  return 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80';
+  return (
+    service.displayImage ||
+    (Array.isArray(service.images) && service.images.length > 0 ? service.images[0] : undefined) ||
+    (typeof service.categoryId === 'object' ? service.categoryId?.image : undefined) ||
+    '/images/default-service.svg'
+  );
 };
 
 const getCategoryName = (category: IServiceSelling['categoryId']) => {
@@ -104,7 +106,15 @@ const MyPostedServicesPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {services.map((service) => (
             <div key={service._id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-              <img src={getServiceImage(service)} alt={service.title} className="h-48 w-full object-cover" />
+              <img
+                src={getServiceImage(service)}
+                alt={service.title}
+                className="h-48 w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = '/images/default-service.svg';
+                }}
+              />
 
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -122,6 +132,14 @@ const MyPostedServicesPage: React.FC = () => {
                 <p className="mt-3 line-clamp-2 text-sm text-slate-500">{service.description}</p>
 
                 <div className="mt-4 space-y-2 text-sm text-slate-600">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-slate-500">Rating</span>
+                    <span className="inline-flex items-center gap-2 text-slate-700">
+                      <StarRating rating={service.averageRating || 0} size="sm" />
+                      <span className="font-semibold">{(service.averageRating || 0).toFixed(1)}</span>
+                      <span className="text-xs text-slate-500">({service.reviewCount || 0})</span>
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium text-slate-500">Price</span>
                     <span className="font-semibold text-slate-800">

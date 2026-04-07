@@ -63,6 +63,7 @@ const ListingDetailPage: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [activeImage, setActiveImage] = React.useState(0);
   const [reportModalOpen, setReportModalOpen] = React.useState(false);
+  const [wishlistLoading, setWishlistLoading] = React.useState(false);
   const [orderForm, setOrderForm] = React.useState({
     quantity: 1,
     deliveryMethod: 'PICKUP' as 'PICKUP' | 'DELIVERY',
@@ -95,6 +96,7 @@ const ListingDetailPage: React.FC = () => {
   const isOwner = listing && user ? getOwnerId(listing.ownerId) === user.id : false;
   const images = listing?.images?.length ? listing.images : [listing ? getListingImage(listing) : ''];
   const canBuyNow = !!listing && listing.transactionMode === 'BUY_NOW' && !isOwner;
+  const isWishlisted = Boolean(listing?.isWishlisted);
   const attributeEntries = React.useMemo(() => {
     if (!listing?.attributes || typeof listing.attributes !== 'object') {
       return [];
@@ -145,6 +147,37 @@ const ListingDetailPage: React.FC = () => {
         note: orderForm.note.trim() || undefined,
       },
     });
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!listing) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save products to your wishlist.');
+      navigate('/login');
+      return;
+    }
+
+    if (isOwner) {
+      toast.error('You cannot save your own listing.');
+      return;
+    }
+
+    try {
+      setWishlistLoading(true);
+      const response = isWishlisted
+        ? await listingsApi.removeFromWishlist(listing._id)
+        : await listingsApi.saveToWishlist(listing._id);
+
+      setListing(response.data.data);
+      toast.success(isWishlisted ? 'Removed from wishlist.' : 'Saved to wishlist.');
+    } catch {
+      return;
+    } finally {
+      setWishlistLoading(false);
+    }
   };
 
   if (loading) {
@@ -296,6 +329,19 @@ const ListingDetailPage: React.FC = () => {
               )}
 
               <div className="mt-4 space-y-2">
+                {!isOwner && (
+                  <Button
+                    type="button"
+                    variant={isWishlisted ? 'primary' : 'outline'}
+                    fullWidth
+                    isLoading={wishlistLoading}
+                    leftIcon={<FiHeart size={16} />}
+                    onClick={() => void handleWishlistToggle()}
+                  >
+                    {isWishlisted ? 'Saved to Wishlist' : 'Save to Wishlist'}
+                  </Button>
+                )}
+
                 {isAuthenticated ? (
                   owner?.email ? (
                     <Button

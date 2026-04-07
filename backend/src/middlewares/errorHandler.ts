@@ -8,6 +8,8 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  const bodyParserError = err as Error & { type?: string; status?: number; statusCode?: number };
+
   if (err instanceof ZodError) {
     return res.status(400).json({
       message: "Validation error",
@@ -19,6 +21,12 @@ export const errorHandler = (
     return res.status(err.statusCode).json({
       message: err.message,
       errors: err.details
+    });
+  }
+
+  if (bodyParserError.type === "entity.too.large" || bodyParserError.status === 413 || bodyParserError.statusCode === 413) {
+    return res.status(413).json({
+      message: "Request payload is too large. Reduce the number or size of uploaded images and try again."
     });
   }
 

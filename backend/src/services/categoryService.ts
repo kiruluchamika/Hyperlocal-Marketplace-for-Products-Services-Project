@@ -6,6 +6,7 @@ interface CreateCategoryInput {
   name: string;
   type: CategoryType;
   description?: string;
+  image: string;
   attributes?: Array<{
     fieldName: string;
     fieldType: "string" | "number" | "boolean" | "select";
@@ -19,6 +20,7 @@ interface UpdateCategoryInput {
   name?: string;
   type?: CategoryType;
   description?: string;
+  image?: string;
   attributes?: Array<{
     fieldName: string;
     fieldType: "string" | "number" | "boolean" | "select";
