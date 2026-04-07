@@ -14,6 +14,10 @@ const BrowseListingsPage = React.lazy(() => import('@/pages/BrowseListingsPage')
 const BrowseServicesPage = React.lazy(() => import('@/pages/BrowseServicesPage'));
 const ListingDetailPage = React.lazy(() => import('@/pages/ListingDetailPage'));
 const ServiceDetailPage = React.lazy(() => import('@/pages/ServiceDetailPage'));
+const SafetyTipsPage = React.lazy(() => import('@/pages/SafetyTipsPage'));
+const TermsOfServicePage = React.lazy(() => import('@/pages/TermsOfServicePage'));
+const PrivacyPolicyPage = React.lazy(() => import('@/pages/PrivacyPolicyPage'));
+const CommunityGuidelinesPage = React.lazy(() => import('@/pages/CommunityGuidelinesPage'));
 const AdminLoginPage = React.lazy(() => import('@/pages/admin/AdminLoginPage'));
 
 // Admin pages
@@ -210,6 +214,38 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={<PageLoader />}>
                 <ServiceDetailPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/safety-tips',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <SafetyTipsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/terms-of-service',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <TermsOfServicePage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/privacy-policy',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <PrivacyPolicyPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: '/community-guidelines',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <CommunityGuidelinesPage />
               </React.Suspense>
             ),
           },

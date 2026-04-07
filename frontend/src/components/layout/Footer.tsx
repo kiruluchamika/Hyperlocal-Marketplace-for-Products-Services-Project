@@ -83,10 +83,10 @@ const Footer: React.FC = () => {
             <h4 className="text-white font-semibold mb-4">Support</h4>
             <ul className="space-y-3">
               <FooterLink to="#" label="Help Center" />
-              <FooterLink to="#" label="Safety Tips" />
-              <FooterLink to="#" label="Terms of Service" />
-              <FooterLink to="#" label="Privacy Policy" />
-              <FooterLink to="#" label="Community Guidelines" />
+              <FooterLink to="/safety-tips" label="Safety Tips" />
+              <FooterLink to="/terms-of-service" label="Terms of Service" />
+              <FooterLink to="/privacy-policy" label="Privacy Policy" />
+              <FooterLink to="/community-guidelines" label="Community Guidelines" />
             </ul>
           </div>
 
@@ -119,8 +119,8 @@ const Footer: React.FC = () => {
               &copy; {new Date().getFullYear()} Bazaaro. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm text-slate-500">
-              <Link to="#" className="hover:text-primary-400 transition-colors">Terms</Link>
-              <Link to="#" className="hover:text-primary-400 transition-colors">Privacy</Link>
+              <Link to="/terms-of-service" className="hover:text-primary-400 transition-colors">Terms</Link>
+              <Link to="/privacy-policy" className="hover:text-primary-400 transition-colors">Privacy</Link>
               <Link to="#" className="hover:text-primary-400 transition-colors">Cookies</Link>
             </div>
           </div>
