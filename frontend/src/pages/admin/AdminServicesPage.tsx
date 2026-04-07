@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { FiClock, FiEye, FiMapPin, FiTag } from 'react-icons/fi';
+import { FiClock, FiEye, FiMapPin, FiStar, FiTag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { servicesApi } from '@/api/services';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
@@ -174,6 +174,18 @@ const AdminServicesPage: React.FC = () => {
         <div>
           <p className="font-medium text-slate-900">LKR {row.price?.toLocaleString()}</p>
           <p className="text-xs uppercase tracking-wide text-slate-600">{row.pricingType}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'rating',
+      header: 'Rating',
+      render: (row: AdminServiceRow) => (
+        <div>
+          <p className="inline-flex items-center gap-1 font-medium text-slate-900">
+            <FiStar size={13} className="text-amber-500" /> {(row.averageRating || 0).toFixed(1)}
+          </p>
+          <p className="text-xs text-slate-600">{row.reviewCount || 0} reviews</p>
         </div>
       ),
     },

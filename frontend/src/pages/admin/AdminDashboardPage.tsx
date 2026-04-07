@@ -6,6 +6,9 @@ import {
   FiShoppingCart,
   FiCreditCard,
   FiLayers,
+  FiMessageSquare,
+  FiStar,
+  FiShield,
 } from 'react-icons/fi';
 import {
   AreaChart,
@@ -67,13 +70,16 @@ const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
         <AdminStatCard title="Total Users" value={stats.totalUsers.toLocaleString()} icon={<FiUsers size={22} />} color="blue" />
         <AdminStatCard title="Products" value={stats.totalProducts.toLocaleString()} icon={<FiPackage size={22} />} color="emerald" />
         <AdminStatCard title="Services" value={stats.totalServices.toLocaleString()} icon={<FiBriefcase size={22} />} color="violet" />
         <AdminStatCard title="Orders" value={stats.totalOrders.toLocaleString()} icon={<FiShoppingCart size={22} />} color="amber" />
         <AdminStatCard title="Revenue" value={`Rs. ${stats.totalRevenue.toLocaleString()}`} icon={<FiCreditCard size={22} />} color="cyan" />
         <AdminStatCard title="Categories" value={stats.totalCategories.toLocaleString()} icon={<FiLayers size={22} />} color="rose" />
+        <AdminStatCard title="Total Reviews" value={stats.totalReviews.toLocaleString()} icon={<FiMessageSquare size={22} />} color="blue" />
+        <AdminStatCard title="Hidden Ratio" value={`${stats.hiddenReviewRatio.toFixed(1)}%`} icon={<FiShield size={22} />} color="rose" />
+        <AdminStatCard title="Avg Rating" value={stats.averageServiceRating.toFixed(1)} icon={<FiStar size={22} />} color="amber" />
       </div>
 
       {/* Charts Row */}
@@ -108,6 +114,25 @@ const AdminDashboardPage: React.FC = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-4 text-sm font-semibold text-slate-700">Average Rating Trend</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={charts?.reviewsByMonth ?? []}>
+            <defs>
+              <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+            <YAxis domain={[0, 5]} tick={{ fill: '#475569', fontSize: 12 }} />
+            <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
+            <Area type="monotone" dataKey="avgRating" stroke="#f59e0b" strokeWidth={2} fill="url(#ratingGrad)" />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       {/* User Growth + Order Status */}
