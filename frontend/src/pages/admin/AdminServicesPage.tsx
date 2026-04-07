@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { FiClock, FiMapPin, FiTag } from 'react-icons/fi';
+import { FiClock, FiDownload, FiFileText, FiMapPin, FiTag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { servicesApi } from '@/api/services';
 import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
@@ -8,7 +8,12 @@ import AdminModal from '@/components/admin/AdminModal';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminTable from '@/components/admin/AdminTable';
+import ServiceReportModal from '@/components/admin/ServiceReportModal';
 import type { IServiceSelling } from '@/types';
+import {
+  generateAdminServicesPdf,
+  type ServiceReportOptions,
+} from '@/utils/adminServiceReport';
 
 type AdminServiceRow = IServiceSelling & {
   sellerId:
@@ -72,6 +77,9 @@ const AdminServicesPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<AdminServiceRow | null>(null);
   const [moderateReason, setModerateReason] = useState('');
   const [submittingModeration, setSubmittingModeration] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -130,6 +138,82 @@ const AdminServicesPage: React.FC = () => {
       // global error handling
     } finally {
       setSubmittingModeration(false);
+    }
+  };
+
+  const exportCsv = () => {
+    if (services.length === 0) {
+      toast.error('No services found to export.');
+      return;
+    }
+
+    setCsvLoading(true);
+    try {
+      const headers = [
+        'Title',
+        'Owner',
+        'Owner Email',
+        'Category',
+        'Price',
+        'Pricing Type',
+        'Location',
+        'Status',
+        'Views',
+        'Created Date',
+      ];
+
+      const rows = services.map((row) => {
+        const seller = getSeller(row);
+        return [
+          row.title || '',
+          seller?.name || getSellerId(row),
+          seller?.email || '',
+          getCategoryName(row),
+          String(row.price ?? 0),
+          row.pricingType || '',
+          row.location?.city || row.locationText || '',
+          row.status || '',
+          String(row.viewsCount ?? 0),
+          format(new Date(row.createdAt), 'yyyy-MM-dd HH:mm'),
+        ];
+      });
+
+      const csv = [headers, ...rows]
+        .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `bazzoro-services-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('CSV report downloaded.');
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const generatePdf = async (options: ServiceReportOptions) => {
+    if (services.length === 0) {
+      toast.error('No services available to generate report.');
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await generateAdminServicesPdf({
+        services,
+        options,
+      });
+      setPdfModalOpen(false);
+      toast.success('PDF report generated successfully.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to generate PDF report.');
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -236,6 +320,28 @@ const AdminServicesPage: React.FC = () => {
       <AdminPageHeader
         title="Services"
         description="Review service ads, inspect posting details, and moderate listings across active, removed, and deleted states."
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={csvLoading}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiDownload size={16} />
+              {csvLoading ? 'Preparing CSV...' : 'Download CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPdfModalOpen(true)}
+              disabled={pdfLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FiFileText size={16} />
+              {pdfLoading ? 'Generating PDF...' : 'Download PDF Report'}
+            </button>
+          </>
+        )}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -457,6 +563,13 @@ const AdminServicesPage: React.FC = () => {
           </div>
         )}
       </AdminModal>
+
+      <ServiceReportModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onGenerate={generatePdf}
+        isGenerating={pdfLoading}
+      />
     </div>
   );
 };

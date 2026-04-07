@@ -498,6 +498,7 @@ const InsightsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
+  const [selectedInsight, setSelectedInsight] = useState<'products' | 'services' | null>(null);
 
   const loadInsights = useCallback(async () => {
     if (!currentUserId) {
@@ -659,136 +660,181 @@ const InsightsPage: React.FC = () => {
       )}
 
       <div className="mt-8 space-y-8">
-        <InsightsSection
-          icon={<FiBox className="h-5 w-5" />}
-          title="Product Insights"
-          description="Performance trends based only on the products you have listed and the orders tied to them."
-        >
-          {productInsights.totalListings === 0 ? (
-            <EmptyState
-              title="No products yet"
-              description="Create your first product listing to start seeing product insights here."
-              ctaLabel="Create Product Listing"
-              ctaTo="/dashboard/listings/new"
-            />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                <StatCard title="Total Product Listings" value={productInsights.totalListings} icon={<FiPackage />} tone="sky" />
-                <StatCard title="Active Product Listings" value={productInsights.activeListings} icon={<FiCheckCircle />} tone="emerald" />
-                <StatCard title="Inactive / Sold" value={productInsights.inactiveListings} icon={<FiClock />} tone="amber" />
-                <StatCard title="Total Product Orders" value={productInsights.totalOrders} icon={<FiCreditCard />} tone="indigo" />
-                <StatCard
-                  title="Total Product Revenue"
-                  value={productInsights.totalRevenue !== null ? formatCurrency(productInsights.totalRevenue) : 'Not available'}
-                  icon={<FiDollarSign />}
-                  tone="rose"
-                />
-              </div>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <InsightOverviewCard
+            title="Product Insights"
+            description="See how your product listings, orders, revenue, and engagement are performing."
+            icon={<FiBox className="h-5 w-5" />}
+            badgeLabel="Products"
+            primaryMetricLabel="Listings"
+            primaryMetricValue={productInsights.totalListings}
+            secondaryMetricLabel="Orders"
+            secondaryMetricValue={productInsights.totalOrders}
+            tertiaryMetricLabel="Revenue"
+            tertiaryMetricValue={productInsights.totalRevenue !== null ? formatCurrency(productInsights.totalRevenue) : 'Not available'}
+            isActive={selectedInsight === 'products'}
+            onView={() => setSelectedInsight('products')}
+          />
 
-              <div className="mt-10 grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-                <HighlightCard item={productInsights.topSellingProduct} accent="emerald" icon={<FiTrendingUp />} />
-                <HighlightCard item={productInsights.bestPerformingProduct} accent="indigo" icon={<FiBarChart2 />} />
-                <HighlightCard item={productInsights.mostViewedProduct} accent="sky" icon={<FiEye />} />
-                <HighlightCard item={productInsights.topCategory} accent="amber" icon={<FiLayers />} />
-              </div>
+          <InsightOverviewCard
+            title="Service Insights"
+            description="See how your services, bookings, confirmed activity, and service performance are doing."
+            icon={<FiCalendar className="h-5 w-5" />}
+            badgeLabel="Services"
+            primaryMetricLabel="Listings"
+            primaryMetricValue={serviceInsights.totalListings}
+            secondaryMetricLabel="Bookings"
+            secondaryMetricValue={serviceInsights.totalBookings}
+            tertiaryMetricLabel="Revenue"
+            tertiaryMetricValue={serviceInsights.totalRevenue !== null ? formatCurrency(serviceInsights.totalRevenue) : 'Not available'}
+            isActive={selectedInsight === 'services'}
+            onView={() => setSelectedInsight('services')}
+          />
+        </div>
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.85fr]">
-                <PanelCard title="Product Status Breakdown" subtitle="A quick view of how your own product listings are distributed.">
-                  {productInsights.statusBreakdown.length === 0 ? (
-                    <InlineEmpty text="No product statuses to summarize yet." />
+        {!selectedInsight && (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/80 p-8 text-center shadow-sm">
+            <p className="text-lg font-semibold text-slate-900">Choose an insight card to view analytics</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Product and service analytics stay hidden until you open the one you want to review.
+            </p>
+          </div>
+        )}
+
+        {selectedInsight === 'products' && (
+          <InsightsSection
+            icon={<FiBox className="h-5 w-5" />}
+            title="Product Insights"
+            description="Performance trends based only on the products you have listed and the orders tied to them."
+          >
+            {productInsights.totalListings === 0 ? (
+              <EmptyState
+                title="No products yet"
+                description="Create your first product listing to start seeing product insights here."
+                ctaLabel="Create Product Listing"
+                ctaTo="/dashboard/listings/new"
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                  <StatCard title="Total Product Listings" value={productInsights.totalListings} icon={<FiPackage />} tone="sky" />
+                  <StatCard title="Active Product Listings" value={productInsights.activeListings} icon={<FiCheckCircle />} tone="emerald" />
+                  <StatCard title="Inactive / Sold" value={productInsights.inactiveListings} icon={<FiClock />} tone="amber" />
+                  <StatCard title="Total Product Orders" value={productInsights.totalOrders} icon={<FiCreditCard />} tone="indigo" />
+                  <StatCard
+                    title="Total Product Revenue"
+                    value={productInsights.totalRevenue !== null ? formatCurrency(productInsights.totalRevenue) : 'Not available'}
+                    icon={<FiDollarSign />}
+                    tone="rose"
+                  />
+                </div>
+
+                <div className="mt-10 grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                  <HighlightCard item={productInsights.topSellingProduct} accent="emerald" icon={<FiTrendingUp />} />
+                  <HighlightCard item={productInsights.bestPerformingProduct} accent="indigo" icon={<FiBarChart2 />} />
+                  <HighlightCard item={productInsights.mostViewedProduct} accent="sky" icon={<FiEye />} />
+                  <HighlightCard item={productInsights.topCategory} accent="amber" icon={<FiLayers />} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.85fr]">
+                  <PanelCard title="Product Status Breakdown" subtitle="A quick view of how your own product listings are distributed.">
+                    {productInsights.statusBreakdown.length === 0 ? (
+                      <InlineEmpty text="No product statuses to summarize yet." />
+                    ) : (
+                      <BreakdownList rows={productInsights.statusBreakdown} total={productInsights.totalListings} />
+                    )}
+                  </PanelCard>
+
+                  <PanelCard title="Low Engagement Product" subtitle="Helpful for spotting listings that may need updates.">
+                    <CompactHighlight item={productInsights.lowEngagementProduct} />
+                  </PanelCard>
+                </div>
+
+                <PanelCard title="Recent Product Activity" subtitle="Latest listing and order activity tied to your products.">
+                  {productInsights.recentActivity.length === 0 ? (
+                    <InlineEmpty text="No recent product activity yet." />
                   ) : (
-                    <BreakdownList rows={productInsights.statusBreakdown} total={productInsights.totalListings} />
+                    <ActivityList items={productInsights.recentActivity} />
                   )}
                 </PanelCard>
+              </>
+            )}
+          </InsightsSection>
+        )}
 
-                <PanelCard title="Low Engagement Product" subtitle="Helpful for spotting listings that may need updates.">
-                  <CompactHighlight item={productInsights.lowEngagementProduct} />
-                </PanelCard>
-              </div>
+        {selectedInsight === 'services' && (
+          <InsightsSection
+            icon={<FiCalendar className="h-5 w-5" />}
+            title="Service Insights"
+            description="Performance trends based only on the services you posted and the bookings received for them."
+          >
+            {serviceInsights.totalListings === 0 ? (
+              <EmptyState
+                title="No services yet"
+                description="Post your first service to start seeing service insights here."
+                ctaLabel="Create Service Listing"
+                ctaTo="/dashboard/services/new"
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                  <StatCard title="Total Service Listings" value={serviceInsights.totalListings} icon={<FiCalendar />} tone="sky" />
+                  <StatCard title="Active Services" value={serviceInsights.activeListings} icon={<FiCheckCircle />} tone="emerald" />
+                  <StatCard title="Total Bookings" value={serviceInsights.totalBookings} icon={<FiActivity />} tone="indigo" />
+                  <StatCard title="Completed Bookings" value={serviceInsights.completedBookings} icon={<FiTrendingUp />} tone="teal" />
+                  <StatCard title="Pending Bookings" value={serviceInsights.pendingBookings} icon={<FiClock />} tone="amber" />
+                  <StatCard title="Cancelled Bookings" value={serviceInsights.cancelledBookings} icon={<FiTrendingDown />} tone="rose" />
+                </div>
 
-              <PanelCard title="Recent Product Activity" subtitle="Latest listing and order activity tied to your products.">
-                {productInsights.recentActivity.length === 0 ? (
-                  <InlineEmpty text="No recent product activity yet." />
-                ) : (
-                  <ActivityList items={productInsights.recentActivity} />
-                )}
-              </PanelCard>
-            </>
-          )}
-        </InsightsSection>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                  <StatCard
+                    title="Total Service Revenue"
+                    value={serviceInsights.totalRevenue !== null ? formatCurrency(serviceInsights.totalRevenue) : 'Not available'}
+                    icon={<FiDollarSign />}
+                    tone="violet"
+                  />
+                  <StatCard title="Confirmed Bookings" value={serviceInsights.completedBookings} icon={<FiCheckCircle />} tone="emerald" />
+                  <StatCard title="Awaiting Action" value={serviceInsights.pendingBookings} icon={<FiClock />} tone="amber" />
+                  <StatCard title="Service Listings With Views" value={services.filter((service) => service.viewsCount > 0).length} icon={<FiEye />} tone="cyan" />
+                  <StatCard title="Inactive Services" value={services.filter((service) => service.status !== 'ACTIVE' || service.isActive === false).length} icon={<FiLayers />} tone="slate" />
+                </div>
 
-        <InsightsSection
-          icon={<FiCalendar className="h-5 w-5" />}
-          title="Service Insights"
-          description="Performance trends based only on the services you posted and the bookings received for them."
-        >
-          {serviceInsights.totalListings === 0 ? (
-            <EmptyState
-              title="No services yet"
-              description="Post your first service to start seeing service insights here."
-              ctaLabel="Create Service Listing"
-              ctaTo="/dashboard/services/new"
-            />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                <StatCard title="Total Service Listings" value={serviceInsights.totalListings} icon={<FiCalendar />} tone="sky" />
-                <StatCard title="Active Services" value={serviceInsights.activeListings} icon={<FiCheckCircle />} tone="emerald" />
-                <StatCard title="Total Bookings" value={serviceInsights.totalBookings} icon={<FiActivity />} tone="indigo" />
-                <StatCard title="Completed Bookings" value={serviceInsights.completedBookings} icon={<FiTrendingUp />} tone="teal" />
-                <StatCard title="Pending Bookings" value={serviceInsights.pendingBookings} icon={<FiClock />} tone="amber" />
-                <StatCard title="Cancelled Bookings" value={serviceInsights.cancelledBookings} icon={<FiTrendingDown />} tone="rose" />
-              </div>
+                <div className="mt-10 grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                  <HighlightCard item={serviceInsights.mostBookedService} accent="emerald" icon={<FiTrendingUp />} />
+                  <HighlightCard item={serviceInsights.topPerformingService} accent="indigo" icon={<FiBarChart2 />} />
+                  <HighlightCard item={serviceInsights.topCategory} accent="amber" icon={<FiLayers />} />
+                  <HighlightCard item={serviceInsights.lowestPerformingService} accent="rose" icon={<FiTrendingDown />} />
+                </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                <StatCard
-                  title="Total Service Revenue"
-                  value={serviceInsights.totalRevenue !== null ? formatCurrency(serviceInsights.totalRevenue) : 'Not available'}
-                  icon={<FiDollarSign />}
-                  tone="violet"
-                />
-                <StatCard title="Confirmed Bookings" value={serviceInsights.completedBookings} icon={<FiCheckCircle />} tone="emerald" />
-                <StatCard title="Awaiting Action" value={serviceInsights.pendingBookings} icon={<FiClock />} tone="amber" />
-                <StatCard title="Service Listings With Views" value={services.filter((service) => service.viewsCount > 0).length} icon={<FiEye />} tone="cyan" />
-                <StatCard title="Inactive Services" value={services.filter((service) => service.status !== 'ACTIVE' || service.isActive === false).length} icon={<FiLayers />} tone="slate" />
-              </div>
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.85fr]">
+                  <PanelCard title="Booking Status Breakdown" subtitle="How bookings for your own services are moving through the pipeline.">
+                    {serviceInsights.bookingBreakdown.length === 0 ? (
+                      <InlineEmpty text="No bookings yet." />
+                    ) : (
+                      <BreakdownList rows={serviceInsights.bookingBreakdown} total={Math.max(serviceInsights.totalBookings, 1)} />
+                    )}
+                  </PanelCard>
 
-              <div className="mt-10 grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-                <HighlightCard item={serviceInsights.mostBookedService} accent="emerald" icon={<FiTrendingUp />} />
-                <HighlightCard item={serviceInsights.topPerformingService} accent="indigo" icon={<FiBarChart2 />} />
-                <HighlightCard item={serviceInsights.topCategory} accent="amber" icon={<FiLayers />} />
-                <HighlightCard item={serviceInsights.lowestPerformingService} accent="rose" icon={<FiTrendingDown />} />
-              </div>
+                  <PanelCard title="Service Revenue Note" subtitle="Revenue is calculated only from tracked confirmed booking payments.">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+                      {serviceInsights.totalRevenue !== null
+                        ? `Tracked confirmed booking revenue: ${formatCurrency(serviceInsights.totalRevenue)}`
+                        : 'No confirmed service payment data is available yet.'}
+                    </div>
+                  </PanelCard>
+                </div>
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.85fr]">
-                <PanelCard title="Booking Status Breakdown" subtitle="How bookings for your own services are moving through the pipeline.">
-                  {serviceInsights.bookingBreakdown.length === 0 ? (
-                    <InlineEmpty text="No bookings yet." />
+                <PanelCard title="Recent Service Activity" subtitle="Latest updates from your service listings and their bookings.">
+                  {serviceInsights.recentActivity.length === 0 ? (
+                    <InlineEmpty text="No recent service activity yet." />
                   ) : (
-                    <BreakdownList rows={serviceInsights.bookingBreakdown} total={Math.max(serviceInsights.totalBookings, 1)} />
+                    <ActivityList items={serviceInsights.recentActivity} />
                   )}
                 </PanelCard>
-
-                <PanelCard title="Service Revenue Note" subtitle="Revenue is calculated only from tracked confirmed booking payments.">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
-                    {serviceInsights.totalRevenue !== null
-                      ? `Tracked confirmed booking revenue: ${formatCurrency(serviceInsights.totalRevenue)}`
-                      : 'No confirmed service payment data is available yet.'}
-                  </div>
-                </PanelCard>
-              </div>
-
-              <PanelCard title="Recent Service Activity" subtitle="Latest updates from your service listings and their bookings.">
-                {serviceInsights.recentActivity.length === 0 ? (
-                  <InlineEmpty text="No recent service activity yet." />
-                ) : (
-                  <ActivityList items={serviceInsights.recentActivity} />
-                )}
-              </PanelCard>
-            </>
-          )}
-        </InsightsSection>
+              </>
+            )}
+          </InsightsSection>
+        )}
       </div>
     </div>
   );
@@ -823,6 +869,80 @@ const QuickInfoCard: React.FC<{ label: string; value: number; icon: React.ReactN
       <span className="text-slate-400">{icon}</span>
     </div>
     <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
+  </div>
+);
+
+const InsightOverviewCard: React.FC<{
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  badgeLabel: string;
+  primaryMetricLabel: string;
+  primaryMetricValue: string | number;
+  secondaryMetricLabel: string;
+  secondaryMetricValue: string | number;
+  tertiaryMetricLabel: string;
+  tertiaryMetricValue: string | number;
+  isActive: boolean;
+  onView: () => void;
+}> = ({
+  title,
+  description,
+  icon,
+  badgeLabel,
+  primaryMetricLabel,
+  primaryMetricValue,
+  secondaryMetricLabel,
+  secondaryMetricValue,
+  tertiaryMetricLabel,
+  tertiaryMetricValue,
+  isActive,
+  onView,
+}) => (
+  <div
+    className={`rounded-[28px] border p-6 shadow-sm transition-all ${
+      isActive
+        ? 'border-indigo-300 bg-gradient-to-br from-indigo-50 via-white to-sky-50'
+        : 'border-slate-200 bg-white hover:border-slate-300'
+    }`}
+  >
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+          <span className="text-slate-500">{icon}</span>
+          {badgeLabel}
+        </div>
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">{title}</h2>
+        <p className="mt-2 text-sm text-slate-600">{description}</p>
+      </div>
+      <span className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 shadow-sm">{icon}</span>
+    </div>
+
+    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <QuickMetric label={primaryMetricLabel} value={primaryMetricValue} />
+      <QuickMetric label={secondaryMetricLabel} value={secondaryMetricValue} />
+      <QuickMetric label={tertiaryMetricLabel} value={tertiaryMetricValue} />
+    </div>
+
+    <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-5">
+      <p className="text-sm text-slate-500">
+        {isActive ? 'This analytics section is currently open below.' : 'Detailed analytics are hidden until you open this section.'}
+      </p>
+      <button
+        type="button"
+        onClick={onView}
+        className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+      >
+        View
+      </button>
+    </div>
+  </div>
+);
+
+const QuickMetric: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+    <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900">{value}</p>
   </div>
 );
 
