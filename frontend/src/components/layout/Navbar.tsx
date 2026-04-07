@@ -50,6 +50,7 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isUser = isAuthenticated && user?.role === 'user';
+  const isAdmin = isAuthenticated && user?.role === 'admin';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -134,7 +135,7 @@ const Navbar: React.FC = () => {
 
   const handleViewAllNotifications = () => {
     setIsNotificationsOpen(false);
-    navigate('/dashboard/notifications');
+    navigate(isAdmin ? '/admin/notifications' : '/dashboard/notifications');
   };
 
   return (
@@ -292,34 +293,37 @@ const Navbar: React.FC = () => {
                           <p className="truncate text-xs text-slate-400">{user.email}</p>
                         </div>
 
-                        <div className="py-1.5">
-                          <DropdownLink to="/dashboard" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
-                          
-                          <div className="my-1 border-t border-slate-100" />
-                          <MenuSectionHeading label="My Listings" />
-                          <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="Product Listings" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/services/posted" icon={<FiBookOpen />} label="Service Listings" onClick={() => setIsProfileOpen(false)} />
-
-                          <div className="my-1 border-t border-slate-100" />
-                          <MenuSectionHeading label="My Services" />
-                          <DropdownLink to="/dashboard/services" icon={<FiBell />} label="Incoming Service Requests" onClick={() => setIsProfileOpen(false)} />
-
-                          <div className="my-1 border-t border-slate-100" />
-                          <MenuSectionHeading label="My Activity" />
-                          <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Bookings" onClick={() => setIsProfileOpen(false)} />
-                          <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
-
-                          <div className="my-1 border-t border-slate-100" />
-                          <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="Payments" onClick={() => setIsProfileOpen(false)} />
-                          {user.role === 'user' && (
-                            <DropdownLink to="/dashboard/insights" icon={<FiBarChart2 />} label="Insights" onClick={() => setIsProfileOpen(false)} />
-                          )}
-                          <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
-                          
-                          {user.role === 'admin' && (
+                        <div className="py-1">
+                          {isAdmin ? (
                             <>
-                              <div className="my-1 border-t border-slate-100" />
+                              <DropdownLink to="/admin" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
+                              <DropdownLink to="/admin/notifications" icon={<FiBell />} label="Notifications" onClick={() => setIsProfileOpen(false)} />
                               <DropdownLink to="/admin" icon={<FiSettings />} label="Admin Panel" onClick={() => setIsProfileOpen(false)} />
+                            </>
+                          ) : (
+                            <>
+                              <DropdownLink to="/dashboard" icon={<FiGrid />} label="Dashboard" onClick={() => setIsProfileOpen(false)} />
+
+                              <div className="my-1 border-t border-slate-100" />
+                              <MenuSectionHeading label="My Listings" />
+                              <DropdownLink to="/dashboard/listings" icon={<FiPackage />} label="Product Listings" onClick={() => setIsProfileOpen(false)} />
+                              <DropdownLink to="/dashboard/services/posted" icon={<FiBookOpen />} label="Service Listings" onClick={() => setIsProfileOpen(false)} />
+
+                              <div className="my-1 border-t border-slate-100" />
+                              <MenuSectionHeading label="My Services" />
+                              <DropdownLink to="/dashboard/services" icon={<FiBell />} label="Incoming Service Requests" onClick={() => setIsProfileOpen(false)} />
+
+                              <div className="my-1 border-t border-slate-100" />
+                              <MenuSectionHeading label="My Activity" />
+                              <DropdownLink to="/dashboard/service-requests" icon={<FiCalendar />} label="My Service Bookings" onClick={() => setIsProfileOpen(false)} />
+                              <DropdownLink to="/dashboard/orders" icon={<FiShoppingBag />} label="My Orders" onClick={() => setIsProfileOpen(false)} />
+
+                              <div className="my-1 border-t border-slate-100" />
+                              <DropdownLink to="/dashboard/payments" icon={<FiCreditCard />} label="Payments" onClick={() => setIsProfileOpen(false)} />
+                              {user.role === 'user' && (
+                                <DropdownLink to="/dashboard/insights" icon={<FiBarChart2 />} label="Insights" onClick={() => setIsProfileOpen(false)} />
+                              )}
+                              <DropdownLink to="/dashboard/profile" icon={<FiUser />} label="Profile" onClick={() => setIsProfileOpen(false)} />
                             </>
                           )}
                         </div>
