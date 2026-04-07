@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -21,6 +22,12 @@ import {
 } from 'react-icons/fi';
 import { useCategoryStore } from '@/store/categoryStore';
 import { useUIStore } from '@/store/uiStore';
+import { useAuthStore } from '@/store/authStore';
+import { websiteReviewsApi } from '@/api/services';
+import { IReviewSummary, IWebsiteReview, ReviewSort } from '@/types/review';
+import ReviewModal from '@/components/reviews/ReviewModal';
+import StarRating from '@/components/reviews/StarRating';
+import Button from '@/components/ui/Button';
 import { Card, Badge } from '@/components/ui';
 import { listingsApi } from '@/api/listings';
 import { servicesApi } from '@/api/services';
@@ -112,8 +119,24 @@ const HomePage: React.FC = () => {
   const { categories, productCategories, serviceCategories, fetchCategories } = useCategoryStore();
   const { searchQuery, setSearchQuery } = useUIStore();
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+
+  // feature-review state
+  const [websiteReviews, setWebsiteReviews] = useState<IWebsiteReview[]>([]);
+  const [websiteSort, setWebsiteSort] = useState<ReviewSort>('latest');
+  const [websiteSummary, setWebsiteSummary] = useState<IReviewSummary>({
+    averageRating: 0,
+    reviewCount: 0,
+    ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  });
+  const [myWebsiteReview, setMyWebsiteReview] = useState<IWebsiteReview | null>(null);
+  const [websiteReviewModalOpen, setWebsiteReviewModalOpen] = useState(false);
+  const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
+  const [votedReviewIds, setVotedReviewIds] = useState<Record<string, boolean>>({});
+
+  // dev state
   const [trendingListings, setTrendingListings] = useState<IProductListing[]>([]);
   const [premiumServices, setPremiumServices] = useState<IServiceSelling[]>([]);
   const [isListingsLoading, setIsListingsLoading] = useState(true);
@@ -128,10 +151,39 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveHeroIndex((prev) => (prev + 1) % heroSlides.length);
-    }, 6000); // slightly longer for reading
+    }, 6000);
 
     return () => window.clearInterval(timer);
   }, []);
+
+  const loadWebsiteReviews = React.useCallback(async () => {
+    try {
+      const [listRes, summaryRes] = await Promise.all([
+        websiteReviewsApi.list({ sortBy: websiteSort, limit: 6 }),
+        websiteReviewsApi.getSummary(),
+      ]);
+
+      setWebsiteReviews(listRes.data.data || []);
+      setWebsiteSummary(summaryRes.data.data || {
+        averageRating: 0,
+        reviewCount: 0,
+        ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      });
+
+      if (isAuthenticated) {
+        const myRes = await websiteReviewsApi.getMine();
+        setMyWebsiteReview(myRes.data.data || null);
+      } else {
+        setMyWebsiteReview(null);
+      }
+    } catch {
+      setWebsiteReviews([]);
+    }
+  }, [isAuthenticated, websiteSort]);
+
+  useEffect(() => {
+    void loadWebsiteReviews();
+  }, [loadWebsiteReviews]);
 
   useEffect(() => {
     const fetchTrendingListings = async () => {
@@ -175,6 +227,60 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const handleWebsiteReviewSubmit = async (payload: { rating: number; title?: string; content: string }) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to leave a website review');
+      return;
+    }
+
+    setWebsiteSubmitting(true);
+    try {
+      if (myWebsiteReview?._id) {
+        await websiteReviewsApi.update(myWebsiteReview._id, payload);
+        toast.success('Website review updated');
+      } else {
+        await websiteReviewsApi.create(payload);
+        toast.success('Website review published');
+      }
+      setWebsiteReviewModalOpen(false);
+      await loadWebsiteReviews();
+    } finally {
+      setWebsiteSubmitting(false);
+    }
+  };
+
+  const handleWebsiteReviewDelete = async () => {
+    if (!myWebsiteReview?._id) return;
+
+    try {
+      await websiteReviewsApi.delete(myWebsiteReview._id);
+      toast.success('Website review deleted');
+      await loadWebsiteReviews();
+    } catch {
+      // handled globally
+    }
+  };
+
+  const handleWebsiteHelpfulVote = async (review: IWebsiteReview) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to vote as helpful');
+      return;
+    }
+
+    try {
+      const { data } = await websiteReviewsApi.voteHelpful(review._id);
+      const voted = data.data?.voted;
+      const helpfulCount = data.data?.helpfulCount ?? review.helpfulCount ?? 0;
+
+      setVotedReviewIds((prev) => ({ ...prev, [review._id]: voted }));
+      setWebsiteReviews((prev) =>
+        prev.map((item) => (item._id === review._id ? { ...item, helpfulCount } : item))
+      );
+    } catch {
+      // handled globally
+    }
+  };
+
   return (
     <div className="overflow-hidden bg-[#f8fafc]">
       {/* ===== HERO SECTION ===== */}
@@ -207,7 +313,6 @@ const HomePage: React.FC = () => {
             variants={staggerContainer}
             className="max-w-3xl"
           >
-            {/* Dynamic Badge */}
             <motion.div variants={fadeUp} className="mb-4 inline-block">
                <motion.div 
                  className="relative group cursor-default"
@@ -223,7 +328,6 @@ const HomePage: React.FC = () => {
                </motion.div>
             </motion.div>
 
-            {/* Glowing Text */}
             <motion.h1
                key={`title-${activeHeroIndex}`}
                initial={{ opacity: 0, y: 20 }}
@@ -245,7 +349,6 @@ const HomePage: React.FC = () => {
               {heroSlides[activeHeroIndex].subtitle}
             </motion.p>
 
-            {/* Glassmorphism Search Bar */}
             <motion.form
               variants={fadeUp}
               onSubmit={handleSearch}
@@ -271,7 +374,6 @@ const HomePage: React.FC = () => {
               </button>
             </motion.form>
 
-            {/* Pagination Dots */}
             <motion.div variants={fadeUp} className="mt-6 sm:mt-8 flex items-center gap-3">
               {heroSlides.map((_, index) => (
                 <button
@@ -285,7 +387,6 @@ const HomePage: React.FC = () => {
               ))}
             </motion.div>
 
-            {/* Stats */}
             <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-6 sm:gap-10">
               <StatItem value="10K+" label="Active Listings" delay={0.1} />
               <div className="h-10 w-px bg-white/20 hidden sm:block"></div>
@@ -314,7 +415,6 @@ const HomePage: React.FC = () => {
               Explore by <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-indigo-500">Category</span>
             </motion.h2>
 
-            {/* Modern Pill Tabs */}
             <motion.div variants={fadeUp} className="flex p-1.5 bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100">
               <button
                 onClick={() => setActiveTab('products')}
@@ -339,9 +439,8 @@ const HomePage: React.FC = () => {
             </motion.div>
           </motion.div>
 
-          {/* Category Grid */}
           <motion.div
-            key={activeTab} // re-animate when tab changes
+            key={activeTab}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
@@ -364,7 +463,6 @@ const HomePage: React.FC = () => {
                 </motion.div>
               ))
             ) : (
-              // Placeholder skeleton-like appearance
               placeholderCategories.map((cat, index) => (
                 <motion.div key={cat} variants={scaleIn} whileHover={{ y: -8 }}>
                   <div className="h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 text-center border border-slate-100 shadow-sm transition-all duration-300 group">
@@ -382,7 +480,6 @@ const HomePage: React.FC = () => {
 
       {/* ===== HOW IT WORKS - BENTO GRID ===== */}
       <section className="py-24 bg-white relative overflow-hidden">
-        {/* Subtle background pattern */}
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -407,7 +504,6 @@ const HomePage: React.FC = () => {
             {howItWorksSteps.map((step, i) => (
               <motion.div key={i} variants={fadeUp} className={`relative z-10 ${i === 1 ? 'lg:translate-y-8' : ''}`}>
                 <div className="h-full bg-white rounded-3xl p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.1)] transition-all duration-500 overflow-hidden group">
-                   {/* Background Gradient Blob on Hover */}
                    <div className={`absolute -top-24 -right-24 w-48 h-48 ${step.colorCode} rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-0`}></div>
                    
                    <div className="relative z-10">
@@ -613,11 +709,144 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* ===== PLATFORM REVIEWS ===== */}
+      <section className="py-24 bg-[#f1f5f9]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">
+                <FiUsers className="h-3 w-3" /> COMMUNITY FEEDBACK
+              </div>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+                What Users Say About the <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500">Marketplace</span>
+              </h2>
+              <p className="mt-3 text-slate-600">
+                These are platform-level reviews about overall trust, speed, support, and experience.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={websiteSort}
+                onChange={(e) => setWebsiteSort(e.target.value as ReviewSort)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400"
+              >
+                <option value="latest">Latest</option>
+                <option value="helpful">Most Helpful</option>
+                <option value="ratingHigh">Highest Rating</option>
+                <option value="ratingLow">Lowest Rating</option>
+              </select>
+              {isAuthenticated ? (
+                <Button type="button" size="sm" onClick={() => setWebsiteReviewModalOpen(true)}>
+                  {myWebsiteReview ? 'Edit My Review' : 'Write a Review'}
+                </Button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Login to Review
+                </Link>
+              )}
+              {myWebsiteReview ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => void handleWebsiteReviewDelete()}>
+                  Delete My Review
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mb-8 grid gap-6 lg:grid-cols-[1.1fr_2fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Community Rating</p>
+              <div className="mt-3 flex items-center gap-3">
+                <p className="text-5xl font-black text-slate-900">{websiteSummary.averageRating.toFixed(1)}</p>
+                <div>
+                  <StarRating rating={websiteSummary.averageRating} size="md" />
+                  <p className="mt-1 text-sm text-slate-500">{websiteSummary.reviewCount} review{websiteSummary.reviewCount === 1 ? '' : 's'}</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-2">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = websiteSummary.ratingBreakdown?.[star] || 0;
+                  const max = Math.max(1, ...Object.values(websiteSummary.ratingBreakdown || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }));
+                  const width = Math.max(0, Math.min(100, (count / max) * 100));
+                  return (
+                    <div key={star} className="flex items-center gap-3 text-sm">
+                      <span className="w-4 text-slate-600">{star}</span>
+                      <div className="h-2 flex-1 rounded-full bg-slate-100">
+                        <div className="h-2 rounded-full bg-amber-400" style={{ width: `${width}%` }} />
+                      </div>
+                      <span className="w-8 text-right text-slate-500">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {websiteReviews.length > 0 ? (
+                websiteReviews.map((review) => {
+                  const reviewerName = typeof review.reviewerId === 'string' ? 'User' : review.reviewerId?.name || 'User';
+                  const canVote = isAuthenticated && user?._id && (typeof review.reviewerId !== 'string' ? review.reviewerId?._id !== user._id : true);
+                  const isVoted = !!votedReviewIds[review._id];
+
+                  return (
+                    <div key={review._id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-800">{reviewerName}</p>
+                        <span className="text-xs text-slate-500">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <StarRating rating={review.rating} size="sm" />
+                      {review.title ? <p className="mt-3 text-sm font-semibold text-slate-900">{review.title}</p> : null}
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600 line-clamp-4">{review.content}</p>
+                      <div className="mt-4 flex items-center justify-between">
+                        <button
+                          type="button"
+                          disabled={!canVote}
+                          onClick={() => void handleWebsiteHelpfulVote(review)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                            isVoted
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          } disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                          Helpful ({review.helpfulCount || 0})
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white/70 p-10 text-center text-slate-500">
+                  No website reviews yet. Be the first to share your experience.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <ReviewModal
+          isOpen={websiteReviewModalOpen}
+          onClose={() => setWebsiteReviewModalOpen(false)}
+          onSubmit={handleWebsiteReviewSubmit}
+          initialValue={
+            myWebsiteReview
+              ? {
+                  rating: myWebsiteReview.rating,
+                  title: myWebsiteReview.title || '',
+                  content: myWebsiteReview.content,
+                }
+              : undefined
+          }
+          isSubmitting={websiteSubmitting}
+          mode={myWebsiteReview ? 'edit' : 'create'}
+        />
+      </section>
+
       {/* ===== IMMERSIVE CTA SECTION ===== */}
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-slate-900 z-0">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
-          {/* Abstract background blobs for premium feel */}
           <motion.div variants={floatAnim} initial="hidden" animate="visible" className="absolute -top-[30%] -right-[10%] w-[700px] h-[700px] bg-primary-600/40 rounded-full blur-[120px]" />
           <motion.div variants={floatAnim} initial="hidden" animate="visible" style={{ animationDelay: '2s' }} className="absolute -bottom-[30%] -left-[10%] w-[600px] h-[600px] bg-indigo-600/40 rounded-full blur-[120px]" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-950/80"></div>

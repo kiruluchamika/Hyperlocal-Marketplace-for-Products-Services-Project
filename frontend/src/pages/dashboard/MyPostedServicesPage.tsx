@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { FiArrowLeft, FiEdit2, FiMapPin, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import StarRating from '@/components/reviews/StarRating';
 import { servicesApi } from '@/api/services';
 import { IServiceSelling } from '@/types';
 import { formatCurrency } from '@/utils/listings';
@@ -131,6 +132,14 @@ const MyPostedServicesPage: React.FC = () => {
                 <p className="mt-3 line-clamp-2 text-sm text-slate-500">{service.description}</p>
 
                 <div className="mt-4 space-y-2 text-sm text-slate-600">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-slate-500">Rating</span>
+                    <span className="inline-flex items-center gap-2 text-slate-700">
+                      <StarRating rating={service.averageRating || 0} size="sm" />
+                      <span className="font-semibold">{(service.averageRating || 0).toFixed(1)}</span>
+                      <span className="text-xs text-slate-500">({service.reviewCount || 0})</span>
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium text-slate-500">Price</span>
                     <span className="font-semibold text-slate-800">

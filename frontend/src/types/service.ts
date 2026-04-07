@@ -30,6 +30,9 @@ export interface IServiceSelling {
   attributeValues: Record<string, unknown>;
   status: ServiceStatus;
   isActive: boolean;
+  averageRating?: number;
+  reviewCount?: number;
+  ratingBreakdown?: Record<number, number>;
   removedReason?: string;
   removedBy?: string;
   removedAt?: string;

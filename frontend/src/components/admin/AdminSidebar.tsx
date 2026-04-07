@@ -14,6 +14,7 @@ import {
   FiLogOut,
   FiMessageSquare,
   FiAlertCircle,
+  FiStar,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { to: '/admin/categories', icon: <FiLayers size={20} />,        label: 'Categories' },
   { to: '/admin/contacts',   icon: <FiMessageSquare size={20} />, label: 'Contacts' },
   { to: '/admin/reports',    icon: <FiAlertCircle size={20} />,   label: 'Reports' },
+  { to: '/admin/reviews',    icon: <FiStar size={20} />,          label: 'Reviews' },
 ];
 
 const AdminSidebar: React.FC = () => {

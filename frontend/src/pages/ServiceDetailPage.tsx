@@ -13,17 +13,23 @@ import {
   FiFlag,
   FiImage,
   FiMapPin,
+  FiMessageSquare,
   FiTag,
 } from 'react-icons/fi';
-import { bookingsApi, servicesApi } from '@/api/services';
+import { bookingsApi, reviewsApi, servicesApi } from '@/api/services';
 import GeoMapCanvas from '@/components/map/GeoMapCanvas';
 import ReportModal from '@/components/modals/ReportModal';
+import ReviewCard from '@/components/reviews/ReviewCard';
+import ReviewModal from '@/components/reviews/ReviewModal';
+import SellerReplyModal from '@/components/reviews/SellerReplyModal';
+import ReviewSummary from '@/components/reviews/ReviewSummary';
+import StarRating from '@/components/reviews/StarRating';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import FullPageLoader from '@/components/ui/FullPageLoader';
 import GifLoader from '@/components/ui/GifLoader';
 import { useAuthStore } from '@/store/authStore';
-import { GeoNearbyItem, IServiceBookingSlot, IServiceSelling } from '@/types';
+import { GeoNearbyItem, IReviewSummary, IServiceBookingSlot, IServiceReview, IServiceSelling, ReviewSort } from '@/types';
 
 const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240];
 
@@ -111,6 +117,25 @@ const ServiceDetailPage: React.FC = () => {
   const [reportModalOpen, setReportModalOpen] = React.useState(false);
   const [slots, setSlots] = React.useState<IServiceBookingSlot[]>([]);
   const [isMapVisible, setIsMapVisible] = React.useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = React.useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = React.useState(false);
+  const [reviewsLoading, setReviewsLoading] = React.useState(false);
+  const [summaryLoading, setSummaryLoading] = React.useState(false);
+  const [reviews, setReviews] = React.useState<IServiceReview[]>([]);
+  const [myReview, setMyReview] = React.useState<IServiceReview | null>(null);
+  const [editingReview, setEditingReview] = React.useState<IServiceReview | null>(null);
+  const [reviewSummary, setReviewSummary] = React.useState<IReviewSummary>({
+    averageRating: 0,
+    reviewCount: 0,
+    ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  });
+  const [reviewPage, setReviewPage] = React.useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = React.useState(1);
+  const [reviewSort, setReviewSort] = React.useState<ReviewSort>('latest');
+  const [helpfulReviewId, setHelpfulReviewId] = React.useState('');
+  const [replyModalOpen, setReplyModalOpen] = React.useState(false);
+  const [replySubmitting, setReplySubmitting] = React.useState(false);
+  const [replyTargetReview, setReplyTargetReview] = React.useState<IServiceReview | null>(null);
   const [bookingForm, setBookingForm] = React.useState({
     date: formatDateInput(new Date()),
     time: '09:00',
@@ -118,6 +143,7 @@ const ServiceDetailPage: React.FC = () => {
     note: '',
   });
   const todayDate = formatDateInput(new Date());
+  const reviewBookingId = React.useMemo(() => new URLSearchParams(window.location.search).get('reviewBookingId') || undefined, []);
   const minimumTimeForSelectedDate = React.useMemo(() => {
     if (bookingForm.date !== todayDate) {
       return undefined;
@@ -189,6 +215,59 @@ const ServiceDetailPage: React.FC = () => {
     }));
   }, [bookingForm.time, minimumTimeForSelectedDate]);
 
+  const fetchReviewSummary = React.useCallback(async () => {
+    if (!id) return;
+
+    setSummaryLoading(true);
+    try {
+      const { data } = await reviewsApi.getSummaryByService(id);
+      setReviewSummary(data.data);
+    } catch {
+      setReviewSummary({ averageRating: 0, reviewCount: 0, ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } });
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [id]);
+
+  const fetchReviews = React.useCallback(
+    async (page = 1) => {
+      if (!id) return;
+
+      setReviewsLoading(true);
+      try {
+        const { data } = await reviewsApi.listByService(id, { page, limit: 6, sortBy: reviewSort });
+        setReviews(data.data || []);
+        setReviewPage(data.pagination?.page || 1);
+        setReviewTotalPages(data.pagination?.totalPages || 1);
+      } catch {
+        setReviews([]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    },
+    [id, reviewSort]
+  );
+
+  const fetchMyReview = React.useCallback(async () => {
+    if (!id || !isAuthenticated) {
+      setMyReview(null);
+      return;
+    }
+
+    try {
+      const { data } = await reviewsApi.getMyReviewByService(id);
+      setMyReview(data.data || null);
+    } catch {
+      setMyReview(null);
+    }
+  }, [id, isAuthenticated]);
+
+  React.useEffect(() => {
+    void fetchReviewSummary();
+    void fetchReviews(1);
+    void fetchMyReview();
+  }, [fetchMyReview, fetchReviewSummary, fetchReviews]);
+
   const isOwner = service && user ? (typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id) === user.id : false;
   const images = service?.images?.length ? service.images : service ? [getServiceDisplayImage(service)] : [];
   const mapItems = service ? getMapItems(service) : [];
@@ -246,6 +325,90 @@ const ServiceDetailPage: React.FC = () => {
     }
   };
 
+  const handleSubmitReview = async (payload: { rating: number; title?: string; content: string }) => {
+    if (!id) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.error('Please sign in to submit a review.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setReviewSubmitting(true);
+
+      if (editingReview) {
+        await reviewsApi.update(editingReview._id, payload);
+        toast.success('Review updated successfully.');
+      } else {
+        await reviewsApi.create({
+          serviceId: id,
+          bookingId: reviewBookingId,
+          rating: payload.rating,
+          title: payload.title,
+          content: payload.content,
+        });
+        toast.success('Review published successfully.');
+      }
+
+      setReviewModalOpen(false);
+      setEditingReview(null);
+      await Promise.all([fetchReviewSummary(), fetchReviews(reviewPage), fetchMyReview()]);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    const approved = window.confirm('Delete your review? This action cannot be undone.');
+    if (!approved) {
+      return;
+    }
+
+    await reviewsApi.delete(reviewId);
+    toast.success('Review deleted successfully.');
+    await Promise.all([fetchReviewSummary(), fetchReviews(reviewPage), fetchMyReview()]);
+  };
+
+  const handleReplyToReview = async (content: string) => {
+    if (!replyTargetReview) {
+      return;
+    }
+
+    try {
+      setReplySubmitting(true);
+      await reviewsApi.reply(replyTargetReview._id, content);
+      toast.success('Response posted successfully.');
+      setReplyModalOpen(false);
+      setReplyTargetReview(null);
+      await fetchReviews(reviewPage);
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
+  const handleHelpfulVote = async (review: IServiceReview) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to vote helpful.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setHelpfulReviewId(review._id);
+      const { data } = await reviewsApi.voteHelpful(review._id);
+      setReviews((prev) =>
+        prev.map((item) =>
+          item._id === review._id ? { ...item, helpfulCount: data.data.helpfulCount } : item
+        )
+      );
+    } finally {
+      setHelpfulReviewId('');
+    }
+  };
+
   if (loading) {
     return <FullPageLoader label="Loading service details..." />;
   }
@@ -280,6 +443,36 @@ const ServiceDetailPage: React.FC = () => {
           targetType="SERVICE"
           targetId={service?._id || id}
           targetName={service?.title || 'this service'}
+        />
+
+        <ReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => {
+            setReviewModalOpen(false);
+            setEditingReview(null);
+          }}
+          onSubmit={handleSubmitReview}
+          initialValue={
+            editingReview
+              ? {
+                  rating: editingReview.rating,
+                  title: editingReview.title,
+                  content: editingReview.content,
+                }
+              : undefined
+          }
+          isSubmitting={reviewSubmitting}
+          mode={editingReview ? 'edit' : 'create'}
+        />
+
+        <SellerReplyModal
+          isOpen={replyModalOpen}
+          onClose={() => {
+            setReplyModalOpen(false);
+            setReplyTargetReview(null);
+          }}
+          onSubmit={handleReplyToReview}
+          isSubmitting={replySubmitting}
         />
 
         <button
@@ -346,6 +539,10 @@ const ServiceDetailPage: React.FC = () => {
                     <span className="inline-flex items-center gap-1"><FiMapPin size={14} /> {service.location?.city || service.locationText}</span>
                     <span className="inline-flex items-center gap-1"><FiEye size={14} /> {service.viewsCount ?? 0} views</span>
                     <span className="inline-flex items-center gap-1"><FiCalendar size={14} /> {new Date(service.createdAt).toLocaleDateString()}</span>
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                      <StarRating rating={reviewSummary.averageRating} size="sm" />
+                      {reviewSummary.averageRating.toFixed(1)} ({reviewSummary.reviewCount})
+                    </span>
                   </div>
 
                   <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700">{service.description}</p>
@@ -433,6 +630,139 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            <section className="space-y-4">
+              {summaryLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+                  <GifLoader size="sm" label="Loading review summary..." />
+                </div>
+              ) : (
+                <ReviewSummary summary={reviewSummary} />
+              )}
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">Public Reviews</h2>
+                    <p className="text-sm text-slate-500">Open community feedback for this service.</p>
+                  </div>
+
+                  <select
+                    value={reviewSort}
+                    onChange={(event) => {
+                      setReviewSort(event.target.value as ReviewSort);
+                      setReviewPage(1);
+                    }}
+                    className="input-field max-w-[200px] py-2 text-sm"
+                  >
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="ratingHigh">Top Rated</option>
+                    <option value="ratingLow">Lowest Rated</option>
+                    <option value="helpful">Most Helpful</option>
+                  </select>
+
+                  {!isOwner && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      leftIcon={<FiMessageSquare size={14} />}
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          toast.error('Please sign in to leave a review.');
+                          navigate('/login');
+                          return;
+                        }
+                        setEditingReview(null);
+                        setReviewModalOpen(true);
+                      }}
+                    >
+                      Leave a Review
+                    </Button>
+                  )}
+                </div>
+
+                {reviewsLoading && (
+                  <div className="mt-4">
+                    <GifLoader size="sm" label="Loading reviews..." />
+                  </div>
+                )}
+
+                {!reviewsLoading && reviews.length === 0 && (
+                  <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                    No reviews yet. Be the first to share your experience.
+                  </p>
+                )}
+
+                {!reviewsLoading && reviews.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {reviews.map((review) => (
+                      <div key={review._id}>
+                        <ReviewCard
+                          review={review}
+                          canEdit={myReview?._id === review._id}
+                          canDelete={myReview?._id === review._id}
+                          canVoteHelpful={myReview?._id !== review._id}
+                          helpfulLoading={helpfulReviewId === review._id}
+                          onHelpful={(currentReview) => {
+                            void handleHelpfulVote(currentReview);
+                          }}
+                          onEdit={(currentReview) => {
+                            setEditingReview(currentReview);
+                            setReviewModalOpen(true);
+                          }}
+                          onDelete={(currentReview) => {
+                            void handleDeleteReview(currentReview._id);
+                          }}
+                        />
+
+                        {isOwner && !review.sellerResponse && (
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReplyTargetReview(review);
+                                setReplyModalOpen(true);
+                              }}
+                            >
+                              Reply as Seller
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {reviewTotalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={reviewPage <= 1}
+                      onClick={() => void fetchReviews(reviewPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <p className="text-sm text-slate-500">
+                      Page {reviewPage} of {reviewTotalPages}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={reviewPage >= reviewTotalPages}
+                      onClick={() => void fetchReviews(reviewPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
 
           <div className="space-y-5 lg:col-span-5">

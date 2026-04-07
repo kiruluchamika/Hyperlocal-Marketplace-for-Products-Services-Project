@@ -5,8 +5,10 @@ import {
   FiChevronDown,
   FiCreditCard,
   FiLayers,
+  FiMessageSquare,
   FiPackage,
   FiSearch,
+  FiShield,
   FiShoppingCart,
   FiStar,
   FiTrendingUp,
@@ -79,6 +81,7 @@ const AdminDashboardPage: React.FC = () => {
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -109,6 +112,9 @@ const AdminDashboardPage: React.FC = () => {
 
   const placeholderServiceTrend = { value: 8, label: 'vs last period' };
   const placeholderCategoryTrend = { value: -2, label: 'vs last period' };
+  const placeholderReviewTrend = { value: 6, label: 'vs last period' };
+  const placeholderHiddenTrend = { value: -1, label: 'vs last period' };
+  const placeholderRatingTrend = { value: 4, label: 'vs last period' };
 
   const statTrends = {
     totalUsers: getSeriesTrend(
@@ -129,6 +135,15 @@ const AdminDashboardPage: React.FC = () => {
       { value: 14, label: 'vs last period' },
     ),
     totalCategories: placeholderCategoryTrend,
+    totalReviews: getSeriesTrend(
+      (charts?.reviewsByMonth ?? []).map((item) => item.count),
+      placeholderReviewTrend,
+    ),
+    hiddenReviewRatio: placeholderHiddenTrend,
+    averageServiceRating: getSeriesTrend(
+      (charts?.reviewsByMonth ?? []).map((item) => item.avgRating),
+      placeholderRatingTrend,
+    ),
   };
 
   const topSellingProduct = performance?.topSellingProduct ?? null;
@@ -153,13 +168,71 @@ const AdminDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <AdminStatCard title="Total Users" value={stats.totalUsers.toLocaleString()} icon={<FiUsers size={22} />} color="blue" trend={statTrends.totalUsers} />
-        <AdminStatCard title="Products" value={stats.totalProducts.toLocaleString()} icon={<FiPackage size={22} />} color="emerald" trend={statTrends.totalProducts} />
-        <AdminStatCard title="Services" value={stats.totalServices.toLocaleString()} icon={<FiBriefcase size={22} />} color="violet" trend={statTrends.totalServices} />
-        <AdminStatCard title="Orders" value={stats.totalOrders.toLocaleString()} icon={<FiShoppingCart size={22} />} color="amber" trend={statTrends.totalOrders} />
-        <AdminStatCard title="Revenue" value={`Rs. ${stats.totalRevenue.toLocaleString()}`} icon={<FiCreditCard size={22} />} color="cyan" trend={statTrends.totalRevenue} />
-        <AdminStatCard title="Categories" value={stats.totalCategories.toLocaleString()} icon={<FiLayers size={22} />} color="rose" trend={statTrends.totalCategories} />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+        <AdminStatCard
+          title="Total Users"
+          value={stats.totalUsers.toLocaleString()}
+          icon={<FiUsers size={22} />}
+          color="blue"
+          trend={statTrends.totalUsers}
+        />
+        <AdminStatCard
+          title="Products"
+          value={stats.totalProducts.toLocaleString()}
+          icon={<FiPackage size={22} />}
+          color="emerald"
+          trend={statTrends.totalProducts}
+        />
+        <AdminStatCard
+          title="Services"
+          value={stats.totalServices.toLocaleString()}
+          icon={<FiBriefcase size={22} />}
+          color="violet"
+          trend={statTrends.totalServices}
+        />
+        <AdminStatCard
+          title="Orders"
+          value={stats.totalOrders.toLocaleString()}
+          icon={<FiShoppingCart size={22} />}
+          color="amber"
+          trend={statTrends.totalOrders}
+        />
+        <AdminStatCard
+          title="Revenue"
+          value={`Rs. ${stats.totalRevenue.toLocaleString()}`}
+          icon={<FiCreditCard size={22} />}
+          color="cyan"
+          trend={statTrends.totalRevenue}
+        />
+        <AdminStatCard
+          title="Categories"
+          value={stats.totalCategories.toLocaleString()}
+          icon={<FiLayers size={22} />}
+          color="rose"
+          trend={statTrends.totalCategories}
+        />
+        <AdminStatCard
+          title="Total Reviews"
+          value={stats.totalReviews.toLocaleString()}
+          icon={<FiMessageSquare size={22} />}
+          color="blue"
+          trend={statTrends.totalReviews}
+        />
+        <AdminStatCard
+          title="Hidden Ratio"
+          value={`${stats.hiddenReviewRatio.toFixed(1)}%`}
+          icon={<FiShield size={22} />}
+          color="rose"
+          trend={statTrends.hiddenReviewRatio}
+        />
+        <AdminStatCard
+          title="Avg Rating"
+          value={stats.averageServiceRating.toFixed(1)}
+          icon={<FiStar size={22} />}
+          color="amber"
+          trend={statTrends.averageServiceRating}
+        />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
@@ -208,11 +281,25 @@ const AdminDashboardPage: React.FC = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
                         <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
-                        <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#revGrad)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            color: '#0f172a',
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          fill="url(#revGrad)"
+                        />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
+
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
                     <h3 className="mb-4 text-sm font-semibold text-slate-700">Monthly Orders</h3>
                     <ResponsiveContainer width="100%" height={260}>
@@ -220,11 +307,50 @@ const AdminDashboardPage: React.FC = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
                         <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            color: '#0f172a',
+                          }}
+                        />
                         <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                  <h3 className="mb-4 text-sm font-semibold text-slate-700">Average Rating Trend</h3>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <AreaChart data={charts?.reviewsByMonth ?? []}>
+                      <defs>
+                        <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
+                      <YAxis domain={[0, 5]} tick={{ fill: '#475569', fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          color: '#0f172a',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="avgRating"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        fill="url(#ratingGrad)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -241,25 +367,45 @@ const AdminDashboardPage: React.FC = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 12 }} />
                         <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
-                        <Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={2} fill="url(#userGrad)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            color: '#0f172a',
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fill="url(#userGrad)"
+                        />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
+
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
                     <h3 className="mb-4 text-sm font-semibold text-slate-700">Order Status</h3>
                     <div className="space-y-3">
                       {Object.entries(ordersByStatus).map(([status, count]) => {
                         const total = stats.totalOrders || 1;
                         const pct = Math.round((count / total) * 100);
+
                         return (
                           <div key={status}>
                             <div className="flex items-center justify-between text-sm">
                               <AdminBadge variant={getStatusVariant(status)}>{status}</AdminBadge>
-                              <span className="text-slate-500">{count} ({pct}%)</span>
+                              <span className="text-slate-500">
+                                {count} ({pct}%)
+                              </span>
                             </div>
                             <div className="mt-1.5 h-1.5 rounded-full bg-slate-100">
-                              <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                              <div
+                                className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                                style={{ width: `${pct}%` }}
+                              />
                             </div>
                           </div>
                         );
@@ -277,7 +423,9 @@ const AdminDashboardPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Top Selling Product</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                Top Selling Product
+              </p>
               <h3 className="mt-3 text-base font-semibold text-slate-900">
                 {topSellingProduct?.name ?? 'No data available'}
               </h3>
@@ -296,7 +444,9 @@ const AdminDashboardPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Most Active User</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                Most Active User
+              </p>
               <h3 className="mt-3 text-base font-semibold text-slate-900">
                 {mostActiveUser?.name ?? 'No data available'}
               </h3>
@@ -315,9 +465,15 @@ const AdminDashboardPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Top Category</p>
-              <h3 className="mt-3 text-base font-semibold text-slate-900">{topCategory?.name ?? 'No data available'}</h3>
-              <p className="mt-2 text-sm text-slate-600">{topCategory ? `${topCategory.listingCount} listings` : 'No data available'}</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                Top Category
+              </p>
+              <h3 className="mt-3 text-base font-semibold text-slate-900">
+                {topCategory?.name ?? 'No data available'}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                {topCategory ? `${topCategory.listingCount} listings` : 'No data available'}
+              </p>
             </div>
             <div className="rounded-xl bg-violet-50 p-3 text-violet-600">
               <FiStar size={20} />
@@ -330,18 +486,33 @@ const AdminDashboardPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h3 className="mb-4 text-sm font-semibold text-slate-700">Recent Users</h3>
           <div className="space-y-3">
-            {filteredRecentUsers.length > 0 ? filteredRecentUsers.map((user) => (
-              <div key={user._id} className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-700">
-                  {user.profileImage ? <img src={user.profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /> : user.name.charAt(0).toUpperCase()}
+            {filteredRecentUsers.length > 0 ? (
+              filteredRecentUsers.map((user) => (
+                <div
+                  key={user._id}
+                  className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-700">
+                    {user.profileImage ? (
+                      <img
+                        src={user.profileImage}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{user.name}</p>
+                    <p className="truncate text-xs text-slate-600">{user.email}</p>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {format(new Date(user.createdAt), 'MMM d')}
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900">{user.name}</p>
-                  <p className="truncate text-xs text-slate-600">{user.email}</p>
-                </div>
-                <span className="text-xs text-slate-500">{format(new Date(user.createdAt), 'MMM d')}</span>
-              </div>
-            )) : (
+              ))
+            ) : (
               <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
                 <FiSearch className="mx-auto mb-2 h-4 w-4 text-slate-400" />
                 No matching users found.
@@ -353,18 +524,31 @@ const AdminDashboardPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <h3 className="mb-4 text-sm font-semibold text-slate-700">Recent Orders</h3>
           <div className="space-y-3">
-            {filteredRecentOrders.length > 0 ? filteredRecentOrders.map((order) => (
-              <div key={order._id} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-slate-50">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900">{order.titleSnapshot}</p>
-                  <p className="text-xs text-slate-600">{order.buyerId?.name} to {order.sellerId?.name}</p>
+            {filteredRecentOrders.length > 0 ? (
+              filteredRecentOrders.map((order) => (
+                <div
+                  key={order._id}
+                  className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-slate-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {order.titleSnapshot}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {order.buyerId?.name} to {order.sellerId?.name}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-sm font-medium text-slate-900">
+                      Rs. {order.totalAmount?.toLocaleString()}
+                    </span>
+                    <AdminBadge variant={getStatusVariant(order.status)}>
+                      {order.status}
+                    </AdminBadge>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-sm font-medium text-slate-900">Rs. {order.totalAmount?.toLocaleString()}</span>
-                  <AdminBadge variant={getStatusVariant(order.status)}>{order.status}</AdminBadge>
-                </div>
-              </div>
-            )) : (
+              ))
+            ) : (
               <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
                 <FiSearch className="mx-auto mb-2 h-4 w-4 text-slate-400" />
                 No matching orders found.

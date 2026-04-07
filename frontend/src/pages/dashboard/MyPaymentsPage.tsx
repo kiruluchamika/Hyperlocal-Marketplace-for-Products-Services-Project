@@ -135,8 +135,8 @@ const MyPaymentsPage: React.FC = () => {
       }, {});
 
       setPaymentByOrderId(mapped);
-      setBuyerBookings(buyerRes.data.bookings || []);
-      setProviderBookings(providerRes.data.bookings || []);
+      setBuyerBookings(buyerRes.data.data || []);
+      setProviderBookings(providerRes.data.data || []);
     } catch {
       setError('Unable to load payment history right now. Please try again later.');
       setOrders([]);
