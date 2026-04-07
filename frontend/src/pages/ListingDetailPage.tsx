@@ -321,6 +321,7 @@ const ListingDetailPage: React.FC = () => {
                     type="button"
                     variant="outline"
                     fullWidth
+                    className="text-red-600 border-red-200 hover:border-red-300 hover:bg-red-50/60 focus-visible:ring-red-500/15"
                     leftIcon={<FiFlag size={16} />}
                     onClick={() => setReportModalOpen(true)}
                   >
