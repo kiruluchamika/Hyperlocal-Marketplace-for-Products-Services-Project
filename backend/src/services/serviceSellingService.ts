@@ -20,6 +20,7 @@ const deriveServiceVisibility = (service: any) => {
 const normalizeServiceSelling = (service: any) => {
   const normalized = deriveServiceVisibility(service);
   const raw = typeof service?.toObject === "function" ? service.toObject() : service;
+  delete raw.viewedByUserIds;
 
   return {
     ...raw,
@@ -187,11 +188,9 @@ export const getServiceSellingById = async (
   requesterId?: string,
   requesterRole?: Role
 ) => {
-  const doc = await ServiceSelling.findByIdAndUpdate(
-    id,
-    { $inc: { viewsCount: 1 } },
-    { new: true }
-  ).populate("categoryId", "name type");
+  const doc = await ServiceSelling.findById(id)
+    .select("+viewedByUserIds")
+    .populate("categoryId", "name type");
   if (!doc) throw new AppError("Service ad not found", 404);
 
   const isOwner = requesterId && doc.sellerId.toString() === requesterId;
@@ -201,6 +200,19 @@ export const getServiceSellingById = async (
 
   if (!isActive && !isOwner && !isAdmin) {
     throw new AppError("Service ad not found", 404);
+  }
+
+  if (requesterId) {
+    const hasViewed = doc.viewedByUserIds.some((viewerId) => viewerId.toString() === requesterId);
+
+    if (!hasViewed) {
+      doc.viewedByUserIds.push(new Types.ObjectId(requesterId));
+      doc.viewsCount += 1;
+      await doc.save();
+    }
+  } else {
+    doc.viewsCount += 1;
+    await doc.save();
   }
 
   return normalizeServiceSelling(doc);

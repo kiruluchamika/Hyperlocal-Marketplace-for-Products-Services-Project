@@ -9,11 +9,7 @@ import { useCategoryStore } from '@/store/categoryStore';
 import { CategoryAttribute, ICategory, PricingType } from '@/types';
 
 const MAX_IMAGES = 10;
-const MAX_IMAGE_SIZE_MB = 4;
-const MAX_TOTAL_IMAGE_PAYLOAD_MB = 6;
-
-const estimatePayloadBytes = (images: string[]) =>
-  new Blob([JSON.stringify({ images })]).size;
+const MAX_IMAGE_SIZE_MB = 5;
 
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -66,7 +62,6 @@ type ServiceFormState = {
   address: string;
   latitude: string;
   longitude: string;
-  imageUrlInput: string;
   images: string[];
   attributeValues: Record<string, AttributeInputValue>;
 };
@@ -82,7 +77,6 @@ const defaultForm: ServiceFormState = {
   address: '',
   latitude: '',
   longitude: '',
-  imageUrlInput: '',
   images: [],
   attributeValues: {},
 };
@@ -253,7 +247,6 @@ const toFormValues = (service: {
     address: service.location?.address || '',
     latitude: lat !== undefined ? String(lat) : '',
     longitude: lng !== undefined ? String(lng) : '',
-    imageUrlInput: '',
     images: service.images || [],
     attributeValues: Object.entries(service.attributeValues || {}).reduce<Record<string, AttributeInputValue>>(
       (result, [key, value]) => {
@@ -400,16 +393,9 @@ const CreateServicePage: React.FC = () => {
 
     try {
       const encodedImages = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
-      const nextImages = [...form.images, ...encodedImages];
-
-      if (estimatePayloadBytes(nextImages) > MAX_TOTAL_IMAGE_PAYLOAD_MB * 1024 * 1024) {
-        toast.error(`Selected images are too large to upload together. Keep total service images under ${MAX_TOTAL_IMAGE_PAYLOAD_MB}MB.`);
-        return;
-      }
-
       setForm((prev) => ({
         ...prev,
-        images: nextImages,
+        images: [...prev.images, ...encodedImages],
       }));
 
       if (files.length > selectedFiles.length) {
@@ -597,7 +583,7 @@ const CreateServicePage: React.FC = () => {
           <h2 className="text-lg font-semibold text-slate-800">Images</h2>
           <p className="mt-1 text-sm text-slate-500">
             Upload images for your service gallery. Buyers will see these on the ad card and booking page.
-            Keep each image under {MAX_IMAGE_SIZE_MB}MB and the total selected image payload under {MAX_TOTAL_IMAGE_PAYLOAD_MB}MB.
+            Keep each image under {MAX_IMAGE_SIZE_MB}MB.
           </p>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">

@@ -31,6 +31,7 @@ export interface IProductListing extends Document {
   status: ListingStatus;
   tags: string[];
   viewsCount: number;
+  viewedByUserIds: Types.ObjectId[];
   savedCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -118,6 +119,11 @@ const productListingSchema = new Schema<IProductListing>(
     suspendDeadline: { type: Date, index: true },
     tags: { type: [String], default: [] },
     viewsCount: { type: Number, default: 0, min: 0 },
+    viewedByUserIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+      select: false
+    },
     savedCount: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }

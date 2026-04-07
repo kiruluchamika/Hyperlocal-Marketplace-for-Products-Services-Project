@@ -323,11 +323,8 @@ export const getListingById = async (
   requesterId?: string,
   requesterRole?: string
 ) => {
-  const listing = await ProductListing.findByIdAndUpdate(
-    listingId,
-    { $inc: { viewsCount: 1 } },
-    { new: true }
-  )
+  const listing = await ProductListing.findById(listingId)
+    .select("+viewedByUserIds")
     .populate("categoryId", "name type attributes")
     .populate("ownerId", "name email");
   
@@ -343,8 +340,24 @@ export const getListingById = async (
   if (!isActive && !isOwner && !isAdmin) {
     throw new AppError("Listing not found", 404);
   }
+
+  if (requesterId) {
+    const hasViewed = listing.viewedByUserIds.some((viewerId) => viewerId.toString() === requesterId);
+
+    if (!hasViewed) {
+      listing.viewedByUserIds.push(new Types.ObjectId(requesterId));
+      listing.viewsCount += 1;
+      await listing.save();
+    }
+  } else {
+    listing.viewsCount += 1;
+    await listing.save();
+  }
   
-  return listing;
+  const sanitizedListing = listing.toObject();
+  delete (sanitizedListing as { viewedByUserIds?: Types.ObjectId[] }).viewedByUserIds;
+
+  return sanitizedListing;
 };
 
 /**
