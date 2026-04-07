@@ -25,6 +25,7 @@ const AdminOrdersPage = React.lazy(() => import('@/pages/admin/AdminOrdersPage')
 const AdminPaymentsPage = React.lazy(() => import('@/pages/admin/AdminPaymentsPage'));
 const AdminCategoriesPage = React.lazy(() => import('@/pages/admin/AdminCategoriesPage'));
 const AdminReportsPage = React.lazy(() => import('@/pages/admin/AdminReportsPage'));
+const AdminReviewsPage = React.lazy(() => import('@/pages/admin/AdminReviewsPage'));
 
 // Dashboard pages
 const DashboardPage = React.lazy(() => import('@/pages/dashboard/DashboardPage'));
@@ -146,6 +147,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={<PageLoader />}>
                 <AdminReportsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'reviews',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminReviewsPage />
               </React.Suspense>
             ),
           },
