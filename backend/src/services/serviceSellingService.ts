@@ -187,7 +187,11 @@ export const getServiceSellingById = async (
   requesterId?: string,
   requesterRole?: Role
 ) => {
-  const doc = await ServiceSelling.findById(id).populate("categoryId", "name type");
+  const doc = await ServiceSelling.findByIdAndUpdate(
+    id,
+    { $inc: { viewsCount: 1 } },
+    { new: true }
+  ).populate("categoryId", "name type");
   if (!doc) throw new AppError("Service ad not found", 404);
 
   const isOwner = requesterId && doc.sellerId.toString() === requesterId;

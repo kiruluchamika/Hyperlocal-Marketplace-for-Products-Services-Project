@@ -25,6 +25,7 @@ export interface IServiceSelling {
   locationText: string;
   location?: IServiceLocation;
   images: string[];
+  viewsCount: number;
   attributeValues: Record<string, unknown>;
   status: ServiceStatus;
   isActive: boolean;

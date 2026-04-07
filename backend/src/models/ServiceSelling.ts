@@ -30,6 +30,7 @@ export interface IServiceSelling extends Document {
   location?: ILocation;
 
   images: string[];
+  viewsCount: number;
 
   attributeValues: Record<string, unknown>;
 
@@ -81,6 +82,7 @@ const serviceSellingSchema = new Schema<IServiceSelling>(
     },
 
     images: { type: [String], default: [] },
+    viewsCount: { type: Number, default: 0, min: 0 },
 
     attributeValues: { type: Schema.Types.Mixed, default: {} },
 

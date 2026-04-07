@@ -5,6 +5,7 @@ import {
   FiArrowRight,
   FiClock,
   FiCrosshair,
+  FiEye,
   FiImage,
   FiMapPin,
   FiSliders,
@@ -501,6 +502,10 @@ const ServiceCard: React.FC<{
           <p className="inline-flex items-center gap-2">
             <FiMapPin size={15} className="text-slate-400" />
             {getServiceCity(service)}
+          </p>
+          <p className="inline-flex items-center gap-2">
+            <FiEye size={15} className="text-slate-400" />
+            {service.viewsCount ?? 0} views
           </p>
         </div>
 

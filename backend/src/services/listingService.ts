@@ -323,7 +323,11 @@ export const getListingById = async (
   requesterId?: string,
   requesterRole?: string
 ) => {
-  const listing = await ProductListing.findById(listingId)
+  const listing = await ProductListing.findByIdAndUpdate(
+    listingId,
+    { $inc: { viewsCount: 1 } },
+    { new: true }
+  )
     .populate("categoryId", "name type attributes")
     .populate("ownerId", "name email");
   
