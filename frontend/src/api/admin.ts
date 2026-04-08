@@ -9,6 +9,8 @@ import type {
   AdminListing,
   Pagination,
   AdminMarketplaceWallet,
+  AdminAppSettings,
+  AdminAppSettingsUpdatePayload,
 } from '@/types/admin';
 import type { ContactMessage, ContactMessageStatus } from '@/types/contact';
 
@@ -61,4 +63,10 @@ export const adminApi = {
 
   replyToContact: (id: string, replyMessage: string) =>
     apiClient.patch<{ message: string; contact: ContactMessage }>(`/admin/contacts/${id}/reply`, { replyMessage }),
+
+  /* ── App Runtime Settings ── */
+  getAppSettings: () => apiClient.get<{ success: boolean; data: AdminAppSettings }>('/admin/settings'),
+
+  updateAppSettings: (payload: AdminAppSettingsUpdatePayload) =>
+    apiClient.patch<{ success: boolean; message: string; data: AdminAppSettings }>('/admin/settings', payload),
 };

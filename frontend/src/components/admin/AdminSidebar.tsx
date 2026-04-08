@@ -15,8 +15,10 @@ import {
   FiMessageSquare,
   FiAlertCircle,
   FiStar,
+  FiSettings,
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
+import LogoutConfirmModal from '@/components/modals/LogoutConfirmModal';
 
 interface NavItem {
   to: string;
@@ -36,13 +38,20 @@ const navItems: NavItem[] = [
   { to: '/admin/contacts',   icon: <FiMessageSquare size={20} />, label: 'Contacts' },
   { to: '/admin/reports',    icon: <FiAlertCircle size={20} />,   label: 'Reports' },
   { to: '/admin/reviews',    icon: <FiStar size={20} />,          label: 'Reviews' },
+  { to: '/admin/settings',   icon: <FiSettings size={20} />,      label: 'Settings' },
 ];
 
 const AdminSidebar: React.FC = () => {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
 
   const handleLogout = () => {
+    setIsLogoutConfirmOpen(true);
+  };
+
+  const confirmLogoutAction = () => {
+    setIsLogoutConfirmOpen(false);
     logout();
     navigate('/admin/login');
   };
@@ -132,6 +141,15 @@ const AdminSidebar: React.FC = () => {
             Logout
           </span>
         </button>
+
+        <LogoutConfirmModal
+          isOpen={isLogoutConfirmOpen}
+          onClose={() => setIsLogoutConfirmOpen(false)}
+          onConfirm={confirmLogoutAction}
+          title="Exit admin panel?"
+          message="Logging out will close your admin session and return you to the admin sign-in page."
+          confirmLabel="Yes, log out"
+        />
       </div>
     </aside>
   );

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiCheckCircle, FiClock, FiPackage, FiX } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
+import { useSiteSettingsStore } from '@/store/siteSettingsStore';
 import { listingsApi } from '@/api/listings';
 import GifLoader from '@/components/ui/GifLoader';
 import type { DeliveryMethod, OrderStatus } from '@/types/order';
@@ -182,6 +183,7 @@ const MyOrdersPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const runtimeSettings = useSiteSettingsStore((state) => state.settings);
   const currentUserId = user?.id ?? '';
 
   const [orders, setOrders] = useState<ManagedOrder[]>([]);
@@ -953,6 +955,11 @@ const MyOrdersPage: React.FC = () => {
   };
 
   const handleInitiatePayment = async (order: ManagedOrder) => {
+    if (!runtimeSettings.paymentsEnabled) {
+      toast.error(runtimeSettings.paymentsDisabledMessage);
+      return;
+    }
+
     setActiveActionKey(`${order.id}:INITIATE_PAYMENT`);
 
     try {
@@ -1085,7 +1092,9 @@ const MyOrdersPage: React.FC = () => {
   }, [orders, recentOrderForPaymentId]);
 
   const canContinuePayment =
-    !!recentOrderForPayment && recentOrderForPayment.actionsAllowed.includes('INITIATE_PAYMENT');
+    !!recentOrderForPayment &&
+    runtimeSettings.paymentsEnabled &&
+    recentOrderForPayment.actionsAllowed.includes('INITIATE_PAYMENT');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
@@ -1846,7 +1855,7 @@ const MyOrdersPage: React.FC = () => {
                   </div>
                 )}
 
-                {activeOrder.actionsAllowed.includes('INITIATE_PAYMENT') && (
+                {activeOrder.actionsAllowed.includes('INITIATE_PAYMENT') && runtimeSettings.paymentsEnabled && (
                   <button
                     type="button"
                     onClick={() => void handleInitiatePayment(activeOrder)}
@@ -1857,6 +1866,12 @@ const MyOrdersPage: React.FC = () => {
                       ? 'Preparing Checkout...'
                       : 'Pay with Stripe (Test)'}
                   </button>
+                )}
+
+                {activeOrder.actionsAllowed.includes('INITIATE_PAYMENT') && !runtimeSettings.paymentsEnabled && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {runtimeSettings.paymentsDisabledMessage}
+                  </p>
                 )}
               </div>
 
