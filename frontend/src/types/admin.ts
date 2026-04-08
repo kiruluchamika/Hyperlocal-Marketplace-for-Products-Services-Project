@@ -171,3 +171,21 @@ export interface AdminMarketplaceWallet {
   pending: WalletBalanceItem[];
   instantAvailable: WalletBalanceItem[];
 }
+
+export interface AdminAppSettings {
+  paymentsEnabled: boolean;
+  paymentsDisabledMessage: string;
+  maintenanceEnabled: boolean;
+  maintenanceMessage: string;
+  maintenanceGraceSeconds: number;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface AdminAppSettingsUpdatePayload {
+  paymentsEnabled?: boolean;
+  paymentsDisabledMessage?: string;
+  maintenanceEnabled?: boolean;
+  maintenanceMessage?: string;
+  maintenanceGraceSeconds?: number;
+}
