@@ -133,10 +133,12 @@ const Navbar: React.FC = () => {
     const nextOpen = !isNotificationsOpen;
     setIsNotificationsOpen(nextOpen);
 
+    const notificationView = isAdmin ? 'admin' : 'user';
+
     if (nextOpen) {
       await Promise.all([
-        fetchNotifications({ page: 1, limit: 5, unreadOnly: false }),
-        fetchUnreadCount(),
+        fetchNotifications({ page: 1, limit: 5, unreadOnly: false, view: notificationView }),
+        fetchUnreadCount(notificationView),
       ]);
     }
   };

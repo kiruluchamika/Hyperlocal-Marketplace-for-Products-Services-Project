@@ -9,6 +9,7 @@ import { useSiteSettingsStore } from '@/store/siteSettingsStore';
 function App() {
   const initialize = useAuthStore((s) => s.initialize);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const initializeRealtime = useNotificationStore((s) => s.initializeRealtime);
@@ -41,13 +42,15 @@ function App() {
       return;
     }
 
+    const view = user?.role === 'admin' ? 'admin' : 'user';
+
     initializeRealtime();
-    fetchUnreadCount();
+    fetchUnreadCount(view);
 
     return () => {
       disconnectRealtime();
     };
-  }, [disconnectRealtime, fetchUnreadCount, initializeRealtime, isAuthenticated, resetNotifications]);
+  }, [disconnectRealtime, fetchUnreadCount, initializeRealtime, isAuthenticated, resetNotifications, token, user?.role]);
 
   useEffect(() => {
     const path = window.location.pathname;

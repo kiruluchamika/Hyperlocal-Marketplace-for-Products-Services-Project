@@ -1,5 +1,6 @@
 export type NotificationType = 'ORDER' | 'PAYMENT' | 'LISTING' | 'REVIEW' | 'USER' | 'CATEGORY' | 'SYSTEM' | 'REPORT';
 export type RecipientType = 'USER' | 'ADMIN_BROADCAST';
+export type NotificationView = 'user' | 'admin' | 'all';
 
 export interface INotification {
   _id: string;

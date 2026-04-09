@@ -29,15 +29,15 @@ const AdminTopBar: React.FC = () => {
 
     if (nextOpen) {
       await Promise.all([
-        fetchNotifications({ page: 1, limit: 5, unreadOnly: false }),
-        fetchUnreadCount(),
+        fetchNotifications({ page: 1, limit: 5, unreadOnly: false, view: 'admin' }),
+        fetchUnreadCount('admin'),
       ]);
     }
   };
 
   const handleViewAllNotifications = () => {
     setIsNotificationsOpen(false);
-    navigate('/dashboard/notifications');
+    navigate('/admin/notifications');
   };
 
   return (
