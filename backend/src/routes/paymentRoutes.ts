@@ -10,6 +10,7 @@ import { Router } from "express";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
 import { validate } from "../middlewares/validate";
+import { requirePaymentsEnabled } from "../middlewares/paymentsEnabled";
 import {
   initiatePaymentSchema,
   confirmPaymentSchema,
@@ -85,6 +86,7 @@ router.post(
   "/initiate",
   auth,
   requireRole(["user"]),
+  requirePaymentsEnabled,
   validate(initiatePaymentSchema),
   initiatePayment
 );
@@ -93,6 +95,7 @@ router.post(
   "/confirm",
   auth,
   requireRole(["user"]),
+  requirePaymentsEnabled,
   validate(confirmPaymentSchema),
   confirmPayment
 );

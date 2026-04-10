@@ -17,6 +17,7 @@ import { bookingsApi, servicesApi } from '@/api/services';
 import { paymentsApi } from '@/api/payments';
 import { IServiceBooking, IServiceSelling } from '@/types';
 import { formatCurrency } from '@/utils/listings';
+import { useSiteSettingsStore } from '@/store/siteSettingsStore';
 
 type PaymentState = {
   clientSecret: string;
@@ -142,6 +143,7 @@ const ServiceBookingPaymentPage: React.FC = () => {
     (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined) ?? ''
   );
   const [paymentConfigError, setPaymentConfigError] = React.useState('');
+  const runtimeSettings = useSiteSettingsStore((state) => state.settings);
 
   const stripePromise = React.useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
@@ -206,6 +208,12 @@ const ServiceBookingPaymentPage: React.FC = () => {
           return;
         }
 
+        if (!runtimeSettings.paymentsEnabled) {
+          setPaymentReady(false);
+          setPaymentConfigError(runtimeSettings.paymentsDisabledMessage);
+          return;
+        }
+
         const depositResponse = await bookingsApi.initiateDeposit(bookingId);
         setPaymentState({
           clientSecret: depositResponse.data.data.clientSecret,
@@ -223,7 +231,7 @@ const ServiceBookingPaymentPage: React.FC = () => {
     };
 
     void load();
-  }, [bookingId, fetchBooking, navigate]);
+  }, [bookingId, fetchBooking, navigate, runtimeSettings.paymentsDisabledMessage, runtimeSettings.paymentsEnabled]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     await bookingsApi.confirmDeposit(bookingId, paymentIntentId);
@@ -373,7 +381,7 @@ const ServiceBookingPaymentPage: React.FC = () => {
               </div>
             )}
 
-            {paymentConfigError && !publishableKey && (
+            {paymentConfigError && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                 {paymentConfigError}
               </div>

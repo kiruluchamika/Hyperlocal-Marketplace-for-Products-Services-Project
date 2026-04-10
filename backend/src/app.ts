@@ -5,6 +5,8 @@ import routes from "./routes";
 import { notFound } from "./middlewares/notFound";
 import { errorHandler } from "./middlewares/errorHandler";
 import { swaggerSpec } from "./config/swagger";
+import { authOptional } from "./middlewares/authOptional";
+import { maintenanceModeGuard } from "./middlewares/maintenanceMode";
 
 const app = express();
 
@@ -18,6 +20,8 @@ app.use(
 );
 
 app.use(express.json({ limit: "8mb" }));
+app.use(authOptional);
+app.use(maintenanceModeGuard);
 
 // Swagger UI - Multiple endpoints for convenience
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

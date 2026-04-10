@@ -18,6 +18,7 @@ const SafetyTipsPage = React.lazy(() => import('@/pages/SafetyTipsPage'));
 const TermsOfServicePage = React.lazy(() => import('@/pages/TermsOfServicePage'));
 const PrivacyPolicyPage = React.lazy(() => import('@/pages/PrivacyPolicyPage'));
 const CommunityGuidelinesPage = React.lazy(() => import('@/pages/CommunityGuidelinesPage'));
+const MaintenancePage = React.lazy(() => import('@/pages/MaintenancePage'));
 const AdminLoginPage = React.lazy(() => import('@/pages/admin/AdminLoginPage'));
 
 // Admin pages
@@ -33,6 +34,7 @@ const AdminCategoriesPage = React.lazy(() => import('@/pages/admin/AdminCategori
 const AdminContactsPage = React.lazy(() => import('@/pages/admin/AdminContactsPage'));
 const AdminReportsPage = React.lazy(() => import('@/pages/admin/AdminReportsPage'));
 const AdminReviewsPage = React.lazy(() => import('@/pages/admin/AdminReviewsPage'));
+const AdminSettingsPage = React.lazy(() => import('@/pages/admin/AdminSettingsPage'));
 
 // Dashboard pages
 const DashboardPage = React.lazy(() => import('@/pages/dashboard/DashboardPage'));
@@ -75,6 +77,14 @@ const router = createBrowserRouter([
         element: (
           <React.Suspense fallback={<PageLoader />}>
             <AdminLoginPage />
+          </React.Suspense>
+        ),
+      },
+      {
+        path: '/maintenance',
+        element: (
+          <React.Suspense fallback={<PageLoader />}>
+            <MaintenancePage />
           </React.Suspense>
         ),
       },
@@ -181,6 +191,14 @@ const router = createBrowserRouter([
             element: (
               <React.Suspense fallback={<PageLoader />}>
                 <NotificationsPage />
+              </React.Suspense>
+            ),
+          },
+          {
+            path: 'settings',
+            element: (
+              <React.Suspense fallback={<PageLoader />}>
+                <AdminSettingsPage />
               </React.Suspense>
             ),
           },

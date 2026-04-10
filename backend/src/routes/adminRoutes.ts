@@ -42,4 +42,8 @@ router.get("/contacts", validate(listContactAdminQuerySchema, "query"), contactC
 router.patch("/contacts/:id/review", contactCtrl.markContactReviewed);
 router.patch("/contacts/:id/reply", validate(replyContactSchema), contactCtrl.replyContactMessage);
 
+/* Runtime app settings */
+router.get("/settings", adminCtrl.getAppSettings);
+router.patch("/settings", adminCtrl.updateAppSettings);
+
 export default router;

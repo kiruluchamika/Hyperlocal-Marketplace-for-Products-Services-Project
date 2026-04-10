@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import * as adminService from "../services/adminService";
+import { getAdminAppSettings, updateAdminAppSettings } from "../services/appSettingsService";
 
 /* GET /api/admin/stats */
 export const getStats = asyncHandler(async (_req: Request, res: Response) => {
@@ -96,4 +97,16 @@ export const approveListing = asyncHandler(async (req: Request, res: Response) =
 export const getMarketplaceWallet = asyncHandler(async (_req: Request, res: Response) => {
   const data = await adminService.getMarketplaceWallet();
   res.json({ success: true, data });
+});
+
+/* GET /api/admin/settings */
+export const getAppSettings = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await getAdminAppSettings();
+  res.json({ success: true, data });
+});
+
+/* PATCH /api/admin/settings */
+export const updateAppSettings = asyncHandler(async (req: Request, res: Response) => {
+  const data = await updateAdminAppSettings(req.body ?? {}, req.user!.id);
+  res.json({ success: true, message: "Settings updated", data });
 });
