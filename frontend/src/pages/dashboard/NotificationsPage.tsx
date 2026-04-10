@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import { FiBell, FiCheck, FiCheckCircle } from 'react-icons/fi';
+import { useLocation } from 'react-router-dom';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { NotificationType } from '@/types';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useAuthStore } from '@/store/authStore';
 
 const typeToVariant: Record<NotificationType, 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   ORDER: 'info',
@@ -54,17 +56,23 @@ const NotificationsPage: React.FC = () => {
     unreadOnly,
     page,
     totalPages,
+    setView,
     setUnreadOnly,
     fetchNotifications,
     fetchUnreadCount,
     markAsRead,
     markAllAsRead,
   } = useNotificationStore();
+  const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const view = isAdminRoute && user?.role === 'admin' ? 'admin' : 'user';
 
   useEffect(() => {
-    fetchNotifications({ page: 1, unreadOnly });
-    fetchUnreadCount();
-  }, [fetchNotifications, fetchUnreadCount, unreadOnly]);
+    setView(view);
+    fetchNotifications({ page: 1, unreadOnly, view });
+    fetchUnreadCount(view);
+  }, [fetchNotifications, fetchUnreadCount, setView, unreadOnly, view]);
 
   const handleToggleUnreadOnly = () => {
     setUnreadOnly(!unreadOnly);
@@ -75,7 +83,7 @@ const NotificationsPage: React.FC = () => {
       return;
     }
 
-    fetchNotifications({ page: nextPage, unreadOnly });
+    fetchNotifications({ page: nextPage, unreadOnly, view });
   };
 
   return (
@@ -92,7 +100,7 @@ const NotificationsPage: React.FC = () => {
           <Button variant="outline" size="sm" onClick={handleToggleUnreadOnly}>
             {unreadOnly ? 'Show All' : 'Unread Only'}
           </Button>
-          <Button variant="secondary" size="sm" onClick={markAllAsRead} disabled={unreadCount === 0}>
+          <Button variant="secondary" size="sm" onClick={() => markAllAsRead(view)} disabled={unreadCount === 0}>
             Mark All Read
           </Button>
         </div>
@@ -142,7 +150,7 @@ const NotificationsPage: React.FC = () => {
 
                   {!item.isRead && (
                     <button
-                      onClick={() => markAsRead(item._id)}
+                      onClick={() => markAsRead(item._id, view)}
                       className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
                     >
                       <FiCheck className="h-3.5 w-3.5" />

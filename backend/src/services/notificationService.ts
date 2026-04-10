@@ -25,6 +25,46 @@ export interface CreateNotificationPayload {
   entityId?: mongoose.Types.ObjectId | string;
 }
 
+export type NotificationView = "user" | "admin" | "all";
+
+const normalizeRole = (role: string) =>
+  role?.toLowerCase() === "admin" ? "admin" : "user";
+
+const buildAccessQuery = (
+  userId: string,
+  role: string,
+  view: NotificationView = "all"
+) => {
+  const normalizedRole = normalizeRole(role);
+  const userFilter = {
+    recipientType: RecipientType.USER,
+    recipientUserId: new mongoose.Types.ObjectId(userId)
+  };
+
+  if (normalizedRole !== "admin") {
+    return userFilter;
+  }
+
+  if (view === "admin") {
+    return {
+      recipientType: RecipientType.ADMIN_BROADCAST
+    };
+  }
+
+  if (view === "user") {
+    return userFilter;
+  }
+
+  return {
+    $or: [
+      userFilter,
+      {
+        recipientType: RecipientType.ADMIN_BROADCAST
+      }
+    ]
+  };
+};
+
 /**
  * Create a user-specific notification
  * @param userId - The recipient user ID
@@ -81,28 +121,14 @@ export const createAdminBroadcast = async (payload: CreateNotificationPayload) =
 export const listNotificationsForUser = async (
   userId: string,
   role: string,
+  view: NotificationView = "all",
   unreadOnly: boolean = false,
   page: number = 1,
   limit: number = 20
 ) => {
   const skip = (page - 1) * limit;
 
-  // Build query based on role
-  const query: any = {
-    $or: [
-      {
-        recipientType: RecipientType.USER,
-        recipientUserId: new mongoose.Types.ObjectId(userId)
-      }
-    ]
-  };
-
-  // Admins also see broadcast notifications
-  if (role === "admin") {
-    query.$or.push({
-      recipientType: RecipientType.ADMIN_BROADCAST
-    });
-  }
+  const query: any = buildAccessQuery(userId, role, view);
 
   // Filter for unread only if requested
   if (unreadOnly) {
@@ -140,22 +166,21 @@ export const listNotificationsForUser = async (
 export const markRead = async (
   notificationId: string,
   userId: string,
-  role: string
+  role: string,
+  view: NotificationView = "all"
 ) => {
-  const notification = await Notification.findById(notificationId);
+  const accessQuery = buildAccessQuery(userId, role, view);
+  const notification = await Notification.findOne({
+    _id: notificationId,
+    ...accessQuery
+  });
 
   if (!notification) {
-    throw new AppError("Notification not found", 404);
-  }
+    const notificationExists = await Notification.exists({ _id: notificationId });
+    if (!notificationExists) {
+      throw new AppError("Notification not found", 404);
+    }
 
-  // Security check: ensure user has access to this notification
-  const hasAccess =
-    (notification.recipientType === RecipientType.USER &&
-      notification.recipientUserId?.toString() === userId) ||
-    (notification.recipientType === RecipientType.ADMIN_BROADCAST &&
-      role === "admin");
-
-  if (!hasAccess) {
     throw new AppError("Not authorized to access this notification", 403);
   }
 
@@ -171,23 +196,15 @@ export const markRead = async (
  * @param userId - The user ID
  * @param role - User role
  */
-export const markAllReadForUser = async (userId: string, role: string) => {
+export const markAllReadForUser = async (
+  userId: string,
+  role: string,
+  view: NotificationView = "all"
+) => {
   const query: any = {
     isRead: false,
-    $or: [
-      {
-        recipientType: RecipientType.USER,
-        recipientUserId: new mongoose.Types.ObjectId(userId)
-      }
-    ]
+    ...buildAccessQuery(userId, role, view)
   };
-
-  // Admins also mark broadcast notifications as read
-  if (role === "admin") {
-    query.$or.push({
-      recipientType: RecipientType.ADMIN_BROADCAST
-    });
-  }
 
   const result = await Notification.updateMany(query, {
     $set: { isRead: true }
@@ -204,23 +221,15 @@ export const markAllReadForUser = async (userId: string, role: string) => {
  * @param userId - The user ID
  * @param role - User role
  */
-export const unreadCountForUser = async (userId: string, role: string) => {
+export const unreadCountForUser = async (
+  userId: string,
+  role: string,
+  view: NotificationView = "all"
+) => {
   const query: any = {
     isRead: false,
-    $or: [
-      {
-        recipientType: RecipientType.USER,
-        recipientUserId: new mongoose.Types.ObjectId(userId)
-      }
-    ]
+    ...buildAccessQuery(userId, role, view)
   };
-
-  // Admins also count broadcast notifications
-  if (role === "admin") {
-    query.$or.push({
-      recipientType: RecipientType.ADMIN_BROADCAST
-    });
-  }
 
   const count = await Notification.countDocuments(query);
 

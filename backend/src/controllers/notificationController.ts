@@ -10,6 +10,14 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import * as notificationService from "../services/notificationService";
 
+const parseView = (value: unknown): notificationService.NotificationView => {
+  if (value === "admin" || value === "user" || value === "all") {
+    return value;
+  }
+
+  return "all";
+};
+
 /**
  * GET /api/notifications
  * List notifications for the authenticated user
@@ -26,12 +34,14 @@ export const listNotifications = asyncHandler(
     }
 
     const unreadOnly = req.query.unreadOnly === "true";
+    const view = parseView(req.query.view);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
 
     const result = await notificationService.listNotificationsForUser(
       req.user.id,
       req.user.role,
+      view,
       unreadOnly,
       page,
       limit
@@ -53,7 +63,8 @@ export const getUnreadCount = asyncHandler(
 
     const count = await notificationService.unreadCountForUser(
       req.user.id,
-      req.user.role
+      req.user.role,
+      parseView(req.query.view)
     );
 
     res.status(200).json({ unreadCount: count });
@@ -75,7 +86,8 @@ export const markNotificationRead = asyncHandler(
     const notification = await notificationService.markRead(
       id,
       req.user.id,
-      req.user.role
+      req.user.role,
+      parseView(req.query.view)
     );
 
     res.status(200).json({
@@ -97,7 +109,8 @@ export const markAllRead = asyncHandler(
 
     const result = await notificationService.markAllReadForUser(
       req.user.id,
-      req.user.role
+      req.user.role,
+      parseView(req.query.view)
     );
 
     res.status(200).json({
