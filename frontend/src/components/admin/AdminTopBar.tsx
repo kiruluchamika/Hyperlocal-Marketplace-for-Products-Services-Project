@@ -3,9 +3,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { FiBell, FiUser } from 'react-icons/fi';
+import { FiBell, FiChevronLeft, FiChevronRight, FiMenu, FiUser, FiX } from 'react-icons/fi';
 
-const AdminTopBar: React.FC = () => {
+interface AdminTopBarProps {
+  isDesktop: boolean;
+  isSidebarExpanded: boolean;
+  onSidebarToggle: () => void;
+}
+
+const AdminTopBar: React.FC<AdminTopBarProps> = ({ isDesktop, isSidebarExpanded, onSidebarToggle }) => {
   const user = useAuthStore((s) => s.user);
   const { notifications, unreadCount, isLoading, fetchNotifications, fetchUnreadCount } = useNotificationStore();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -42,7 +48,23 @@ const AdminTopBar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-6 backdrop-blur-xl">
-      <div>
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onSidebarToggle}
+          aria-label={
+            isDesktop
+              ? isSidebarExpanded
+                ? 'Collapse sidebar'
+                : 'Expand sidebar'
+              : isSidebarExpanded
+                ? 'Close sidebar'
+                : 'Open sidebar'
+          }
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+        >
+          {isDesktop ? (isSidebarExpanded ? <FiChevronLeft size={18} /> : <FiChevronRight size={18} />) : isSidebarExpanded ? <FiX size={18} /> : <FiMenu size={18} />}
+        </button>
         <h2 className="text-sm font-medium text-slate-500">Admin Panel</h2>
       </div>
       <div className="flex items-center gap-4">

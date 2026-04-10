@@ -19,11 +19,19 @@ import {
 } from 'react-icons/fi';
 import { useAuthStore } from '@/store/authStore';
 import LogoutConfirmModal from '@/components/modals/LogoutConfirmModal';
+import logo from '@/assets/logo.png';
 
 interface NavItem {
   to: string;
   icon: React.ReactNode;
   label: string;
+}
+
+interface AdminSidebarProps {
+  isDesktop: boolean;
+  isExpanded: boolean;
+  isMobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 const navItems: NavItem[] = [
@@ -41,10 +49,19 @@ const navItems: NavItem[] = [
   { to: '/admin/settings',   icon: <FiSettings size={20} />,      label: 'Settings' },
 ];
 
-const AdminSidebar: React.FC = () => {
+const AdminSidebar: React.FC<AdminSidebarProps> = ({
+  isDesktop,
+  isExpanded,
+  isMobileOpen,
+  onCloseMobile,
+}) => {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
+
+  const sidebarWidthClass = isExpanded ? 'w-[240px]' : 'w-[68px]';
+  const mobileStateClass = isMobileOpen ? 'translate-x-0' : '-translate-x-full';
+  const showText = isDesktop ? isExpanded : true;
 
   const handleLogout = () => {
     setIsLogoutConfirmOpen(true);
@@ -54,28 +71,43 @@ const AdminSidebar: React.FC = () => {
     setIsLogoutConfirmOpen(false);
     logout();
     navigate('/admin/login');
+    onCloseMobile();
   };
 
   const handleOpenUserView = () => {
     navigate('/');
+    onCloseMobile();
   };
 
   const handleOpenMarketplace = () => {
     navigate('/listings');
+    onCloseMobile();
+  };
+
+  const handleNavClick = () => {
+    if (!isDesktop) {
+      onCloseMobile();
+    }
   };
 
   return (
     <aside
-      className="group/sidebar fixed left-0 top-0 z-40 flex h-screen w-[68px] flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-in-out hover:w-[240px]"
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-in-out ${
+        isDesktop ? `${sidebarWidthClass} translate-x-0` : `w-[240px] ${mobileStateClass} lg:translate-x-0`
+      }`}
     >
       {/* Logo area */}
-      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-indigo-100">
-          <img src="/fav.png" alt="Bazzoro" className="h-full w-full object-contain" />
-        </div>
-        <div className="opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-          <p className="whitespace-nowrap text-base font-bold text-slate-900">Bazzoro</p>
-          <p className="whitespace-nowrap text-[11px] font-medium text-slate-400">Admin Panel</p>
+      <div className={`flex h-16 items-center border-b border-slate-200 ${showText ? 'justify-start px-3' : 'justify-center px-2'}`}>
+        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-indigo-100">
+            <img src={logo} alt="Bazzoro" className="h-full w-full object-cover" />
+          </div>
+          {showText && (
+            <div>
+              <p className="whitespace-nowrap text-base font-bold text-slate-900">Bazzoro</p>
+              <p className="whitespace-nowrap text-[11px] font-medium text-slate-400">Admin Panel</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -86,18 +118,18 @@ const AdminSidebar: React.FC = () => {
             key={item.to}
             to={item.to}
             end={item.to === '/admin'}
+            onClick={handleNavClick}
+            title={!showText ? item.label : undefined}
             className={({ isActive }) =>
               `group/item flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 ${
                 isActive
                   ? 'bg-blue-600/10 text-blue-600 shadow-sm shadow-blue-500/10'
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-              }`
+              } ${showText ? 'justify-start' : 'justify-center'} `
             }
           >
             <span className="shrink-0">{item.icon}</span>
-            <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-              {item.label}
-            </span>
+            {showText && <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -106,40 +138,41 @@ const AdminSidebar: React.FC = () => {
       <div className="border-t border-slate-200 px-3 py-3">
         <button
           onClick={handleOpenUserView}
-          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
-          title="Open user-side home for monitoring"
+          title={!showText ? 'User View' : undefined}
+          className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700 ${
+            showText ? 'justify-start' : 'justify-center'
+          }`}
         >
           <span className="shrink-0">
             <FiHome size={20} />
           </span>
-          <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-            User View
-          </span>
+          {showText && <span className="whitespace-nowrap text-sm font-medium">User View</span>}
         </button>
 
         <button
           onClick={handleOpenMarketplace}
-          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
-          title="Open marketplace listing feed"
+          title={!showText ? 'Monitor Marketplace' : undefined}
+          className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700 ${
+            showText ? 'justify-start' : 'justify-center'
+          }`}
         >
           <span className="shrink-0">
             <FiExternalLink size={20} />
           </span>
-          <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-            Monitor Marketplace
-          </span>
+          {showText && <span className="whitespace-nowrap text-sm font-medium">Monitor Marketplace</span>}
         </button>
 
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600"
+          title={!showText ? 'Logout' : undefined}
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 ${
+            showText ? 'justify-start' : 'justify-center'
+          }`}
         >
           <span className="shrink-0">
             <FiLogOut size={20} />
           </span>
-          <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100">
-            Logout
-          </span>
+          {showText && <span className="whitespace-nowrap text-sm font-medium">Logout</span>}
         </button>
 
         <LogoutConfirmModal
