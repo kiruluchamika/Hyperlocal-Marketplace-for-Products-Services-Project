@@ -85,7 +85,7 @@ export const reviewsApi = {
   getMyReviewByService: (serviceId: string) =>
     apiClient.get<{ success: boolean; data: IServiceReview | null }>(`/reviews/service/${serviceId}/me`),
 
-  create: (payload: { serviceId: string; rating: number; title?: string; content: string; bookingId?: string }) =>
+  create: (payload: { serviceId: string; rating: number; title?: string; content: string; bookingId: string }) =>
     apiClient.post<{ success: boolean; data: IServiceReview }>('/reviews', payload),
 
   update: (id: string, payload: { rating?: number; title?: string; content?: string }) =>
