@@ -7,6 +7,7 @@ import AdminBadge, { getStatusVariant } from '@/components/admin/AdminBadge';
 import type { AdminOrder, Pagination } from '@/types/admin';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { generateOrderReportPdf } from '@/utils/adminOrderReport';
 
 type ExtendedAdminOrder = AdminOrder & {
   note?: string;
@@ -141,6 +142,20 @@ const AdminOrdersPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const exportVisibleOrdersPdf = async () => {
+    if (!visibleOrders.length) {
+      toast.error('No orders found for the selected filters.');
+      return;
+    }
+
+    await generateOrderReportPdf(visibleOrders, {
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      status: statusFilter || undefined,
+    });
+    toast.success('Order PDF report downloaded');
+  };
+
   const columns = [
     {
       key: 'product',
@@ -238,6 +253,15 @@ const AdminOrdersPage: React.FC = () => {
               className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
             >
               Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void exportVisibleOrdersPdf();
+              }}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+            >
+              Download PDF
             </button>
           </>
         }
