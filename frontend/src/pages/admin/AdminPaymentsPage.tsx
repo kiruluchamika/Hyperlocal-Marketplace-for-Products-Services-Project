@@ -10,6 +10,8 @@ import GifLoader from '@/components/ui/GifLoader';
 import type { AdminPayment, AdminBooking, AdminMarketplaceWallet } from '@/types/admin';
 import AdminPagination from '@/components/admin/AdminPagination';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import { generatePaymentSettlementReportPdf, type PaymentReportRow } from '@/utils/adminPaymentReport';
+import { generateSellerPayoutLedgerPdf } from '@/utils/adminSellerPayoutLedger';
 
 interface AdminPaymentStats {
   totalPayments: number;
@@ -318,6 +320,35 @@ const AdminPaymentsPage: React.FC = () => {
     toast.success('Payments exported as CSV');
   };
 
+  const handleExportPaymentSettlementPdf = async () => {
+    if (!visiblePayments.length) {
+      toast.error('No payments found for the selected filters.');
+      return;
+    }
+
+    await generatePaymentSettlementReportPdf(visiblePayments as PaymentReportRow[], {
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      source: sourceFilter === 'ALL' ? undefined : sourceFilter,
+      status: statusFilter || undefined,
+    });
+    toast.success('Payment settlement PDF downloaded');
+  };
+
+  const handleExportSellerLedgerPdf = async () => {
+    if (!visiblePayments.length) {
+      toast.error('No payments found for the selected filters.');
+      return;
+    }
+
+    await generateSellerPayoutLedgerPdf(visiblePayments as PaymentReportRow[], {
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      source: sourceFilter === 'ALL' ? undefined : sourceFilter,
+    });
+    toast.success('Seller payout ledger PDF downloaded');
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -503,6 +534,26 @@ const AdminPaymentsPage: React.FC = () => {
             >
               <FiDownload className="h-4 w-4" />
               Export CSV
+            </button>
+            <button
+              onClick={() => {
+                void handleExportPaymentSettlementPdf();
+              }}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium
+                         text-blue-700 transition-colors hover:bg-blue-100 flex items-center gap-2"
+            >
+              <FiDownload className="h-4 w-4" />
+              Settlement PDF
+            </button>
+            <button
+              onClick={() => {
+                void handleExportSellerLedgerPdf();
+              }}
+              className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium
+                         text-indigo-700 transition-colors hover:bg-indigo-100 flex items-center gap-2"
+            >
+              <FiDownload className="h-4 w-4" />
+              Seller Ledger PDF
             </button>
           </div>
         </div>

@@ -16,6 +16,7 @@ import reportRoutes from "./reportRoutes";
 import reviewRoutes from "./reviewRoutes";
 import websiteReviewRoutes from "./websiteReviewRoutes";
 import bookingTestRoutes from "./bookingTestRoutes";
+import settingsRoutes from "./settingsRoutes";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/reports", reportRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/website-reviews", websiteReviewRoutes);
 router.use("/servicebookings-test", bookingTestRoutes);
+router.use("/settings", settingsRoutes);
 
 export default router;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/requireRole";
+import { requirePaymentsEnabled } from "../middlewares/paymentsEnabled";
 import { validate } from "../middlewares/validate";
 
 import {
@@ -333,6 +334,7 @@ router.post(
   "/:id/deposit/initiate",
   auth,
   requireRole(["user"]),
+  requirePaymentsEnabled,
   validate(bookingIdParamSchema, "params"),
   async (req: any, res, next) => {
     try {
@@ -357,6 +359,7 @@ router.post(
   "/:id/deposit/confirm",
   auth,
   requireRole(["user"]),
+  requirePaymentsEnabled,
   validate(bookingIdParamSchema, "params"),
   validate(bookingDepositConfirmSchema),
   async (req: any, res, next) => {

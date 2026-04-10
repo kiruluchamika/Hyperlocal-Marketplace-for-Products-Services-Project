@@ -21,6 +21,7 @@ import FullPageLoader from '@/components/ui/FullPageLoader';
 import ReportModal from '@/components/modals/ReportModal';
 import ImageMagnifier from '@/components/ui/ImageMagnifier';
 import { useAuthStore } from '@/store/authStore';
+import { useSiteSettingsStore } from '@/store/siteSettingsStore';
 import { IProductListing } from '@/types';
 import { formatCondition, formatCurrency, getListingImage, getOwnerContact, getOwnerId } from '@/utils/listings';
 
@@ -57,6 +58,7 @@ const ListingDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
+  const runtimeSettings = useSiteSettingsStore((state) => state.settings);
 
   const [listing, setListing] = React.useState<IProductListing | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -95,7 +97,11 @@ const ListingDetailPage: React.FC = () => {
   const owner = listing ? getOwnerContact(listing.ownerId) : null;
   const isOwner = listing && user ? getOwnerId(listing.ownerId) === user.id : false;
   const images = listing?.images?.length ? listing.images : [listing ? getListingImage(listing) : ''];
-  const canBuyNow = !!listing && listing.transactionMode === 'BUY_NOW' && !isOwner;
+  const canBuyNow =
+    !!listing &&
+    listing.transactionMode === 'BUY_NOW' &&
+    !isOwner &&
+    runtimeSettings.paymentsEnabled;
   const isWishlisted = Boolean(listing?.isWishlisted);
   const attributeEntries = React.useMemo(() => {
     if (!listing?.attributes || typeof listing.attributes !== 'object') {
@@ -121,6 +127,11 @@ const ListingDetailPage: React.FC = () => {
 
   const handleBuyNowRedirect = () => {
     if (!listing) {
+      return;
+    }
+
+    if (!runtimeSettings.paymentsEnabled) {
+      toast.error(runtimeSettings.paymentsDisabledMessage);
       return;
     }
 
@@ -385,6 +396,8 @@ const ListingDetailPage: React.FC = () => {
                 <p className="mt-2 text-sm text-slate-500">
                   {isOwner
                     ? 'You cannot place an order on your own listing.'
+                    : !runtimeSettings.paymentsEnabled && listing.transactionMode === 'BUY_NOW'
+                    ? runtimeSettings.paymentsDisabledMessage
                     : listing.transactionMode === 'NEGOTIABLE'
                     ? 'This listing is negotiable. Please contact seller to proceed.'
                     : 'Sign in to place an order.'}

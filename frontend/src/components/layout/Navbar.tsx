@@ -24,6 +24,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useUIStore } from '@/store/uiStore';
 import { Avatar } from '@/components/ui';
+import LogoutConfirmModal from '@/components/modals/LogoutConfirmModal';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `relative rounded-xl px-4 py-2 text-sm font-medium transition-all ${
@@ -44,6 +45,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [isInHomeHeroZone, setIsInHomeHeroZone] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const lastScrollY = useRef(0);
   const profileRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
@@ -113,6 +115,11 @@ const Navbar: React.FC = () => {
   };
 
   const handleLogout = () => {
+    setIsLogoutConfirmOpen(true);
+  };
+
+  const confirmLogoutAction = () => {
+    setIsLogoutConfirmOpen(false);
     logout();
     setIsProfileOpen(false);
     navigate('/');
@@ -126,10 +133,12 @@ const Navbar: React.FC = () => {
     const nextOpen = !isNotificationsOpen;
     setIsNotificationsOpen(nextOpen);
 
+    const notificationView = isAdmin ? 'admin' : 'user';
+
     if (nextOpen) {
       await Promise.all([
-        fetchNotifications({ page: 1, limit: 5, unreadOnly: false }),
-        fetchUnreadCount(),
+        fetchNotifications({ page: 1, limit: 5, unreadOnly: false, view: notificationView }),
+        fetchUnreadCount(notificationView),
       ]);
     }
   };
@@ -406,6 +415,15 @@ const Navbar: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <LogoutConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={confirmLogoutAction}
+        title="Sign out of Bazaaro?"
+        message="You are about to end your user session. After logout, you can sign back in anytime from the login page."
+        confirmLabel="Yes, sign out"
+      />
     </nav>
   );
 };

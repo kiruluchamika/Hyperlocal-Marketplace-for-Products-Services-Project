@@ -27,6 +27,7 @@ apiClient.interceptors.response.use(
   (error) => {
     const message =
       error.response?.data?.message || error.message || 'Something went wrong';
+    const errorCode = error.response?.data?.errors?.code as string | undefined;
 
     if (error.response?.status === 401) {
       authStorage.clearSession();
@@ -44,6 +45,12 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status !== 401) {
       toast.error(message);
+    }
+
+    if (error.response?.status === 503 && errorCode === 'MAINTENANCE_MODE') {
+      if (window.location.pathname !== '/maintenance') {
+        window.location.href = '/maintenance';
+      }
     }
 
     return Promise.reject(error);
