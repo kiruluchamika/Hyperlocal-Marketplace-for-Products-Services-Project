@@ -1,12 +1,25 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { categoriesApi } from '@/api/categories';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTable from '@/components/admin/AdminTable';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminBadge from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
+import AdminStatCard from '@/components/admin/AdminStatCard';
 import CategoryReportModal from '@/components/admin/CategoryReportModal';
-import { FiFileText, FiImage, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
+import {
+  FiCheckCircle,
+  FiFileText,
+  FiGrid,
+  FiImage,
+  FiLayers,
+  FiPlus,
+  FiSliders,
+  FiTag,
+  FiTrash2,
+  FiUpload,
+  FiXCircle,
+} from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { CategoryAttribute, CategoryType, ICategory } from '@/types';
 import {
@@ -185,6 +198,27 @@ const AdminCategoriesPage: React.FC = () => {
       setReportLoading(false);
     }
   }, [search, statusFilter, typeFilter]);
+
+  const analytics = useMemo(() => {
+    const totalCategories = reportCategories.length;
+    const activeCategories = reportCategories.filter((category) => category.isActive).length;
+    const inactiveCategories = totalCategories - activeCategories;
+    const productCategories = reportCategories.filter((category) => category.type === 'PRODUCT').length;
+    const serviceCategories = reportCategories.filter((category) => category.type === 'SERVICE').length;
+    const totalAttributes = reportCategories.reduce(
+      (sum, category) => sum + (category.attributes?.length ?? 0),
+      0,
+    );
+
+    return {
+      totalCategories,
+      activeCategories,
+      inactiveCategories,
+      productCategories,
+      serviceCategories,
+      totalAttributes,
+    };
+  }, [reportCategories]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -488,6 +522,45 @@ const AdminCategoriesPage: React.FC = () => {
           </div>
         )}
       />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <AdminStatCard
+          title="Total Categories"
+          value={reportLoading ? '...' : analytics.totalCategories}
+          icon={<FiLayers size={18} />}
+          color="blue"
+        />
+        <AdminStatCard
+          title="Active"
+          value={reportLoading ? '...' : analytics.activeCategories}
+          icon={<FiCheckCircle size={18} />}
+          color="emerald"
+        />
+        <AdminStatCard
+          title="Inactive"
+          value={reportLoading ? '...' : analytics.inactiveCategories}
+          icon={<FiXCircle size={18} />}
+          color="rose"
+        />
+        <AdminStatCard
+          title="Product Categories"
+          value={reportLoading ? '...' : analytics.productCategories}
+          icon={<FiTag size={18} />}
+          color="violet"
+        />
+        <AdminStatCard
+          title="Service Categories"
+          value={reportLoading ? '...' : analytics.serviceCategories}
+          icon={<FiGrid size={18} />}
+          color="cyan"
+        />
+        <AdminStatCard
+          title="Total Attributes"
+          value={reportLoading ? '...' : analytics.totalAttributes}
+          icon={<FiSliders size={18} />}
+          color="amber"
+        />
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="w-full max-w-sm">
