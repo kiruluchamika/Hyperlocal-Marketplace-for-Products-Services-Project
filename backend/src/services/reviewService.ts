@@ -124,43 +124,37 @@ export const reviewService = {
       throw new AppError("Please wait before posting another review", 429);
     }
 
-    let bookingId: mongoose.Types.ObjectId | undefined;
-    let source: "PUBLIC" | "BOOKING" = "PUBLIC";
-    let trustScore = 50;
+    if (!payload.bookingId) {
+      throw new AppError("Only confirmed bookings can be reviewed", 400);
+    }
 
-    if (payload.bookingId) {
-      const bookingObjectId = toObjectId(payload.bookingId);
-      const booking = await ServiceBooking.findById(bookingObjectId);
+    const bookingId = toObjectId(payload.bookingId);
+    const booking = await ServiceBooking.findById(bookingId);
 
-      if (!booking) {
-        throw new AppError("Booking not found", 404);
-      }
+    if (!booking) {
+      throw new AppError("Booking not found", 404);
+    }
 
-      if (String(booking.buyerId) !== reviewerId) {
-        throw new AppError("You can only attach your own booking", 403);
-      }
+    if (String(booking.buyerId) !== reviewerId) {
+      throw new AppError("You can only review your own booking", 403);
+    }
 
-      if (String(booking.serviceId) !== String(serviceId)) {
-        throw new AppError("Booking does not match this service", 400);
-      }
+    if (String(booking.serviceId) !== String(serviceId)) {
+      throw new AppError("Booking does not match this service", 400);
+    }
 
-      if (booking.status !== "CONFIRMED") {
-        throw new AppError("Only confirmed bookings can be attached", 400);
-      }
+    if (booking.status !== "CONFIRMED") {
+      throw new AppError("Only confirmed bookings can be reviewed", 400);
+    }
 
-      const existingBookingReview = await Review.findOne({
-        bookingId: bookingObjectId,
-        reviewerId: reviewerObjectId,
-        isDeleted: false,
-      });
+    const existingBookingReview = await Review.findOne({
+      bookingId,
+      reviewerId: reviewerObjectId,
+      isDeleted: false,
+    });
 
-      if (existingBookingReview) {
-        throw new AppError("You already reviewed this booking", 400);
-      }
-
-      bookingId = bookingObjectId;
-      source = "BOOKING";
-      trustScore = 80;
+    if (existingBookingReview) {
+      throw new AppError("You already reviewed this booking", 400);
     }
 
     const spamScore = computeSpamScore(payload.content);
@@ -171,12 +165,12 @@ export const reviewService = {
       sellerId: service.sellerId,
       reviewerId: reviewerObjectId,
       bookingId,
-      source,
+      source: "BOOKING",
       rating: payload.rating,
       title: payload.title,
       content: payload.content,
       status: "PUBLISHED",
-      trustScore,
+      trustScore: 80,
       spamScore,
       helpfulCount: 0,
       helpfulVoterIds: [],

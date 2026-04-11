@@ -1,17 +1,35 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { adminApi } from '@/api/admin';
 import { categoriesApi } from '@/api/categories';
+import { servicesApi } from '@/api/services';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTable from '@/components/admin/AdminTable';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
 import AdminBadge from '@/components/admin/AdminBadge';
 import AdminModal from '@/components/admin/AdminModal';
+import AdminStatCard from '@/components/admin/AdminStatCard';
 import CategoryReportModal from '@/components/admin/CategoryReportModal';
-import { FiFileText, FiImage, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
-import toast from 'react-hot-toast';
-import { CategoryAttribute, CategoryType, ICategory } from '@/types';
 import {
+  FiCheckCircle,
+  FiFileText,
+  FiGrid,
+  FiImage,
+  FiLayers,
+  FiPlus,
+  FiSliders,
+  FiTag,
+  FiTrash2,
+  FiUpload,
+  FiXCircle,
+} from 'react-icons/fi';
+import toast from 'react-hot-toast';
+import { AdminListing, CategoryAttribute, CategoryType, ICategory } from '@/types';
+import {
+  type CategoryReportCategory,
   generateAdminCategoriesPdf,
   type CategoryReportOptions,
+  type CategoryReportProductSample,
+  type CategoryReportServiceSample,
 } from '@/utils/adminCategoryReport';
 
 interface CategoryForm {
@@ -82,6 +100,19 @@ const defaultAttribute: CategoryAttribute = {
   fieldType: 'string',
   required: false,
   options: [],
+};
+
+const getCategoryRefId = (categoryRef: unknown) => {
+  if (typeof categoryRef === 'string') {
+    return categoryRef;
+  }
+
+  if (categoryRef && typeof categoryRef === 'object' && '_id' in categoryRef) {
+    const id = (categoryRef as { _id?: unknown })._id;
+    return typeof id === 'string' ? id : '';
+  }
+
+  return '';
 };
 
 const AdminCategoriesPage: React.FC = () => {
@@ -186,6 +217,27 @@ const AdminCategoriesPage: React.FC = () => {
     }
   }, [search, statusFilter, typeFilter]);
 
+  const analytics = useMemo(() => {
+    const totalCategories = reportCategories.length;
+    const activeCategories = reportCategories.filter((category) => category.isActive).length;
+    const inactiveCategories = totalCategories - activeCategories;
+    const productCategories = reportCategories.filter((category) => category.type === 'PRODUCT').length;
+    const serviceCategories = reportCategories.filter((category) => category.type === 'SERVICE').length;
+    const totalAttributes = reportCategories.reduce(
+      (sum, category) => sum + (category.attributes?.length ?? 0),
+      0,
+    );
+
+    return {
+      totalCategories,
+      activeCategories,
+      inactiveCategories,
+      productCategories,
+      serviceCategories,
+      totalAttributes,
+    };
+  }, [reportCategories]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       void fetchCategories();
@@ -202,9 +254,107 @@ const AdminCategoriesPage: React.FC = () => {
 
     setPdfLoading(true);
     try {
+      const notes: string[] = [
+        'Date presets apply to category created dates only.',
+        'Product and service usage reflects the latest retrievable admin listing datasets.',
+      ];
+
+      const [productsResult, servicesResult] = await Promise.allSettled([
+        (async () => {
+          const merged: AdminListing[] = [];
+          const limit = 100;
+          let page = 1;
+          let totalPages = 1;
+
+          do {
+            const response = await adminApi.getListings({ page, limit });
+            merged.push(...response.data.listings);
+            totalPages = response.data.pagination.totalPages || 1;
+            page += 1;
+          } while (page <= totalPages && page <= 50);
+
+          return merged;
+        })(),
+        (async () => {
+          const response = await servicesApi.getAllAdmin();
+          return response.data.data || [];
+        })(),
+      ]);
+
+      const productListings = productsResult.status === 'fulfilled' ? productsResult.value : [];
+      const serviceListings = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
+
+      if (productsResult.status === 'rejected') {
+        notes.push('Product detail data could not be fully loaded. Product counts were set to 0 where unavailable.');
+      }
+
+      if (servicesResult.status === 'rejected') {
+        notes.push('Service detail data could not be fully loaded. Service counts were set to 0 where unavailable.');
+      }
+
+      const productsByCategory = new Map<string, { count: number; samples: CategoryReportProductSample[] }>();
+      for (const listing of productListings) {
+        const categoryId = getCategoryRefId(listing.categoryId);
+        if (!categoryId) {
+          continue;
+        }
+
+        const current = productsByCategory.get(categoryId) || { count: 0, samples: [] };
+        current.count += 1;
+        if (current.samples.length < 3) {
+          current.samples.push({
+            id: listing._id,
+            title: listing.title,
+            status: listing.status,
+            price: listing.price,
+            currency: listing.currency || 'LKR',
+            viewsCount: listing.viewsCount || 0,
+            createdAt: listing.createdAt,
+          });
+        }
+        productsByCategory.set(categoryId, current);
+      }
+
+      const servicesByCategory = new Map<string, { count: number; samples: CategoryReportServiceSample[] }>();
+      for (const service of serviceListings) {
+        const categoryId = getCategoryRefId(service.categoryId);
+        if (!categoryId) {
+          continue;
+        }
+
+        const current = servicesByCategory.get(categoryId) || { count: 0, samples: [] };
+        current.count += 1;
+        if (current.samples.length < 3) {
+          current.samples.push({
+            id: service._id,
+            title: service.title,
+            status: service.status || (service.isActive ? 'ACTIVE' : 'REMOVED'),
+            price: service.price,
+            locationText: service.locationText || service.location?.city || '-',
+            viewsCount: service.viewsCount || 0,
+            createdAt: service.createdAt,
+          });
+        }
+        servicesByCategory.set(categoryId, current);
+      }
+
+      const enrichedCategories: CategoryReportCategory[] = reportCategories.map((category) => {
+        const productData = productsByCategory.get(category._id);
+        const serviceData = servicesByCategory.get(category._id);
+
+        return {
+          ...category,
+          productCount: productData?.count || 0,
+          serviceCount: serviceData?.count || 0,
+          productSamples: productData?.samples || [],
+          serviceSamples: serviceData?.samples || [],
+        };
+      });
+
       await generateAdminCategoriesPdf({
-        categories: reportCategories,
+        categories: enrichedCategories,
         options,
+        notes,
       });
       setPdfModalOpen(false);
       toast.success('Categories PDF report generated successfully.');
@@ -488,6 +638,45 @@ const AdminCategoriesPage: React.FC = () => {
           </div>
         )}
       />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <AdminStatCard
+          title="Total Categories"
+          value={reportLoading ? '...' : analytics.totalCategories}
+          icon={<FiLayers size={18} />}
+          color="blue"
+        />
+        <AdminStatCard
+          title="Active"
+          value={reportLoading ? '...' : analytics.activeCategories}
+          icon={<FiCheckCircle size={18} />}
+          color="emerald"
+        />
+        <AdminStatCard
+          title="Inactive"
+          value={reportLoading ? '...' : analytics.inactiveCategories}
+          icon={<FiXCircle size={18} />}
+          color="rose"
+        />
+        <AdminStatCard
+          title="Product Categories"
+          value={reportLoading ? '...' : analytics.productCategories}
+          icon={<FiTag size={18} />}
+          color="violet"
+        />
+        <AdminStatCard
+          title="Service Categories"
+          value={reportLoading ? '...' : analytics.serviceCategories}
+          icon={<FiGrid size={18} />}
+          color="cyan"
+        />
+        <AdminStatCard
+          title="Total Attributes"
+          value={reportLoading ? '...' : analytics.totalAttributes}
+          icon={<FiSliders size={18} />}
+          color="amber"
+        />
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="w-full max-w-sm">

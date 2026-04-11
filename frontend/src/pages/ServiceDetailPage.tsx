@@ -271,6 +271,7 @@ const ServiceDetailPage: React.FC = () => {
   const isOwner = service && user ? (typeof service.sellerId === 'string' ? service.sellerId : service.sellerId.id) === user.id : false;
   const images = service?.images?.length ? service.images : service ? [getServiceDisplayImage(service)] : [];
   const mapItems = service ? getMapItems(service) : [];
+  const canCreateBookingReview = !isOwner && !!reviewBookingId;
   const selectedStartAt = bookingForm.date && bookingForm.time ? new Date(`${bookingForm.date}T${bookingForm.time}`) : null;
   const hasConflict =
     !!selectedStartAt &&
@@ -343,6 +344,11 @@ const ServiceDetailPage: React.FC = () => {
         await reviewsApi.update(editingReview._id, payload);
         toast.success('Review updated successfully.');
       } else {
+        if (!reviewBookingId) {
+          toast.error('You can leave a review after your booking is confirmed.');
+          return;
+        }
+
         await reviewsApi.create({
           serviceId: id,
           bookingId: reviewBookingId,
@@ -662,7 +668,7 @@ const ServiceDetailPage: React.FC = () => {
                     <option value="helpful">Most Helpful</option>
                   </select>
 
-                  {!isOwner && (
+                  {canCreateBookingReview && (
                     <Button
                       type="button"
                       size="sm"
@@ -690,7 +696,7 @@ const ServiceDetailPage: React.FC = () => {
 
                 {!reviewsLoading && reviews.length === 0 && (
                   <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                    No reviews yet. Be the first to share your experience.
+                    No reviews yet.
                   </p>
                 )}
 
