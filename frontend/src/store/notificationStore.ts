@@ -1,12 +1,25 @@
 import { io, Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { notificationsApi } from '@/api/notifications';
-import { INotification } from '@/types';
+import { INotification, NotificationView } from '@/types';
 import { authStorage } from '@/utils/authStorage';
+
+const matchesView = (notification: INotification, view: NotificationView) => {
+  if (view === 'all') {
+    return true;
+  }
+
+  if (view === 'admin') {
+    return notification.recipientType === 'ADMIN_BROADCAST';
+  }
+
+  return notification.recipientType === 'USER';
+};
 
 interface NotificationState {
   notifications: INotification[];
   unreadCount: number;
+  currentView: NotificationView;
   isLoading: boolean;
   unreadOnly: boolean;
   page: number;
@@ -15,11 +28,12 @@ interface NotificationState {
   isSocketConnected: boolean;
   initializeRealtime: () => void;
   disconnectRealtime: () => void;
-  fetchUnreadCount: () => Promise<void>;
-  fetchNotifications: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) => Promise<void>;
+  fetchUnreadCount: (view?: NotificationView) => Promise<void>;
+  fetchNotifications: (params?: { page?: number; limit?: number; unreadOnly?: boolean; view?: NotificationView }) => Promise<void>;
+  setView: (view: NotificationView) => void;
   setUnreadOnly: (value: boolean) => void;
-  markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
+  markAsRead: (id: string, view?: NotificationView) => Promise<void>;
+  markAllAsRead: (view?: NotificationView) => Promise<void>;
   reset: () => void;
 }
 
@@ -41,6 +55,7 @@ const getSocketUrl = () => {
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
+  currentView: 'all',
   isLoading: false,
   unreadOnly: false,
   page: 1,
@@ -80,6 +95,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     socket.on('notification:new', (incoming: INotification) => {
       set((state) => {
+        if (!matchesView(incoming, state.currentView)) {
+          return state;
+        }
+
         const alreadyExists = state.notifications.some((item) => item._id === incoming._id);
         const shouldInsert = !alreadyExists && (!state.unreadOnly || !incoming.isRead);
 
@@ -108,15 +127,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isSocketConnected: false });
   },
 
-  fetchUnreadCount: async () => {
+  fetchUnreadCount: async (view) => {
     const token = authStorage.getToken();
     if (!token) {
       set({ unreadCount: 0 });
       return;
     }
 
+    const targetView = view ?? get().currentView;
+
     try {
-      const { data } = await notificationsApi.getUnreadCount();
+      const { data } = await notificationsApi.getUnreadCount({ view: targetView });
       set({ unreadCount: data.unreadCount ?? 0 });
     } catch {
       // Global API interceptor already handles messaging.
@@ -133,33 +154,51 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const page = params?.page ?? get().page;
     const unreadOnly = params?.unreadOnly ?? get().unreadOnly;
     const limit = params?.limit ?? 20;
+    const view = params?.view ?? get().currentView;
 
     set({ isLoading: true });
     try {
-      const { data } = await notificationsApi.getAll({ page, limit, unreadOnly });
+      const { data } = await notificationsApi.getAll({ page, limit, unreadOnly, view });
       set({
         notifications: data.notifications,
         page: data.pagination.page,
         totalPages: data.pagination.totalPages,
         total: data.pagination.total,
         unreadOnly,
+        currentView: view,
       });
     } finally {
       set({ isLoading: false });
     }
   },
 
+  setView: (view) => {
+    if (get().currentView === view) {
+      return;
+    }
+
+    set({
+      currentView: view,
+      notifications: [],
+      unreadCount: 0,
+      page: 1,
+      totalPages: 1,
+      total: 0,
+    });
+  },
+
   setUnreadOnly: (value) => {
     set({ unreadOnly: value, page: 1 });
   },
 
-  markAsRead: async (id: string) => {
+  markAsRead: async (id: string, view) => {
+    const targetView = view ?? get().currentView;
     const target = get().notifications.find((item) => item._id === id);
     if (!target || target.isRead) {
       return;
     }
 
-    await notificationsApi.markRead(id);
+    await notificationsApi.markRead(id, { view: targetView });
 
     set((state) => {
       const nextNotifications = state.unreadOnly
@@ -175,13 +214,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     socket?.emit('notification:acknowledged', id);
   },
 
-  markAllAsRead: async () => {
+  markAllAsRead: async (view) => {
+    const targetView = view ?? get().currentView;
     const hasUnread = get().notifications.some((item) => !item.isRead) || get().unreadCount > 0;
     if (!hasUnread) {
       return;
     }
 
-    await notificationsApi.markAllRead();
+    await notificationsApi.markAllRead({ view: targetView });
 
     set((state) => ({
       notifications: state.unreadOnly
@@ -199,6 +239,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({
       notifications: [],
       unreadCount: 0,
+      currentView: 'all',
       isLoading: false,
       unreadOnly: false,
       page: 1,

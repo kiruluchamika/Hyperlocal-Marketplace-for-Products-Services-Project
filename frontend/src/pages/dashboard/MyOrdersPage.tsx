@@ -970,8 +970,8 @@ const MyOrdersPage: React.FC = () => {
         [order.id]: {
           id: paymentStart.paymentId,
           orderId: order.id,
-          amount: paymentStart.amount,
-          currency: paymentStart.currency,
+          amount: order.totalAmount,
+          currency: 'LKR',
           status: paymentStart.status,
         },
       }));
@@ -980,11 +980,11 @@ const MyOrdersPage: React.FC = () => {
         isOpen: true,
         orderId: order.id,
         clientSecret: paymentStart.clientSecret,
-        amount: paymentStart.amount,
-        currency: paymentStart.currency,
+        amount: order.totalAmount,
+        currency: 'LKR',
       });
 
-      toast.success('Stripe test checkout is ready.');
+      toast.success('Stripe checkout is ready.');
     } catch {
       // Error toast is handled globally by apiClient interceptor.
     } finally {
@@ -1848,7 +1848,7 @@ const MyOrdersPage: React.FC = () => {
 
                 {activePayment && (
                   <div className="text-sm text-slate-600 space-y-1">
-                    <p>Amount: {formatCurrency(activePayment.amount, activePayment.currency)}</p>
+                    <p>Amount: {formatCurrency(activeOrder.totalAmount, 'LKR')}</p>
                     {activePayment.providerPaymentId && (
                       <p className="truncate">Stripe Intent: {activePayment.providerPaymentId}</p>
                     )}
@@ -1864,7 +1864,7 @@ const MyOrdersPage: React.FC = () => {
                   >
                     {activeActionKey === `${activeOrder.id}:INITIATE_PAYMENT`
                       ? 'Preparing Checkout...'
-                      : 'Pay with Stripe (Test)'}
+                      : 'Pay with Stripe'}
                   </button>
                 )}
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createReviewSchema = z.object({
   serviceId: z.string().min(1, "Service ID is required"),
-  bookingId: z.string().optional(),
+  bookingId: z.string().min(1, "Booking ID is required"),
   rating: z.number().int().min(1).max(5),
   title: z.string().max(120).optional(),
   content: z.string().min(10).max(2000),
