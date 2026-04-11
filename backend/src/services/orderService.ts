@@ -598,13 +598,19 @@ export class OrderService {
 
     const buyerId = toIdString(order.buyerId);
     const sellerId = toIdString(order.sellerId);
+    const paymentStatus = order.paymentId?.status as PaymentStatus | undefined;
+    const canInitiatePayment = !order.paymentId || paymentStatus === PaymentStatus.FAILED;
 
     const isBuyer = buyerId === userId;
     const isSeller = sellerId === userId;
     
     if (isBuyer) {
       if (order.status === OrderStatus.PENDING) {
-        actions.push("CANCEL", "INITIATE_PAYMENT");
+        actions.push("CANCEL");
+
+        if (canInitiatePayment) {
+          actions.push("INITIATE_PAYMENT");
+        }
       }
       if (order.status === OrderStatus.IN_PROGRESS) {
         if (env.ENABLE_OTP_DELIVERY === "true" && order.deliveryOtpExpiresAt) {
