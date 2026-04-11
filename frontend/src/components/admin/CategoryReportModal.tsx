@@ -68,8 +68,8 @@ const CategoryReportModal: React.FC<CategoryReportModalProps> = ({
       <div className="space-y-6">
         <div>
           <p className="text-sm text-slate-600">
-            Generate a categories report with category and attribute information.
-            Header and footer style follows the product PDF format.
+            Generate a creative categories report with utilization insights, category details,
+            product/service samples, and attribute intelligence sections.
           </p>
         </div>
 
