@@ -36,16 +36,18 @@ const AdminStatCard: React.FC<AdminStatCardProps> = ({
 }) => {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-slate-200/50 ${colorMap[color]}`}
+      className={`relative min-h-[154px] overflow-hidden rounded-xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-slate-200/50 2xl:p-5 ${colorMap[color]}`}
     >
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+        <div className="min-w-0 space-y-2">
+          <p className="truncate text-[11px] font-medium uppercase tracking-wider text-slate-500 2xl:text-xs">
             {title}
           </p>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
+          <p className="truncate text-[2rem] font-bold leading-none text-slate-900 2xl:text-4xl" title={String(value)}>
+            {value}
+          </p>
           {trend && (
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex min-w-0 items-center gap-2 pt-1">
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
                   trend.value >= 0
@@ -56,11 +58,11 @@ const AdminStatCard: React.FC<AdminStatCardProps> = ({
                 {trend.value >= 0 ? <FiArrowUpRight size={12} /> : <FiArrowDownRight size={12} />}
                 {Math.abs(trend.value)}%
               </span>
-              <span className="text-xs text-slate-500">{trend.label}</span>
+              <span className="truncate text-xs text-slate-500" title={trend.label}>{trend.label}</span>
             </div>
           )}
         </div>
-        <div className={`rounded-xl p-3 ${iconBgMap[color]}`}>{icon}</div>
+        <div className={`shrink-0 rounded-xl p-2.5 2xl:p-3 ${iconBgMap[color]}`}>{icon}</div>
       </div>
       <div
         className={`absolute -right-4 -top-4 h-24 w-24 rounded-full opacity-20 blur-2xl ${
