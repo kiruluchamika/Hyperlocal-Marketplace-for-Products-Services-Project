@@ -169,7 +169,7 @@ const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 [@media(min-width:2100px)]:grid-cols-9">
         <AdminStatCard
           title="Total Users"
           value={stats.totalUsers.toLocaleString()}
