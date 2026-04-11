@@ -70,10 +70,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ amount, currency, onClose, 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-        Test Mode: Use card number 4242 4242 4242 4242, any future date, any CVC, any ZIP.
-      </div>
-
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
@@ -125,7 +121,7 @@ const OrderStripeCheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-xl font-bold text-slate-800">Stripe Checkout</h3>
-            <p className="mt-1 text-sm text-slate-500">Complete your order payment in test mode.</p>
+            <p className="mt-1 text-sm text-slate-500">Complete your order payment securely.</p>
           </div>
           <button
             type="button"
