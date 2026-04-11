@@ -305,8 +305,8 @@ const BrowseServicesPage: React.FC = () => {
             </div>
           </div>
 
-          <aside className="order-2 space-y-4 lg:self-start relative z-10 w-full">
-            <div className="space-y-5 lg:sticky lg:top-24">
+          <aside className="order-2 space-y-4 lg:sticky lg:top-24 lg:self-start relative z-10 w-full">
+            <div className="space-y-5">
               <div className="rounded-[24px] border border-white/70 bg-white/90 p-4 shadow-card backdrop-blur-xl">
                 <div className="flex flex-wrap gap-3">
                   <Button
