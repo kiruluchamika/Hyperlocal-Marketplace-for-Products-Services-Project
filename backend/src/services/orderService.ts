@@ -491,24 +491,25 @@ export class OrderService {
    * With role-based access control
    */
   async getOrderById(orderId: string, userId: string, role: string) {
-    const order = await Order.findById(orderId)
-      .populate("buyerId", "name email")
-      .populate("sellerId", "name email")
-      .populate("listingId", "title price")
-      .populate("paymentId");
+    const order = await Order.findById(orderId);
     
     if (!order) {
       throw new AppError("Order not found", 404);
     }
     
     // Authorization
-    const isBuyer = order.buyerId._id.toString() === userId;
-    const isSeller = order.sellerId._id.toString() === userId;
+    const isBuyer = order.buyerId.toString() === userId;
+    const isSeller = order.sellerId.toString() === userId;
     const isAdmin = role === "admin";
     
     if (!isBuyer && !isSeller && !isAdmin) {
       throw new AppError("You are not authorized to view this order", 403);
     }
+
+    await order.populate("buyerId", "name email");
+    await order.populate("sellerId", "name email");
+    await order.populate("listingId", "title price");
+    await order.populate("paymentId");
     
     // Attach allowed actions based on role and status
     const actionsAllowed = this.getActionsAllowed(order, userId, role);

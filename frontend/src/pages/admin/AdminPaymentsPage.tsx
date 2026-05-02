@@ -376,7 +376,9 @@ const AdminPaymentsPage: React.FC = () => {
         >
           <div className="text-xs uppercase tracking-wide text-amber-700 mb-2">Pending Payouts</div>
           <div className="text-2xl font-bold text-amber-900">{stats.pendingPayouts}</div>
-          <div className="text-sm text-amber-700 font-medium mt-1">{formatLKR(stats.pendingPayoutAmount)}</div>
+          <div className="text-sm text-amber-700 font-medium mt-1">
+            {stats.pendingPayouts === 1 ? '1 payout waiting' : `${stats.pendingPayouts} payouts waiting`}
+          </div>
         </motion.div>
 
         <motion.div

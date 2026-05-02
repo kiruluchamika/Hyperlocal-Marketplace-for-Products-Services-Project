@@ -29,6 +29,9 @@ const convertLkrToStripeAmount = (amountLkr: number) => {
   return amountLkr;
 };
 
+const isStripeConnectDisabledError = (error: any) =>
+  String(error?.message || error?.raw?.message || "").includes("Stripe Connect payouts are disabled");
+
 export async function populateIsSlotTaken(bookings: any[]) {
   if (!bookings || !bookings.length) return bookings;
 
@@ -292,6 +295,17 @@ export async function confirmBookingFromStripeSuccess(params: {
       payoutAttemptedAt: new Date(),
     };
 
+    if (!stripeConnectService.isEnabled()) {
+      booking.deposit = {
+        ...booking.deposit,
+        payoutStatus: "SKIPPED_NOT_ELIGIBLE",
+        payoutError: "Stripe Connect payouts are disabled",
+      };
+
+      await booking.save();
+      return booking;
+    }
+
     const eligible = await stripeConnectService.isUserEligibleForPayout(String(booking.providerId));
     const sourceTransaction = await stripeConnectService.resolveLatestChargeId(params.paymentIntentId);
 
@@ -319,10 +333,11 @@ export async function confirmBookingFromStripeSuccess(params: {
           payoutError: undefined,
         };
       } catch (error: any) {
+        const connectDisabled = isStripeConnectDisabledError(error);
         booking.deposit = {
           ...booking.deposit,
-          payoutStatus: "TRANSFER_FAILED",
-          payoutError: error?.message || "Unknown transfer error",
+          payoutStatus: connectDisabled ? "SKIPPED_NOT_ELIGIBLE" : "TRANSFER_FAILED",
+          payoutError: connectDisabled ? undefined : error?.message || "Unknown transfer error",
         };
       }
     } else {
