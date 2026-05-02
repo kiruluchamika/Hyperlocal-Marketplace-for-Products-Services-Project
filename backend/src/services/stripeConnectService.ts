@@ -11,6 +11,10 @@ const getDefaultReturnUrl = () => env.STRIPE_CONNECT_RETURN_URL;
 const getDefaultRefreshUrl = () => env.STRIPE_CONNECT_REFRESH_URL;
 
 export class StripeConnectService {
+  isEnabled() {
+    return env.STRIPE_CONNECT_ENABLED;
+  }
+
   private ensureEnabled() {
     if (!env.STRIPE_CONNECT_ENABLED) {
       throw new AppError("Stripe Connect payouts are disabled", 400);
@@ -269,6 +273,45 @@ export class StripeConnectService {
     );
 
     return transfer;
+  }
+
+  async findTransferToUser(params: {
+    userId: string;
+    transferGroup: string;
+    sourceTransaction?: string;
+    paymentId?: string;
+  }) {
+    this.ensureEnabled();
+
+    const user = await User.findById(params.userId).select("stripeConnect");
+
+    if (!user?.stripeConnect?.accountId) {
+      return null;
+    }
+
+    const transfers = await stripe.transfers.list({
+      transfer_group: params.transferGroup,
+      limit: 100,
+    } as any);
+
+    return (
+      transfers.data.find((transfer: any) => {
+        const destination =
+          typeof transfer.destination === "string"
+            ? transfer.destination
+            : transfer.destination?.id;
+        const source =
+          typeof transfer.source_transaction === "string"
+            ? transfer.source_transaction
+            : transfer.source_transaction?.id;
+
+        return (
+          destination === user.stripeConnect?.accountId &&
+          (!params.sourceTransaction || source === params.sourceTransaction) &&
+          (!params.paymentId || transfer.metadata?.paymentId === params.paymentId)
+        );
+      }) || null
+    );
   }
 
   async resolveLatestChargeId(paymentIntentId: string): Promise<string | undefined> {

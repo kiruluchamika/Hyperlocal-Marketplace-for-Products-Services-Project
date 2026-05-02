@@ -25,6 +25,12 @@ const normalizePayoutAmount = (amount: number, sourceCurrency?: string) => {
   return amount;
 };
 
+const isStripeConnectDisabledError = (error: any) =>
+  String(error?.message || error?.raw?.message || '').includes('Stripe Connect payouts are disabled');
+
+const isSourceAlreadyTransferredError = (error: any) =>
+  String(error?.message || error?.raw?.message || '').includes('There is already a transfer using this source');
+
 const reconcileProductPayout = async (payment: any) => {
   const metadata = payment.metadata || {};
 
@@ -34,6 +40,35 @@ const reconcileProductPayout = async (payment: any) => {
 
   if (payment.status !== PaymentStatus.RELEASED) {
     return false;
+  }
+
+  if (!stripeConnectService.isEnabled()) {
+    if (
+      metadata.payoutStatus === 'SKIPPED_NOT_ELIGIBLE' &&
+      metadata.payoutError === 'Stripe Connect payouts are disabled'
+    ) {
+      return false;
+    }
+
+    const grossAmount = Number(payment.amount || 0);
+    const feePercent = env.STRIPE_TRANSFER_FEE_PERCENT;
+    const feeAmount = Math.round(grossAmount * (feePercent / 100) * 100) / 100;
+
+    payment.metadata = {
+      ...metadata,
+      payoutGrossAmount: grossAmount,
+      payoutStripeGrossAmount: normalizePayoutAmount(grossAmount, payment.currency),
+      payoutStripeCurrency: env.STRIPE_PAYMENT_CURRENCY,
+      payoutFeePercent: feePercent,
+      payoutFeeAmount: feeAmount,
+      payoutNetAmount: Math.max(0, grossAmount - feeAmount),
+      payoutStatus: 'SKIPPED_NOT_ELIGIBLE',
+      payoutError: 'Stripe Connect payouts are disabled',
+      payoutAttemptedAt: new Date().toISOString(),
+    };
+    payment.markModified('metadata');
+    await payment.save();
+    return true;
   }
 
   const eligible = await stripeConnectService.isUserEligibleForPayout(payment.sellerId.toString());
@@ -47,6 +82,7 @@ const reconcileProductPayout = async (payment: any) => {
       payoutStatus: 'SKIPPED_NOT_ELIGIBLE',
       payoutAttemptedAt: new Date().toISOString(),
     };
+    payment.markModified('metadata');
     await payment.save();
     return true;
   }
@@ -67,6 +103,7 @@ const reconcileProductPayout = async (payment: any) => {
       payoutStatus: 'SKIPPED_NOT_ELIGIBLE',
       payoutAttemptedAt: new Date().toISOString(),
     };
+    payment.markModified('metadata');
     await payment.save();
     return true;
   }
@@ -78,20 +115,31 @@ const reconcileProductPayout = async (payment: any) => {
 
   try {
     const transferAmount = normalizePayoutAmount(netAmount, payment.currency);
-    const transfer = await stripeConnectService.createTransferToUser({
+    const transferGroup = `ORDER_${payment.orderId.toString()}`;
+    const paymentId = payment._id.toString();
+    const existingTransfer = await stripeConnectService.findTransferToUser({
       userId: payment.sellerId.toString(),
-      amount: transferAmount,
-      currency: env.STRIPE_PAYMENT_CURRENCY,
-      description: `Order ${payment.orderId.toString()} payout`,
-      transferGroup: `ORDER_${payment.orderId.toString()}`,
-      metadata: {
-        orderId: payment.orderId.toString(),
-        paymentId: payment._id.toString(),
-        sellerId: payment.sellerId.toString(),
-      },
-      idempotencyKey: `order-reconcile-${payment._id.toString()}-${env.STRIPE_PAYMENT_CURRENCY}-${transferAmount.toFixed(2)}`,
+      transferGroup,
       sourceTransaction,
+      paymentId,
     });
+
+    const transfer =
+      existingTransfer ||
+      (await stripeConnectService.createTransferToUser({
+        userId: payment.sellerId.toString(),
+        amount: transferAmount,
+        currency: env.STRIPE_PAYMENT_CURRENCY,
+        description: `Order ${payment.orderId.toString()} payout`,
+        transferGroup,
+        metadata: {
+          orderId: payment.orderId.toString(),
+          paymentId,
+          sellerId: payment.sellerId.toString(),
+        },
+        idempotencyKey: `order-release-${paymentId}-${env.STRIPE_PAYMENT_CURRENCY}-${transferAmount.toFixed(2)}`,
+        sourceTransaction,
+      }));
 
     payment.metadata = {
       ...metadata,
@@ -108,6 +156,19 @@ const reconcileProductPayout = async (payment: any) => {
       payoutError: null,
     };
   } catch (error: any) {
+    const connectDisabled = isStripeConnectDisabledError(error);
+    const sourceAlreadyTransferred = isSourceAlreadyTransferredError(error);
+    const transferGroup = `ORDER_${payment.orderId.toString()}`;
+    const paymentId = payment._id.toString();
+    const recoveredTransfer = sourceAlreadyTransferred
+      ? await stripeConnectService.findTransferToUser({
+          userId: payment.sellerId.toString(),
+          transferGroup,
+          sourceTransaction,
+          paymentId,
+        })
+      : null;
+
     payment.metadata = {
       ...metadata,
       stripeChargeId: sourceTransaction || metadata.stripeChargeId,
@@ -118,11 +179,17 @@ const reconcileProductPayout = async (payment: any) => {
       payoutFeeAmount: feeAmount,
       payoutNetAmount: netAmount,
       payoutAttemptedAt: new Date().toISOString(),
-      payoutStatus: 'TRANSFER_FAILED',
-      payoutError: error?.message || 'Unknown transfer error',
+      payoutStatus: recoveredTransfer
+        ? 'TRANSFER_CREATED'
+        : connectDisabled
+          ? 'SKIPPED_NOT_ELIGIBLE'
+          : 'TRANSFER_FAILED',
+      stripeTransferId: recoveredTransfer?.id || metadata.stripeTransferId,
+      payoutError: recoveredTransfer || connectDisabled ? null : error?.message || 'Unknown transfer error',
     };
   }
 
+  payment.markModified('metadata');
   await payment.save();
   return true;
 };
@@ -136,6 +203,34 @@ const reconcileServicePayout = async (booking: any) => {
 
   if (booking.status !== 'CONFIRMED') {
     return false;
+  }
+
+  if (!stripeConnectService.isEnabled()) {
+    if (
+      deposit.payoutStatus === 'SKIPPED_NOT_ELIGIBLE' &&
+      deposit.payoutError === 'Stripe Connect payouts are disabled'
+    ) {
+      return false;
+    }
+
+    const grossAmount = Number(deposit.amount || 0);
+    const feePercent = env.STRIPE_TRANSFER_FEE_PERCENT;
+    const feeAmount = Math.round(grossAmount * (feePercent / 100) * 100) / 100;
+
+    booking.deposit = {
+      ...deposit,
+      payoutGrossAmount: grossAmount,
+      payoutStripeGrossAmount: normalizePayoutAmount(grossAmount, deposit.currency),
+      payoutStripeCurrency: env.STRIPE_PAYMENT_CURRENCY,
+      payoutFeePercent: feePercent,
+      payoutFeeAmount: feeAmount,
+      payoutNetAmount: Math.max(0, grossAmount - feeAmount),
+      payoutStatus: 'SKIPPED_NOT_ELIGIBLE',
+      payoutError: 'Stripe Connect payouts are disabled',
+      payoutAttemptedAt: new Date(),
+    };
+    await booking.save();
+    return true;
   }
 
   const eligible = await stripeConnectService.isUserEligibleForPayout(String(booking.providerId));

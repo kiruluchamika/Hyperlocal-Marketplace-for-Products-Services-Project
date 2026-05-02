@@ -27,8 +27,79 @@ export interface CreateNotificationPayload {
 
 export type NotificationView = "user" | "admin" | "all";
 
+const DUPLICATE_NOTIFICATION_WINDOW_MS = 2 * 60 * 1000;
+
 const normalizeRole = (role: string) =>
   role?.toLowerCase() === "admin" ? "admin" : "user";
+
+const normalizeEntityId = (value: unknown) => {
+  if (!value) return "";
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return value.toString();
+  }
+
+  return String(value);
+};
+
+const notificationFingerprint = (notification: {
+  recipientType: RecipientType;
+  recipientUserId?: unknown;
+  title: string;
+  message: string;
+  type: NotificationType;
+  entityType?: string;
+  entityId?: unknown;
+}) =>
+  [
+    notification.recipientType,
+    normalizeEntityId(notification.recipientUserId),
+    notification.title,
+    notification.message,
+    notification.type,
+    notification.entityType || "",
+    normalizeEntityId(notification.entityId)
+  ].join("|");
+
+const dedupeNotifications = <T extends {
+  recipientType: RecipientType;
+  recipientUserId?: unknown;
+  title: string;
+  message: string;
+  type: NotificationType;
+  entityType?: string;
+  entityId?: unknown;
+}>(notifications: T[]) => {
+  const seen = new Set<string>();
+  return notifications.filter((notification) => {
+    const key = notificationFingerprint(notification);
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const recentDuplicateQuery = (
+  payload: CreateNotificationPayload,
+  recipient: {
+    recipientType: RecipientType;
+    recipientUserId?: string | mongoose.Types.ObjectId;
+  }
+) => ({
+  recipientType: recipient.recipientType,
+  ...(recipient.recipientUserId
+    ? { recipientUserId: new mongoose.Types.ObjectId(recipient.recipientUserId.toString()) }
+    : {}),
+  title: payload.title,
+  message: payload.message,
+  type: payload.type,
+  entityType: payload.entityType,
+  entityId: payload.entityId,
+  createdAt: { $gte: new Date(Date.now() - DUPLICATE_NOTIFICATION_WINDOW_MS) }
+});
 
 const buildAccessQuery = (
   userId: string,
@@ -74,6 +145,17 @@ export const createUserNotification = async (
   userId: string | mongoose.Types.ObjectId,
   payload: CreateNotificationPayload
 ) => {
+  const recentDuplicate = await Notification.findOne(
+    recentDuplicateQuery(payload, {
+      recipientType: RecipientType.USER,
+      recipientUserId: userId
+    })
+  );
+
+  if (recentDuplicate) {
+    return recentDuplicate;
+  }
+
   const notification = await Notification.create({
     recipientType: RecipientType.USER,
     recipientUserId: new mongoose.Types.ObjectId(userId.toString()),
@@ -94,6 +176,16 @@ export const createUserNotification = async (
  * @param payload - Notification content
  */
 export const createAdminBroadcast = async (payload: CreateNotificationPayload) => {
+  const recentDuplicate = await Notification.findOne(
+    recentDuplicateQuery(payload, {
+      recipientType: RecipientType.ADMIN_BROADCAST
+    })
+  );
+
+  if (recentDuplicate) {
+    return recentDuplicate;
+  }
+
   const notification = await Notification.create({
     recipientType: RecipientType.ADMIN_BROADCAST,
     title: payload.title,
@@ -135,14 +227,12 @@ export const listNotificationsForUser = async (
     query.isRead = false;
   }
 
-  const [notifications, total] = await Promise.all([
-    Notification.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Notification.countDocuments(query)
-  ]);
+  const allNotifications = await Notification.find(query)
+    .sort({ createdAt: -1 })
+    .lean();
+  const dedupedNotifications = dedupeNotifications(allNotifications);
+  const notifications = dedupedNotifications.slice(skip, skip + limit);
+  const total = dedupedNotifications.length;
 
   return {
     notifications,
@@ -231,7 +321,8 @@ export const unreadCountForUser = async (
     ...buildAccessQuery(userId, role, view)
   };
 
-  const count = await Notification.countDocuments(query);
+  const notifications = await Notification.find(query).sort({ createdAt: -1 }).lean();
+  const count = dedupeNotifications(notifications).length;
 
   return count;
 };

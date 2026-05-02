@@ -63,6 +63,12 @@ const normalizePayoutAmount = (amount: number, sourceCurrency?: string) => {
   return amount;
 };
 
+const isStripeConnectDisabledError = (error: any) =>
+  String(error?.message || error?.raw?.message || "").includes("Stripe Connect payouts are disabled");
+
+const isSourceAlreadyTransferredError = (error: any) =>
+  String(error?.message || error?.raw?.message || "").includes("There is already a transfer using this source");
+
 export class PaymentService {
   getPublishableKey() {
     return env.STRIPE_PUBLISHABLE_KEY;
@@ -191,6 +197,7 @@ export class PaymentService {
       payment.metadata.stripeChargeId = latestCharge;
     }
 
+    payment.markModified("metadata");
     await payment.save();
 
     return payment;
@@ -417,6 +424,18 @@ export class PaymentService {
     payoutMetadata.payoutStripeCurrency = stripePaymentCurrency;
 
     if (!existingTransferId) {
+      if (!stripeConnectService.isEnabled()) {
+        payoutMetadata.payoutStatus = "SKIPPED_NOT_ELIGIBLE";
+        payoutMetadata.payoutError = "Stripe Connect payouts are disabled";
+        payment.metadata = payoutMetadata;
+        payment.markModified("metadata");
+        await payment.save();
+
+        console.log(`Payment ${payment._id} RELEASED without Stripe transfer because Connect payouts are disabled`);
+
+        return payment;
+      }
+
       const eligible = await stripeConnectService.isUserEligibleForPayout(payment.sellerId.toString());
       const sourceTransaction =
         typeof payoutMetadata.stripeChargeId === "string"
@@ -429,28 +448,64 @@ export class PaymentService {
 
       if (eligible && netAmount > 0) {
         const transferAmount = normalizePayoutAmount(netAmount, payment.currency);
-        try {
-          const transfer = await stripeConnectService.createTransferToUser({
-            userId: payment.sellerId.toString(),
-            amount: transferAmount,
-            currency: stripePaymentCurrency,
-            description: `Order ${orderId} payout`,
-            transferGroup: `ORDER_${orderId}`,
-            metadata: {
-              orderId,
-              paymentId: payment._id.toString(),
-              sellerId: payment.sellerId.toString(),
-            },
-            idempotencyKey: `order-release-${payment._id.toString()}-${stripePaymentCurrency}-${transferAmount.toFixed(2)}`,
-            sourceTransaction,
-          });
+        const transferGroup = `ORDER_${orderId}`;
+        const paymentId = payment._id.toString();
+        const existingTransfer = await stripeConnectService.findTransferToUser({
+          userId: payment.sellerId.toString(),
+          transferGroup,
+          sourceTransaction,
+          paymentId,
+        });
 
-          payoutMetadata.stripeTransferId = transfer.id;
+        if (existingTransfer) {
+          payoutMetadata.stripeTransferId = existingTransfer.id;
           payoutMetadata.payoutStatus = "TRANSFER_CREATED";
           payoutMetadata.payoutError = null;
-        } catch (error: any) {
-          payoutMetadata.payoutStatus = "TRANSFER_FAILED";
-          payoutMetadata.payoutError = error?.message || "Unknown transfer error";
+        } else {
+          try {
+            const transfer = await stripeConnectService.createTransferToUser({
+              userId: payment.sellerId.toString(),
+              amount: transferAmount,
+              currency: stripePaymentCurrency,
+              description: `Order ${orderId} payout`,
+              transferGroup,
+              metadata: {
+                orderId,
+                paymentId,
+                sellerId: payment.sellerId.toString(),
+              },
+              idempotencyKey: `order-release-${paymentId}-${stripePaymentCurrency}-${transferAmount.toFixed(2)}`,
+              sourceTransaction,
+            });
+
+            payoutMetadata.stripeTransferId = transfer.id;
+            payoutMetadata.payoutStatus = "TRANSFER_CREATED";
+            payoutMetadata.payoutError = null;
+          } catch (error: any) {
+            if (isStripeConnectDisabledError(error)) {
+              payoutMetadata.payoutStatus = "SKIPPED_NOT_ELIGIBLE";
+              payoutMetadata.payoutError = null;
+            } else if (isSourceAlreadyTransferredError(error)) {
+              const recoveredTransfer = await stripeConnectService.findTransferToUser({
+                userId: payment.sellerId.toString(),
+                transferGroup,
+                sourceTransaction,
+                paymentId,
+              });
+
+              if (recoveredTransfer) {
+                payoutMetadata.stripeTransferId = recoveredTransfer.id;
+                payoutMetadata.payoutStatus = "TRANSFER_CREATED";
+                payoutMetadata.payoutError = null;
+              } else {
+                payoutMetadata.payoutStatus = "TRANSFER_FAILED";
+                payoutMetadata.payoutError = error?.message || "Unknown transfer error";
+              }
+            } else {
+              payoutMetadata.payoutStatus = "TRANSFER_FAILED";
+              payoutMetadata.payoutError = error?.message || "Unknown transfer error";
+            }
+          }
         }
       } else {
         payoutMetadata.payoutStatus = "SKIPPED_NOT_ELIGIBLE";
@@ -458,6 +513,7 @@ export class PaymentService {
     }
 
     payment.metadata = payoutMetadata;
+    payment.markModified("metadata");
     await payment.save();
 
     console.log(`Payment ${payment._id} RELEASED to seller ${payment.sellerId}`);
@@ -499,23 +555,24 @@ export class PaymentService {
    * Get Payment by Order ID
    */
   async getPaymentByOrderId(orderId: string, userId: string, role: string) {
-    const payment = await Payment.findOne({ orderId })
-      .populate("orderId", "status titleSnapshot")
-      .populate("buyerId", "name email")
-      .populate("sellerId", "name email");
+    const payment = await Payment.findOne({ orderId });
 
     if (!payment) {
       throw new AppError("Payment not found", 404);
     }
 
     // Authorization: only buyer, seller, or admin
-    const isBuyer = payment.buyerId._id.toString() === userId;
-    const isSeller = payment.sellerId._id.toString() === userId;
+    const isBuyer = payment.buyerId.toString() === userId;
+    const isSeller = payment.sellerId.toString() === userId;
     const isAdmin = role === "admin";
 
     if (!isBuyer && !isSeller && !isAdmin) {
       throw new AppError("You are not authorized to view this payment", 403);
     }
+
+    await payment.populate("orderId", "status titleSnapshot");
+    await payment.populate("buyerId", "name email");
+    await payment.populate("sellerId", "name email");
 
     return payment;
   }
@@ -524,23 +581,24 @@ export class PaymentService {
    * Get Payment by Payment ID
    */
   async getPaymentById(paymentId: string, userId: string, role: string) {
-    const payment = await Payment.findById(paymentId)
-      .populate("orderId", "status titleSnapshot")
-      .populate("buyerId", "name email")
-      .populate("sellerId", "name email");
+    const payment = await Payment.findById(paymentId);
 
     if (!payment) {
       throw new AppError("Payment not found", 404);
     }
 
     // Authorization
-    const isBuyer = payment.buyerId._id.toString() === userId;
-    const isSeller = payment.sellerId._id.toString() === userId;
+    const isBuyer = payment.buyerId.toString() === userId;
+    const isSeller = payment.sellerId.toString() === userId;
     const isAdmin = role === "admin";
 
     if (!isBuyer && !isSeller && !isAdmin) {
       throw new AppError("You are not authorized to view this payment", 403);
     }
+
+    await payment.populate("orderId", "status titleSnapshot");
+    await payment.populate("buyerId", "name email");
+    await payment.populate("sellerId", "name email");
 
     return payment;
   }
