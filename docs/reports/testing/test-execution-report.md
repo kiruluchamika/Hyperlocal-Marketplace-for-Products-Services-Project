@@ -2,14 +2,14 @@
 
 ## Execution Summary
 
-The implemented automated tests are located under `tests/` and are executed primarily with Playwright. The project also includes one k6 performance test under `tests/performance/basic-load.js`.
+The implemented automated tests are located under `tests/` and `backend/tests/unit/`. The current repository evidence supports Playwright for API/UI checks, Vitest for backend unit testing, and k6 for performance scripts under `tests/performance/`.
 
 The latest available Playwright run metadata in `frontend/test-results/.last-run.json` shows:
 
 - Status: `passed`
 - Failed tests: `[]`
 
-This report records the current implemented Playwright test set as passing in the latest available run metadata. It does not claim that untested modules or unimplemented scenarios passed.
+This report records the current implemented Playwright test set as passing in the latest available run metadata. For backend unit testing and k6, this report includes only the execution evidence that is currently available in the repository and does not claim results beyond that evidence.
 
 ## Playwright Execution
 
@@ -91,28 +91,94 @@ Total implemented Playwright tests identified in the current test files: 26.
 
 ![Playwright HTML Report Details](./screenshots/playwright/playwright-report-2.PNG)
 
+## Backend Unit Test Execution
+
+Backend unit tests are implemented under `backend/tests/unit/` and use Vitest as configured in `backend/package.json`.
+
+Command available from the backend project:
+
+```bash
+cd backend
+npm run test:unit
+```
+
+Equivalent direct commands that match the current folder structure include:
+
+```bash
+cd backend
+npx vitest run tests/unit/categories tests/unit/product-listings tests/unit/product-orders tests/unit/service-listings
+```
+
+The current unit-test modules evidenced in the repository are:
+
+| Module | Implemented unit-test files |
+| --- | --- |
+| Categories | `backend/tests/unit/categories/categoryController.test.ts`, `backend/tests/unit/categories/categorySchemas.test.ts`, `backend/tests/unit/categories/categoryService.test.ts` |
+| Product listings | `backend/tests/unit/product-listings/listingController.test.ts`, `backend/tests/unit/product-listings/listingMiddleware.test.ts`, `backend/tests/unit/product-listings/listingSchemas.test.ts`, `backend/tests/unit/product-listings/listingService.test.ts` |
+| Product orders | `backend/tests/unit/product-orders/orderController.test.ts`, `backend/tests/unit/product-orders/orderSchemas.test.ts`, `backend/tests/unit/product-orders/orderService.test.ts` |
+| Service listings | `backend/tests/unit/service-listings/serviceSellingMiddleware.test.ts`, `backend/tests/unit/service-listings/serviceSellingSchemas.test.ts`, `backend/tests/unit/service-listings/serviceSellingService.test.ts` |
+
+Unit-test execution screenshots are available for the four backend modules listed above. The screenshots are included here as execution evidence; no additional pass/fail counts are transcribed in this report beyond what is visibly recorded in those images.
+
+### Unit Test Evidence
+
+![Categories Unit Test Result](./screenshots/unit/categories-unit-result.PNG)
+
+![Product Listings Unit Test Result](./screenshots/unit/product-listings-unit-result.PNG)
+
+![Product Orders Unit Test Result](./screenshots/unit/product-orders-unit-result.PNG)
+
+![Service Listings Unit Test Result](./screenshots/unit/service-listings-unit-result.PNG)
+
 ## k6 Performance Test Execution
 
-The performance test file is `tests/performance/basic-load.js`.
+The current performance test files are:
 
-Command:
+- `tests/performance/basic-load.js`
+- `tests/performance/categories-load.js`
+- `tests/performance/product-listings-load.js`
+- `tests/performance/service-listings-load.js`
+- `tests/performance/product-orders-load.js`
+
+Example commands:
 
 ```bash
 k6 run tests/performance/basic-load.js
 ```
 
-Performance test configuration:
+```bash
+k6 run tests/performance/categories-load.js
+```
 
-- Endpoint tested: `/api/categories`
-- Full URL in script: `http://localhost:5000/api/categories`
-- Virtual users: 10
-- Duration: 10 seconds
-- Check performed: response status is `200`
+```bash
+k6 run tests/performance/product-listings-load.js
+```
 
-Recorded k6 run summary:
+```bash
+k6 run tests/performance/service-listings-load.js
+```
+
+```bash
+k6 run tests/performance/product-orders-load.js
+```
+
+### Current k6 Script Scope
+
+| Script | Current scope from file |
+| --- | --- |
+| `tests/performance/basic-load.js` | Basic categories endpoint load check against `/api/categories`. |
+| `tests/performance/categories-load.js` | Category listing load check against `/api/categories?isActive=true&page=1&limit=5`. |
+| `tests/performance/product-listings-load.js` | Product listing feed load check against `/api/listings?page=1&limit=5`. |
+| `tests/performance/service-listings-load.js` | Service listing feed load check against `/api/serviceselling?page=1&limit=5`. |
+| `tests/performance/product-orders-load.js` | Product order workflow script that creates test users, creates a `BUY_NOW` listing, creates an order, reads the order during the run, and performs cleanup in teardown. |
+
+### Recorded k6 Result Already Documented in Repository
+
+The repository already documents one k6 run result for `tests/performance/basic-load.js`.
 
 | Metric | Result |
 | --- | --- |
+| Script | `tests/performance/basic-load.js` |
 | Endpoint tested | `/api/categories` |
 | Virtual users | 10 |
 | Duration | 10s |
@@ -126,6 +192,23 @@ This is a basic endpoint load check only. It should not be interpreted as a comp
 
 ![k6 Load Test Result](./screenshots/k6/k6-result.PNG)
 
+### Additional k6 Screenshot Evidence
+
+The following module-level k6 scripts are present in the repository, and screenshot evidence is now available for them. Numeric summaries are not transcribed here unless already documented in the repository text:
+
+- `tests/performance/categories-load.js`
+- `tests/performance/product-listings-load.js`
+- `tests/performance/service-listings-load.js`
+- `tests/performance/product-orders-load.js`
+
+![Categories k6 Result](./screenshots/k6/categories-k6-result.PNG)
+
+![Product Listings k6 Result](./screenshots/k6/product-listings-k6-resultPNG.PNG)
+
+![Service Listings k6 Result](./screenshots/k6/service-listings-k6-result.png.PNG)
+
+![Product Orders k6 Result](./screenshots/k6/product-orders-k6-result.PNG)
+
 ## Swagger/API Documentation Support
 
 Swagger/OpenAPI is present in the backend and can be used for manual inspection and verification of API contracts. It is configured in `backend/src/config/swagger.ts` and mounted in `backend/src/app.ts` at:
@@ -135,8 +218,8 @@ Swagger/OpenAPI is present in the backend and can be used for manual inspection 
 - `/docs`
 - `/swagger.json`
 
-Swagger was treated as API documentation/manual verification support, not as an automated testing tool in the current implemented test set.
+Swagger was treated as API documentation and manual verification support, not as an automated testing tool in the current implemented test set.
 
 ## Evidence Notes
 
-The report already references available screenshots for the backend running state, the Playwright result, the Playwright HTML report, and the k6 result. Before final submission, confirm that these screenshots match the final local run you want to submit.
+The report now references available screenshots for the backend running state, Playwright execution, backend unit-test execution, the basic categories k6 result, and the module-level k6 screenshots currently stored in the repository. Before final submission, confirm that these images match the final local runs you want to submit and replace any older screenshots if newer verified runs are preferred.

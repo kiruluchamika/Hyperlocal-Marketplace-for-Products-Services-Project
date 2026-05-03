@@ -10,6 +10,8 @@ import type { ManagedOrder, ManagedPayment } from './orders/orderManagementTypes
 type PaymentTab = 'PAID' | 'EARNINGS';
 type SourceFilter = 'ALL' | 'PRODUCT' | 'SERVICE';
 
+const usdToLkrRate = Number(import.meta.env.VITE_USD_TO_LKR_RATE || 300);
+
 type UnifiedRecord = {
   id: string;
   source: 'PRODUCT' | 'SERVICE';
@@ -67,7 +69,7 @@ const payoutStatusFromPayment = (payment: ManagedPayment): UnifiedRecord['payout
 
   if (payment.status === 'FAILED') return 'FAILED';
   if (payment.status === 'REFUNDED') return 'REVERSED';
-  if (payment.status === 'RELEASED') return 'PAID_OUT';
+  if (payment.status === 'RELEASED') return 'PENDING';
   if (payment.status === 'HELD' || payment.status === 'INITIATED') return 'PENDING';
   return 'NOT_APPLICABLE';
 };
@@ -82,6 +84,14 @@ const payoutStatusFromBooking = (booking: IServiceBooking): UnifiedRecord['payou
   if (booking.status === 'PROVIDER_ACCEPTED') return 'AVAILABLE';
   if (booking.status === 'PENDING') return 'PENDING';
   return 'NOT_APPLICABLE';
+};
+
+const toDisplayLkrAmount = (amount: number, currency = 'LKR') => {
+  if (String(currency || 'LKR').toUpperCase() === 'USD') {
+    return amount * usdToLkrRate;
+  }
+
+  return amount;
 };
 
 const MyPaymentsPage: React.FC = () => {
@@ -286,19 +296,20 @@ const MyPaymentsPage: React.FC = () => {
     const payoutAmount = (record: UnifiedRecord) =>
       typeof record.payoutNetAmount === 'number' ? record.payoutNetAmount : record.amount;
 
-    const totalPaid = paid.reduce((sum, record) => sum + record.amount, 0);
-    const totalEarnings = earnings.reduce((sum, record) => sum + record.amount, 0);
-    const pendingPayout = earnings
-      .filter((record) => record.payoutStatus === 'PENDING')
-      .reduce((sum, record) => sum + payoutAmount(record), 0);
+    const totalPaid = paid.reduce((sum, record) => sum + toDisplayLkrAmount(record.amount, record.currency), 0);
+    const totalEarnings = earnings.reduce(
+      (sum, record) => sum + toDisplayLkrAmount(record.amount, record.currency),
+      0
+    );
+    const pendingPayoutCount = earnings.filter((record) => record.payoutStatus === 'PENDING').length;
     const availablePayout = earnings
       .filter((record) => record.payoutStatus === 'AVAILABLE' || record.payoutStatus === 'PAID_OUT')
-      .reduce((sum, record) => sum + payoutAmount(record), 0);
+      .reduce((sum, record) => sum + toDisplayLkrAmount(payoutAmount(record), record.currency), 0);
 
     return {
       totalPaid,
       totalEarnings,
-      pendingPayout,
+      pendingPayoutCount,
       availablePayout,
       totalRecords: unifiedRecords.length,
     };
@@ -324,7 +335,7 @@ const MyPaymentsPage: React.FC = () => {
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-xs uppercase tracking-wide text-amber-700">Payout Pending</p>
-          <p className="mt-1 text-lg font-semibold text-amber-900">{formatCurrency(summary.pendingPayout)}</p>
+          <p className="mt-1 text-lg font-semibold text-amber-900">{summary.pendingPayoutCount}</p>
         </div>
         <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
           <p className="text-xs uppercase tracking-wide text-cyan-700">Payout Available</p>
@@ -422,7 +433,7 @@ const MyPaymentsPage: React.FC = () => {
                         Transfer: {record.payoutTransferId}
                       </p>
                     )}
-                    {record.side === 'EARNINGS' && record.payoutError && (
+                    {record.side === 'EARNINGS' && record.payoutStatus === 'FAILED' && record.payoutError && (
                       <p className="mt-1 text-xs text-rose-600">Payout error: {record.payoutError}</p>
                     )}
                     {record.side === 'EARNINGS' && record.payoutAttemptedAt && (
